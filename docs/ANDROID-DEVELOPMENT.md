@@ -50,8 +50,18 @@ corepack yarn verify:backend
 
 The output is `android/app/build/outputs/apk/debug/app-debug.apk`. It is an unsigned-development artifact for local testing only.
 
-On Windows, keep the checkout path short. React Native new-architecture CMake object names can exceed the legacy 260-character boundary from a deeply nested checkout; Ninja then fails at `buildCMakeDebug` even though Java compilation and dependency resolution have succeeded. Use a short checkout such as `C:\src\an-native`, map the existing repository to a short drive path for the build, or enable Windows long-path support under the machine's normal administration policy. This is a workspace/tooling constraint, not a reason to disable the production architecture setting.
+On Windows, keep the checkout path short. React Native new-architecture CMake object names can exceed the legacy 260-character boundary from a deeply nested checkout; Ninja then fails at `buildCMakeDebug` even though Java compilation and dependency resolution have succeeded. The verified non-destructive remedy is a temporary drive mapping:
+
+```powershell
+subst N: 'C:\path\to\adjuster-network-native'
+& N:\android\gradlew.bat -p N:\android assembleDebug --no-daemon
+subst N: /d
+```
+
+Gradle must run through the short path, while Yarn and Metro must run from the canonical checkout because Yarn verifies its real project root. A separate short checkout is also valid. Global Windows long-path mutation and disabling React Native's new architecture are unnecessary.
 
 ## Emulator or device
 
 An emulator additionally requires the SDK emulator package, a Platform 35 system image, hardware virtualization, and an AVD. A physical Android 8+ device may instead use USB debugging through ADB. Emulator/device launch is not a compile gate, and production signing, Firebase/push credentials, owned application IDs, store upload, or publication remain separate owner-authorized release work.
+
+The Windows certification AVD used the independently removable packages `emulator` and `system-images;android-35;google_apis;x86_64`, with a Pixel 6 profile named `AdjusterNetwork_API35`. Metro ran from the canonical checkout and `adb reverse tcp:8081 tcp:8081` connected the debug app. Screenshots and UI hierarchy dumps belong outside the repository.
