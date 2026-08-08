@@ -38,6 +38,7 @@ import * as RNLocalize from 'react-native-localize';
 import { addShortcutListener } from 'react-native-siri-shortcut';
 import { enableScreens } from 'react-native-screens';
 import FontAwesome5 from '@react-native-vector-icons/fontawesome5';
+import { adjusterNetwork } from './adjusterNetworkConfig';
 import { BlurView } from '@react-native-community/blur';
 
 import BackgroundFetch from './platforms/background-fetch';
@@ -547,7 +548,7 @@ class Discourse extends React.Component {
                   <Tab.Screen
                     name="Home"
                     options={{
-                      title: i18n.t('home'),
+                      title: adjusterNetwork.navigation.floor.label,
                       tabBarIcon: ({ color }) => (
                         <FontAwesome5
                           name={'home'}
@@ -589,7 +590,7 @@ class Discourse extends React.Component {
                   <Tab.Screen
                     name={'Notifications'}
                     options={{
-                      title: i18n.t('notifications'),
+                      title: adjusterNetwork.navigation.activity.label,
                       tabBarIcon: ({ color }) => (
                         <FontAwesome5
                           name={'bell'}
