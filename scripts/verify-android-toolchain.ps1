@@ -36,4 +36,3 @@ foreach ($package in $requiredPackages) {
 }
 
 Write-Output 'PASS: JDK and pinned Android SDK packages are available.'
-

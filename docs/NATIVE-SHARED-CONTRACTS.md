@@ -25,4 +25,3 @@ Light and dark follow the operating system through the existing theme boundary. 
 Closed registration, upload/image restrictions, member-message restrictions, staff access, export authorization, and departure closure are server decisions. A client must fail closed and never turn missing capability data into permission.
 
 Onboarding and Request to Join intentionally have no native routes. Their future contract entries remain `counsel_gated`; this sprint does not implement or imply final pre-account acknowledgement semantics.
-
