@@ -115,14 +115,12 @@ const TopicList = props => {
               );
             }
           })
-          .catch(e => {
+          .catch(() => {
             setLoadCompleted(true);
-            console.log('Error fetching listQuery:', e);
           });
       })
-      .catch(e => {
+      .catch(() => {
         setLoadCompleted(true);
-        console.log('Error fetching siteQuery:', e);
       });
   }
 

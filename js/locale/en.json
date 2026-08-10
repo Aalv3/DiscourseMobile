@@ -22,7 +22,7 @@
   },
   "generic_notification_body": "See what's new on %{url}",
   "incorrect_url": "Sorry, %{term} is not a correct URL to a Discourse forum or does not support mobile APIs, have owner upgrade Discourse to latest!",
-  "cannot_load_url": "That URL could not be added to DiscourseHub.",
+  "cannot_load_url": "That link is not supported by Adjuster Network.",
   "last_updated": "Last Updated:",
   "liked": "liked %{count} of your posts",
   "liked_two_users": "%{user1} and %{user2}",

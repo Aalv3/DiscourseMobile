@@ -16,7 +16,7 @@ Today’s Brief and Homepage Intelligence use authenticated `GET /renaissance/in
 
 ## Authentication, links, and appearance
 
-Authentication remains Discourse User API Key v2 in the system browser with encrypted callback data and token persistence in AsyncStorage. The server is authoritative for revocation and authorization. The upstream `discourse://auth_redirect` and `discourse://open` schemes remain development compatibility paths; an owner-controlled scheme plus HTTPS App/Universal Links is a release gate.
+Authentication remains Discourse User API Key v2 in the system browser with encrypted callback data. Tokens and RSA material persist in device-only platform credential storage; AsyncStorage contains non-secret site metadata only. The server is authoritative for revocation and authorization. The upstream `discourse://auth_redirect` and `discourse://open` schemes remain development compatibility paths; an owner-controlled scheme plus HTTPS App/Universal Links is a release gate.
 
 Light and dark follow the operating system through the existing theme boundary. Both remain release screenshot/accessibility gates.
 

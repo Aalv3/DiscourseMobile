@@ -265,7 +265,6 @@ class NotificationRow extends React.Component {
         break;
 
       default:
-        console.log('Couldn’t generate text for notification', notification);
         innerText = (
           <Text style={textStyle}>
             Unmapped type: {notification.notification_type}

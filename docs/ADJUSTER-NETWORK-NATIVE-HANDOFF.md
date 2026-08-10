@@ -23,7 +23,7 @@ Android compilation additionally requires a supported JDK/Android SDK. iOS compi
 
 The provider-independent harness checks the production-safe anonymous contract only. It requires `/user-api-key/new` to advertise mobile API v2 or newer, `/site/basic-info.json` to report a closed site, anonymous `/site.json` to remain forbidden, and the web manifest to remain available. It never creates an account or invitation and carries no credentials.
 
-Authentication remains upstream Discourse User API Key authorization: system browser, RSA challenge, `discourse://auth_redirect`, then encrypted token persistence in AsyncStorage. A release build must replace the shared upstream URL scheme with a separately registered application scheme and test approval, cancellation, replay/state mismatch, revocation, logout, and reinstall.
+Authentication remains upstream Discourse User API Key authorization: system browser, RSA challenge, `discourse://auth_redirect`, then device-only Android Keystore/iOS Keychain persistence. Legacy AsyncStorage credentials migrate once and are removed after secure storage succeeds. A release build must replace the shared upstream URL scheme with a separately registered application scheme and test approval, cancellation, replay/state mismatch, revocation, logout, and reinstall.
 
 Deep links currently support upstream `discourse://open` notification/site routing. Universal/App Links for `adjusternetwork.org`, association files, and cold/warm-start tests are release gates, not assumed complete.
 
@@ -31,7 +31,7 @@ Light/dark mode follows the OS through `ThemeContext`; legacy Android has a stor
 
 ## Reversible branding/navigation slice
 
-`js/adjusterNetworkConfig.js` is the single product boundary. The app display name is Adjuster Network and existing proven tabs are relabeled `Floor` and `Activity`. The intended `Ask`, `CAT`, and `You` destinations are explicitly unavailable: no placeholder screen or fabricated backend capability is exposed. Native bundle IDs, app target names, icons, signing, push, and upstream multi-site mechanics are deliberately unchanged.
+`js/adjusterNetworkConfig.js` is the single product boundary. The app display name is Adjuster Network and only the proven `Floor` and `Activity` tabs are exposed. The intended `Ask`, `CAT`, and `You` destinations are explicitly unavailable: no placeholder screen or fabricated backend capability is exposed. The app is constrained to the canonical Adjuster Network origin; external HTTPS links use the system browser. Native bundle IDs, target names, signing, and owner-controlled link identities remain release gates. Push is explicitly disabled.
 
 The current mappings are:
 

@@ -4,6 +4,8 @@
 import { Platform } from 'react-native';
 import _ from 'lodash';
 import fetch from './../lib/fetch';
+import { isCanonicalUrl } from './adjusterNetworkSecurity';
+import { credentialStore } from './secureCredentialStore';
 
 class Site {
   static discoverUrl() {
@@ -43,13 +45,13 @@ class Site {
       term = term.slice(0, term.length - 1);
     }
 
-    if (!term.match(/^https?:\/\//)) {
+    if (!term.match(/^https:\/\//)) {
       url = `https://${term}`;
     } else {
       url = term;
     }
 
-    return Site.fromURL(url);
+    return isCanonicalUrl(url) ? Site.fromURL(url) : Promise.resolve(false);
   }
 
   static fromURL(url) {
@@ -84,6 +86,10 @@ class Site {
           .replace(/\/+$/, '')
           .replace(/:\d+/, '');
 
+        if (!isCanonicalUrl(url)) {
+          throw 'redirect_not_allowed';
+        }
+
         return fetch(`${url}/site/basic-info.json`).then(basicInfoResponse =>
           basicInfoResponse.json(),
         );
@@ -104,8 +110,7 @@ class Site {
 
         return new Site(siteInfo);
       })
-      .catch(e => {
-        console.log('error in fromURL', e);
+      .catch(() => {
         return false;
       });
   }
@@ -131,8 +136,6 @@ class Site {
   }
 
   jsonApi(path, method, data) {
-    console.log(`calling: ${this.url}${path}`);
-
     method = method || 'GET';
     let headers = {
       'User-Api-Key': this.authToken,
@@ -157,6 +160,10 @@ class Site {
         .then(r1 => {
           if (r1.status === 200) {
             return r1.json();
+          } else if (r1.status === 401 || r1.status === 403) {
+            this.logoff();
+            credentialStore.removeSiteToken(this.url).catch(() => {});
+            throw 'auth_revoked';
           } else {
             // if (r1.status === 403) {
             //   this.logoff();
@@ -198,11 +205,9 @@ class Site {
       ) {
         Site.fromURL(this.url)
           .then(site => {
-            console.log('fromUrl request for', this.url);
             resolve(site);
           })
-          .catch(e => {
-            console.log(e);
+          .catch(() => {
             reject('failure');
           });
       } else {
@@ -291,11 +296,8 @@ class Site {
           url: this.url,
         };
       }
-    } catch (e) {
-      console.log(e);
-      console.log(
-        `${this.url}/notifications/totals.json endpoint not available, exiting.`,
-      );
+    } catch {
+      // Preserve last-known counters without logging private response data.
     }
   }
 
@@ -394,8 +396,7 @@ class Site {
             n => resolve(n),
           );
         })
-        .catch(e => {
-          console.log('failed to fetch notifications ' + e);
+        .catch(() => {
           resolve([]);
         })
         .finally(() => {
@@ -406,7 +407,7 @@ class Site {
 
   toJSON() {
     let obj = {};
-    Site.FIELDS.forEach(prop => {
+    Site.FIELDS.filter(prop => prop !== 'authToken').forEach(prop => {
       obj[prop] = this[prop];
     });
     return obj;

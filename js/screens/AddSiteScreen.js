@@ -61,8 +61,7 @@ class AddSiteScreen extends React.Component {
           });
         }
       }
-    } catch (e) {
-      console.log(e);
+    } catch {
       this.setState({ loading: false });
     }
   }
@@ -87,8 +86,6 @@ class AddSiteScreen extends React.Component {
           resolve(site);
         })
         .catch(e => {
-          console.log(e);
-
           if (e === 'dupe site') {
             Alert.alert(i18n.t('term_exists', { term }));
           } else if (e === 'bad api') {
@@ -118,9 +115,7 @@ class AddSiteScreen extends React.Component {
           });
         }
       })
-      .catch(e => {
-        console.log(e);
-      })
+      .catch(() => {})
       .finally(() => {
         this.setState({ loading: false });
       });

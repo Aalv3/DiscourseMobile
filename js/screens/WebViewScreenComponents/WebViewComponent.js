@@ -24,6 +24,7 @@ import Site from '../../site';
 import { ThemeContext } from '../../ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from '@react-native-community/blur';
+import { classifyNavigation } from '../../adjusterNetworkSecurity';
 
 export const withInsets = Component => {
   return props => {
@@ -73,7 +74,7 @@ class WebViewComponent extends React.Component {
       barStyle: 'dark-content', // default
       nudgeColor: 'black', // default
       errorData: null,
-      userAgentSuffix: 'DiscourseHub',
+      userAgentSuffix: 'AdjusterNetwork',
       layoutCalculated: false,
       isLandscape: false,
       webviewUrl: this.props.url,
@@ -121,8 +122,8 @@ class WebViewComponent extends React.Component {
     this.setState({
       userAgentSuffix:
         width > 767
-          ? `DiscourseHub ${this.props.screenProps.deviceId}`
-          : 'DiscourseHub',
+          ? `AdjusterNetwork ${this.props.screenProps.deviceId}`
+          : 'AdjusterNetwork',
       layoutCalculated: true,
       isLandscape: width > height,
     });
@@ -184,7 +185,7 @@ class WebViewComponent extends React.Component {
         )}
         {this.state.layoutCalculated && (
           <WebView
-            originWhitelist={['http://*', 'https://*', 'about:srcdoc']}
+            originWhitelist={['https://*', 'about:blank']}
             style={{
               marginTop: -1, // hacky fix to a 1px overflow just above header
               backgroundColor: this.state.headerBg,
@@ -197,7 +198,8 @@ class WebViewComponent extends React.Component {
             allowsFullscreenVideo={true}
             allowsLinkPreview={true}
             hideKeyboardAccessoryView={!Platform.isPad}
-            webviewDebuggingEnabled={true}
+            // eslint-disable-next-line no-undef
+            webviewDebuggingEnabled={__DEV__}
             onLoadEnd={() => {
               this.webview.requestFocus();
             }}
@@ -270,17 +272,14 @@ class WebViewComponent extends React.Component {
                 return false;
               }
 
-              if (request.url.startsWith(this.props.url)) {
+              if (classifyNavigation(request.url) === 'internal') {
                 return true;
               }
 
-              if (
-                request.url.startsWith('discourse://') ||
-                request.url === 'about:blank'
-              ) {
+              if (classifyNavigation(request.url) === 'callback') {
                 return false;
               }
-              if (!this.siteManager.urlInSites(request.url)) {
+              if (classifyNavigation(request.url) === 'external') {
                 // launch externally and stop loading request if external link
                 // ensure URL can be opened, before opening an external URL
                 Linking.canOpenURL(request.url)
@@ -294,12 +293,10 @@ class WebViewComponent extends React.Component {
                       Linking.openURL(request.url);
                     }
                   })
-                  .catch(e => {
-                    console.log('Linking.canOpenURL failed with ' + e);
-                  });
+                  .catch(() => {});
                 return false;
               }
-              return true;
+              return false;
             }}
             onNavigationStateChange={navState => {
               this._storeLastPath(navState);
@@ -313,7 +310,6 @@ class WebViewComponent extends React.Component {
             }}
             onMessage={event => this._onMessage(event)}
             onContentProcessDidTerminate={event => {
-              console.log('onContentProcessDidTerminate', event.nativeEvent);
               // reload the last URL when there is a crash
               // respect the MAX_RELOAD_ATTEMPTS limit
               // otherwise, we could end up in a blank screen
@@ -416,9 +412,8 @@ class WebViewComponent extends React.Component {
         await this.siteManager.setActiveSite(newSite);
         this.requestAuth();
       }
-    } catch (error) {
+    } catch {
       // Not sure we need to surface anything to the user here
-      console.error(error);
     }
   }
 
@@ -452,7 +447,12 @@ class WebViewComponent extends React.Component {
   }
 
   _onMessage(event) {
-    let data = JSON.parse(event.nativeEvent.data);
+    let data;
+    try {
+      data = JSON.parse(event.nativeEvent.data);
+    } catch {
+      return;
+    }
 
     let { headerBg, shareUrl, dismiss, markRead, showLogin } = data;
 
@@ -468,7 +468,10 @@ class WebViewComponent extends React.Component {
       });
     }
 
-    if (shareUrl) {
+    if (
+      shareUrl &&
+      ['internal', 'external'].includes(classifyNavigation(shareUrl))
+    ) {
       Share.share({
         url: shareUrl,
       });

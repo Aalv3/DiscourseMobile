@@ -12,6 +12,10 @@ import DeviceInfo from 'react-native-device-info';
 import JSEncrypt from './../lib/jsencrypt';
 import randomBytes from './../lib/random-bytes';
 import i18n from 'i18n-js';
+import { credentialStore } from './secureCredentialStore';
+import { isCanonicalUrl, isSafeAuthCallback } from './adjusterNetworkSecurity';
+import { adjusterNetwork } from './adjusterNetworkConfig';
+import CookieManager from '@react-native-cookies/cookies';
 
 const { DiscourseKeyboardShortcuts } = NativeModules;
 const REFRESH_THROTTLE_MS = 5000;
@@ -23,7 +27,7 @@ class SiteManager {
   activeSite = null;
   customScheme = 'discourse';
   urlScheme = 'discourse://auth_redirect';
-  deviceName = 'Discourse - Unknown Mobile Device';
+  deviceName = 'Adjuster Network - Unknown Mobile Device';
   hotTopicsHidden = false;
   siteURLsHidden = false;
 
@@ -37,7 +41,7 @@ class SiteManager {
     });
 
     DeviceInfo.getDeviceName().then(name => {
-      this.deviceName = `Discourse - ${name}`;
+      this.deviceName = `Adjuster Network - ${name}`;
     });
   }
 
@@ -46,8 +50,10 @@ class SiteManager {
   }
 
   add(site) {
+    if (!isCanonicalUrl(site.url)) {
+      return false;
+    }
     if (this.exists(site)) {
-      console.log(`Site ${site.url} already exists.`);
       return;
     }
 
@@ -56,22 +62,24 @@ class SiteManager {
     this.save();
     this._onChange();
     this.updateNativeMenu();
+    return true;
   }
 
   getSiteByIndex(index) {
     return this.sites[index];
   }
 
-  remove(site) {
+  async remove(site) {
     let index = this.sites.indexOf(site);
     if (index >= 0) {
       let removableSite = this.sites.splice(index, 1)[0];
 
       if (removableSite.authToken) {
-        removableSite.revokeApiKey().catch(e => {
-          console.log(`Failed to revoke API Key ${e}`);
-        });
+        await removableSite.revokeApiKey().catch(() => {});
       }
+      await credentialStore.removeSiteToken(removableSite.url).catch(() => {});
+      await CookieManager.clearAll(true).catch(() => {});
+      removableSite.logoff();
       this.save();
       this._onChange();
     }
@@ -81,20 +89,16 @@ class SiteManager {
   setActiveSite(site) {
     return new Promise(resolve => {
       if (typeof site === 'string' || site instanceof String) {
-        let url = site;
-        AsyncStorage.getItem('@Discourse.sites').then(json => {
-          let activeSite = null;
-          if (json) {
-            let tSites = JSON.parse(json).map(obj => {
-              return new Site(obj);
-            });
-
-            activeSite = tSites.find(s => url.startsWith(s.url) === true);
-            this.activeSite = activeSite;
+        const url = site;
+        const activeSite = this.sites.find(s => {
+          try {
+            return new URL(url).origin === new URL(s.url).origin;
+          } catch {
+            return false;
           }
-
-          resolve({ activeSite: activeSite });
         });
+        this.activeSite = activeSite || null;
+        resolve({ activeSite: activeSite });
       } else {
         this.activeSite = site;
         resolve({ activeSite: site });
@@ -145,27 +149,34 @@ class SiteManager {
     AsyncStorage.setItem('@Discourse.sites', JSON.stringify(this.sites));
   }
 
-  ensureRSAKeys() {
+  async ensureRSAKeys() {
     return new Promise(resolve => {
       if (this.rsaKeys) {
         resolve();
         return;
       }
 
-      AsyncStorage.getItem('@Discourse.rsaKeys').then(json => {
-        if (json) {
-          this.rsaKeys = JSON.parse(json);
+      credentialStore.readRSAKeys().then(keys => {
+        if (keys) {
+          this.rsaKeys = keys;
           resolve();
-        } else {
-          RNKeyPair.generate(pair => {
-            this.rsaKeys = pair;
-            AsyncStorage.setItem(
-              '@Discourse.rsaKeys',
-              JSON.stringify(this.rsaKeys),
-            );
-            resolve();
-          });
+          return;
         }
+        AsyncStorage.getItem('@Discourse.rsaKeys').then(json => {
+          if (json) {
+            this.rsaKeys = JSON.parse(json);
+            credentialStore
+              .storeRSAKeys(this.rsaKeys)
+              .then(() =>
+                AsyncStorage.removeItem('@Discourse.rsaKeys').then(resolve),
+              );
+          } else {
+            RNKeyPair.generate(pair => {
+              this.rsaKeys = pair;
+              credentialStore.storeRSAKeys(this.rsaKeys).then(resolve);
+            });
+          }
+        });
       });
     });
   }
@@ -180,11 +191,24 @@ class SiteManager {
     this.ensureRSAKeys();
 
     AsyncStorage.getItem('@Discourse.sites')
-      .then(json => {
+      .then(async json => {
         if (json) {
-          this.sites = JSON.parse(json).map(obj => {
-            return new Site(obj);
-          });
+          const records = JSON.parse(json).filter(record =>
+            isCanonicalUrl(record.url),
+          );
+          this.sites = await Promise.all(
+            records.map(async obj => {
+              const site = new Site(obj);
+              if (obj.authToken) {
+                await credentialStore.storeSiteToken(site.url, obj.authToken);
+              }
+              site.authToken = await credentialStore.readSiteToken(site.url);
+              return site;
+            }),
+          );
+          if (records.some(record => record.authToken)) {
+            this.save();
+          }
 
           let promises = [];
 
@@ -209,9 +233,7 @@ class SiteManager {
               .then(() => {
                 this.refreshSites();
               })
-              .catch(e => {
-                console.log(e);
-              });
+              .catch(() => {});
           }
         }
       })
@@ -354,8 +376,6 @@ class SiteManager {
   }
 
   registerClientId(id) {
-    console.log('REGISTER CLIENT ID ' + id);
-
     this.getClientId().then(existing => {
       this.sites.forEach(site => {
         site.clientId = id;
@@ -402,17 +422,33 @@ class SiteManager {
     return crypt.decrypt(payload);
   }
 
-  handleAuthPayload(payload) {
-    let decrypted = JSON.parse(this.decryptHelper(payload));
+  async handleAuthPayload(payload) {
+    let decrypted;
+    try {
+      decrypted = JSON.parse(this.decryptHelper(payload));
+    } catch {
+      return false;
+    }
 
-    if (decrypted.nonce !== this._nonce) {
+    if (
+      !this._nonceSite ||
+      decrypted.nonce !== this._nonce ||
+      typeof decrypted.key !== 'string' ||
+      decrypted.key.length < 1 ||
+      decrypted.key.length > 4096
+    ) {
       Alert.alert('We were not expecting this reply, please try again!');
-      return;
+      return false;
     }
 
     this._nonceSite.authToken = decrypted.key;
     this._nonceSite.hasPush = decrypted.push;
     this._nonceSite.apiVersion = decrypted.api;
+    await credentialStore.storeSiteToken(
+      this._nonceSite.url,
+      this._nonceSite.authToken,
+    );
+    this.save();
 
     // cause we want to stop rendering connect
     this._onChange();
@@ -422,12 +458,16 @@ class SiteManager {
       .then(() => {
         this._onChange();
       })
-      .catch(e => {
-        console.log('Failed to refresh ' + this._nonceSite.url + ' ' + e);
+      .catch(() => {
+        return false;
       });
+    return true;
   }
 
   generateAuthURL(site) {
+    if (!site || !isCanonicalUrl(site.url)) {
+      return Promise.reject(new Error('auth_origin_not_allowed'));
+    }
     let clientId;
 
     return this.ensureRSAKeys().then(() =>
@@ -437,21 +477,21 @@ class SiteManager {
           return this.generateNonce(site);
         })
         .then(nonce => {
-          let basePushUrl = 'https://api.discourse.org';
-          //let basePushUrl = "http://l.discourse:3000"
-
           let scopes = 'notifications,session_info,one_time_password';
 
           let params = {
             scopes: scopes,
             client_id: clientId,
             nonce: nonce,
-            push_url: basePushUrl + '/api/publish_' + Platform.OS,
             auth_redirect: this.urlScheme,
             application_name: this.deviceName,
             public_key: this.rsaKeys.public,
             discourse_app: 1,
           };
+
+          if (adjusterNetwork.features.push) {
+            params.push_url = `https://api.discourse.org/api/publish_${Platform.OS}`;
+          }
 
           return `${site.url}/user-api-key/new?${this.serializeParams(params)}`;
         }),
@@ -487,11 +527,11 @@ class SiteManager {
         // when true, it skips iOS dialog prompt but uses incognito mode (i.e. user always has to log in)
       );
 
-      if (authRequest) {
+      if (authRequest && isSafeAuthCallback(authRequest)) {
         const urlParams = this.parseURLparameters(authRequest);
 
         if (urlParams.payload) {
-          this.handleAuthPayload(urlParams.payload);
+          await this.handleAuthPayload(urlParams.payload);
         }
 
         if (urlParams.oneTimePassword) {
@@ -501,13 +541,15 @@ class SiteManager {
           return this.activeSite.url;
         }
       }
-    } catch (e) {
-      console.log('auth process cancelled: ', e);
+    } catch {
       return;
     }
   }
 
   parseURLparameters(string) {
+    if (!isSafeAuthCallback(string)) {
+      return {};
+    }
     let parsed = {};
     (string.split('?')[1] || string)
       .split('&')
@@ -631,12 +673,15 @@ class SiteManager {
   }
 
   urlInSites(url) {
-    const forcedHttpsUrl = url.replace('http://', 'https://');
-
-    let siteUrls = this.sites.map(s => s.url);
-
-    return siteUrls.find(siteUrl => {
-      return url.startsWith(siteUrl) || forcedHttpsUrl.startsWith(siteUrl);
+    if (!isCanonicalUrl(url)) {
+      return false;
+    }
+    return this.sites.some(site => {
+      try {
+        return new URL(url).origin === new URL(site.url).origin;
+      } catch {
+        return false;
+      }
     });
   }
 }

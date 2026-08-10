@@ -69,10 +69,6 @@ class DiscourseUtils {
         endpoint = `/u/${data.display_username}`;
         break;
       default:
-        console.log(
-          'Couldn’t generate an endpoint for notification',
-          notification,
-        );
         endpoint = '';
     }
 
@@ -149,10 +145,6 @@ class DiscourseUtils {
         return 'gift';
 
       default:
-        console.log(
-          'Couldn’t generate an icon name for notification',
-          notification,
-        );
         return 'exclamation-circle';
     }
   }

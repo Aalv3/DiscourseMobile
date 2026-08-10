@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Discourse</string>
+	<string>Adjuster Network</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -38,26 +38,6 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>700</string>
-	<key>Fabric</key>
-	<dict>
-		<key>APIKey</key>
-		<string>f1fad9d488bbe6a5a5434d2511423aae3aa653d2</string>
-		<key>Kits</key>
-		<array>
-			<dict>
-				<key>KitInfo</key>
-				<dict/>
-				<key>KitName</key>
-				<string>Answers</string>
-			</dict>
-			<dict>
-				<key>KitInfo</key>
-				<dict/>
-				<key>KitName</key>
-				<string>Crashlytics</string>
-			</dict>
-		</array>
-	</dict>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSApplicationQueriesSchemes</key>
@@ -69,27 +49,16 @@
 	<true/>
 	<key>NSAllowsArbitraryLoads</key>
 	<false/>
-	<key>NSAllowsLocalNetworking</key>
-	<true/>
 	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSExceptionDomains</key>
-		<dict>
-			<key>localhost</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-			</dict>
-		</dict>
-	</dict>
+	<dict/>
 	<key>NSCameraUsageDescription</key>
-	<string>Allows the app to upload images from your camera into a Discourse post.</string>
+	<string>Allows the app to upload images from your camera into an Adjuster Network post.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Allows the app to upload audio and video into a Discourse post.</string>
+	<string>Allows the app to upload audio and video into an Adjuster Network post.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Allows the app to upload images from your library into a Discourse post.</string>
+	<string>Allows the app to upload images from your library into an Adjuster Network post.</string>
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>org.discourse.DiscourseApp.SiriShortcut</string>

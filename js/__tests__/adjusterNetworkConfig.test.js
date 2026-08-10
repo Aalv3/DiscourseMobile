@@ -21,4 +21,13 @@ describe('Adjuster Network product boundary', () => {
       });
     }
   });
+
+  test('keeps unapproved telemetry and push disabled', () => {
+    expect(adjusterNetwork.features).toMatchObject({
+      analytics: false,
+      crashReporting: false,
+      push: false,
+      publicNativePreview: false,
+    });
+  });
 });

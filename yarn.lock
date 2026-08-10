@@ -3242,6 +3242,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@react-native-cookies/cookies@npm:6.2.1":
+  version: 6.2.1
+  resolution: "@react-native-cookies/cookies@npm:6.2.1"
+  dependencies:
+    invariant: "npm:^2.2.4"
+  peerDependencies:
+    react-native: ">= 0.60.2"
+  checksum: 10/cf479715f803f346dc46d4e73b08de76115370657bbc298ce0e6f2d87fafcd8c75a618b0a4943435ef312df142f2134deacf8a1aae7086f14f1265d1b46f8a56
+  languageName: node
+  linkType: hard
+
 "@react-native-firebase/app@npm:^23.2.1":
   version: 23.2.1
   resolution: "@react-native-firebase/app@npm:23.2.1"
@@ -6206,6 +6217,7 @@ __metadata:
     "@react-native-community/cli-platform-ios": "npm:19.1.1"
     "@react-native-community/push-notification-ios": "npm:^1.11.0"
     "@react-native-community/segmented-control": "npm:^2.2.0"
+    "@react-native-cookies/cookies": "npm:6.2.1"
     "@react-native-firebase/app": "npm:^23.2.1"
     "@react-native-firebase/messaging": "npm:^23.2.1"
     "@react-native-vector-icons/fontawesome5": "npm:^12.2.0"
@@ -6243,6 +6255,7 @@ __metadata:
     react-native-gesture-handler: "npm:^2.15.0"
     react-native-immutable-list-view: "npm:^2.0.0"
     react-native-key-pair: "git+https://github.com/samsaffron/react-native-key-pair"
+    react-native-keychain: "npm:10.0.0"
     react-native-localize: "npm:^2.2.3"
     react-native-popover-view: "npm:^5.1.9"
     react-native-progress: "npm:^5.0.1"
@@ -11995,6 +12008,13 @@ __metadata:
   version: 1.1.2
   resolution: "react-native-key-pair@https://github.com/samsaffron/react-native-key-pair.git#commit=824e17546e3c258826bd7b41bb38b46c26bef50f"
   checksum: 10/b717f9ee41bb5cccccc9fb4b836bd2c61ca87b1aed35b68e180aa0f6e42cd62bee10f73d676e13cbee3202745bd3a2f1ce2f133fed45ae36535ca1c9ef45fdae
+  languageName: node
+  linkType: hard
+
+"react-native-keychain@npm:10.0.0":
+  version: 10.0.0
+  resolution: "react-native-keychain@npm:10.0.0"
+  checksum: 10/f06f2214ec7f8ac6fe63a30bee8a434e2d14c316be4b67821d7c25f1f540869ca852a567949783a560b0f7ca97f18be50c409cb35cb2cde3d49fb0700338604a
   languageName: node
   linkType: hard
 

@@ -30,7 +30,6 @@ import Site from './site';
 import SiteManager from './site_manager';
 import SafariView from 'react-native-safari-view';
 import DeviceInfo from 'react-native-device-info';
-import firebaseMessaging from './platforms/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CustomTabs } from 'react-native-custom-tabs';
 import i18n from 'i18n-js';
@@ -39,6 +38,11 @@ import { addShortcutListener } from 'react-native-siri-shortcut';
 import { enableScreens } from 'react-native-screens';
 import FontAwesome5 from '@react-native-vector-icons/fontawesome5';
 import { adjusterNetwork } from './adjusterNetworkConfig';
+import {
+  classifyNavigation,
+  isCanonicalUrl,
+  securityEvent,
+} from './adjusterNetworkSecurity';
 import { BlurView } from '@react-native-community/blur';
 
 import BackgroundFetch from './platforms/background-fetch';
@@ -93,12 +97,12 @@ class Discourse extends React.Component {
     this._initBackgroundFetch = this._initBackgroundFetch.bind(this);
 
     this._handleAppStateChange = nextAppState => {
-      console.log('Detected appState change: ' + nextAppState);
-
       if (nextAppState.match(/inactive|background/)) {
         this._seenNotificationMap = null;
         clearTimeout(this.refreshTimerId);
+        this.setState({ privacyShield: true });
       } else {
+        this.setState({ privacyShield: false });
         StatusBar.setHidden(false);
         this._siteManager.refreshSites();
 
@@ -109,7 +113,7 @@ class Discourse extends React.Component {
 
     this._handleOpenUrl = this._handleOpenUrl.bind(this);
 
-    if (Platform.OS === 'ios') {
+    if (adjusterNetwork.features.push && Platform.OS === 'ios') {
       PushNotificationIOS.addEventListener('notification', e =>
         this._handleNotification(e),
       );
@@ -131,7 +135,8 @@ class Discourse extends React.Component {
       });
     }
 
-    if (Platform.OS === 'android') {
+    if (adjusterNetwork.features.push && Platform.OS === 'android') {
+      const firebaseMessaging = require('./platforms/firebase').default;
       PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
       );
@@ -154,7 +159,6 @@ class Discourse extends React.Component {
       // visible alert currently unsupported
       // show just a toast for now
       firebaseMessaging.onMessage(async remoteMessage => {
-        console.log(remoteMessage.notification);
         const message =
           remoteMessage.notification.title +
           '\n' +
@@ -164,7 +168,6 @@ class Discourse extends React.Component {
 
       // notification clicked while app is in background/closed
       firebaseMessaging.onNotificationOpenedApp(async remoteMessage => {
-        console.log('onNotificationOpenedApp');
         let url = null;
 
         if (remoteMessage.data.payload) {
@@ -191,6 +194,7 @@ class Discourse extends React.Component {
       deviceId: DeviceInfo.getDeviceId(),
       largerUI: largerUI,
       theme: colorScheme === 'dark' ? themes.dark : themes.light,
+      privacyShield: false,
     };
 
     this.subscription = Appearance.addChangeListener(() => {
@@ -216,7 +220,6 @@ class Discourse extends React.Component {
   }
 
   _handleNotification(e) {
-    console.log('got notification', e);
     const url = e._data && e._data.discourse_url;
 
     if (url) {
@@ -226,9 +229,8 @@ class Discourse extends React.Component {
   }
 
   async _handleOpenUrl(event) {
-    console.log('_handleOpenUrl', event);
-
-    if (event.url.startsWith('discourse://')) {
+    const kind = classifyNavigation(event && event.url);
+    if (kind === 'callback') {
       const params = this._siteManager.parseURLparameters(event.url);
       const site = this._siteManager.activeSite;
 
@@ -252,8 +254,8 @@ class Discourse extends React.Component {
             return;
           }
           this.openUrl(authURL);
-        } catch (error) {
-          console.log('Error handling OTP: ', error);
+        } catch {
+          securityEvent('auth.otp.failed');
         }
       }
 
@@ -266,10 +268,8 @@ class Discourse extends React.Component {
       // handle site URL passed via app-argument
       if (params.siteUrl) {
         if (this._siteManager.exists({ url: params.siteUrl })) {
-          console.log(`${params.siteUrl} exists!`);
           this.openUrl(params.siteUrl);
         } else {
-          console.log(`${params.siteUrl} does not exist, attempt adding`);
           this._addSite(params.siteUrl);
         }
       }
@@ -284,13 +284,15 @@ class Discourse extends React.Component {
           }
         });
       }
-    } else if (event.url !== null) {
+    } else if (kind === 'internal') {
       // Handle URLs from Universal Links
       if (this._siteManager.urlInSites(event.url)) {
         this.openUrl(event.url);
       } else {
-        this._addSite(event.url);
+        this._addSite(adjusterNetwork.canonicalOrigin);
       }
+    } else if (kind === 'external') {
+      Linking.openURL(event.url).catch(() => {});
     }
   }
 
@@ -311,7 +313,7 @@ class Discourse extends React.Component {
       }
     });
 
-    if (Platform.OS === 'ios') {
+    if (adjusterNetwork.features.push && Platform.OS === 'ios') {
       PushNotificationIOS.requestPermissions({
         alert: true,
         badge: true,
@@ -391,6 +393,10 @@ class Discourse extends React.Component {
   }
 
   async _addSite(url) {
+    if (!isCanonicalUrl(url)) {
+      Alert.alert(i18n.t('cannot_load_url'));
+      return;
+    }
     // when adding a site, try stripping off the path
     // helps find the site if users aren't on homepage
     const match = url.match(/^(https?:\/\/[^/]+)\//);
@@ -408,7 +414,7 @@ class Discourse extends React.Component {
         this._siteManager.add(newSite);
         this._navigation.navigate('Home');
       }
-    } catch (error) {
+    } catch {
       if (url !== siteUrl) {
         // stripping off path is imperfect, try the full URL
         // this is particularly helpful with subfolder sites
@@ -418,12 +424,10 @@ class Discourse extends React.Component {
             this._siteManager.add(newSite2);
             this._navigation.navigate('Home');
           }
-        } catch (e) {
-          console.log('Error adding site: ', e);
+        } catch {
           Alert.alert(i18n.t('cannot_load_url'));
         }
       } else {
-        console.log('Error adding site: ', error);
         Alert.alert(i18n.t('cannot_load_url'));
       }
     }
@@ -439,6 +443,14 @@ class Discourse extends React.Component {
   }
 
   openUrl(url) {
+    const kind = classifyNavigation(url);
+    if (kind === 'external') {
+      Linking.openURL(url).catch(() => {});
+      return;
+    }
+    if (kind !== 'internal') {
+      return;
+    }
     if (Platform.OS === 'ios') {
       this._navigation.navigate('WebView', {
         url: url,
@@ -451,9 +463,7 @@ class Discourse extends React.Component {
           CustomTabs.openURL(url, {
             enableUrlBarHiding: true,
             showPageTitle: false,
-          }).catch(err => {
-            console.error(err);
-          });
+          }).catch(() => {});
         } else {
           Linking.openURL(url);
         }
@@ -567,27 +577,6 @@ class Discourse extends React.Component {
                     )}
                   </Tab.Screen>
                   <Tab.Screen
-                    name="Discover"
-                    options={{
-                      title: i18n.t('discover'),
-                      tabBarIcon: ({ color }) => (
-                        <FontAwesome5
-                          name={'compass'}
-                          size={18}
-                          color={color}
-                          iconStyle="solid"
-                        />
-                      ),
-                    }}
-                  >
-                    {props => (
-                      <Screens.Discover
-                        {...props}
-                        screenProps={{ ...screenProps }}
-                      />
-                    )}
-                  </Tab.Screen>
-                  <Tab.Screen
                     name={'Notifications'}
                     options={{
                       title: adjusterNetwork.navigation.activity.label,
@@ -663,6 +652,16 @@ class Discourse extends React.Component {
               )}
             </Stack.Screen>
           </Stack.Navigator>
+          {this.state.privacyShield && (
+            <View
+              accessibilityLabel="Private content hidden"
+              accessibilityRole="summary"
+              style={[
+                StyleSheet.absoluteFill,
+                { backgroundColor: theme.background },
+              ]}
+            />
+          )}
         </ThemeContext.Provider>
       </NavigationContainer>
     );

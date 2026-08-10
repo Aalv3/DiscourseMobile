@@ -141,8 +141,8 @@ class HomeScreen extends React.Component {
     this.setState({ isRefreshing: true });
     try {
       await this._siteManager.refreshSites();
-    } catch (e) {
-      console.log(e);
+    } catch {
+      // Keep the existing view when a bounded refresh fails.
     } finally {
       this.setState({ isRefreshing: false });
     }

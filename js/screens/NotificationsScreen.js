@@ -139,9 +139,7 @@ class NotificationsScreen extends React.Component {
   }
 
   _openNotificationForSite(notification, site) {
-    site.readNotification(notification).catch(e => {
-      console.log('failed to mark notification as read ' + e);
-    });
+    site.readNotification(notification).catch(() => {});
 
     let url = DiscourseUtils.endpointForSiteNotification(site, notification);
     this._siteManager.setActiveSite(site);

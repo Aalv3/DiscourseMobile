@@ -9,6 +9,12 @@ import { nativeContracts } from './adjusterNetworkContracts';
 export const adjusterNetwork = Object.freeze({
   name: 'Adjuster Network',
   canonicalOrigin: 'https://adjusternetwork.org',
+  features: Object.freeze({
+    analytics: false,
+    crashReporting: false,
+    push: false,
+    publicNativePreview: false,
+  }),
   navigation: Object.freeze({
     floor: Object.freeze({
       label: 'Floor',
