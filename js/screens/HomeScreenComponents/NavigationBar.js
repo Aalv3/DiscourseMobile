@@ -23,6 +23,8 @@ const NavigationBar = props => {
 
     return (
       <TouchableHighlight
+        accessibilityLabel="Settings"
+        accessibilityRole="button"
         style={{ ...styles.androidSettingsButton }}
         underlayColor={'transparent'}
         onPress={props.onDidPressAndroidSettingsIcon}
@@ -40,6 +42,8 @@ const NavigationBar = props => {
   const renderPlusButton = () => {
     return (
       <TouchableHighlight
+        accessibilityLabel="Add Adjuster Network"
+        accessibilityRole="button"
         style={{ ...styles.plusButton }}
         underlayColor={'transparent'}
         testID="nav-plus-icon"
@@ -59,6 +63,8 @@ const NavigationBar = props => {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.titleContainer}>
         <TouchableHighlight
+          accessibilityLabel="About Discourse"
+          accessibilityRole="link"
           underlayColor={'transparent'}
           onPress={() => Linking.openURL(discourseUrl)}
         >

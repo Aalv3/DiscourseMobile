@@ -270,6 +270,8 @@ export default function SiteRow(props) {
         </TouchableHighlight>
       )}
       <TouchableHighlight
+        accessibilityLabel={`Remove ${props.site.title} account`}
+        accessibilityRole="button"
         testID="site-row-delete"
         style={{
           ...styles.hiddenButton,
@@ -305,6 +307,11 @@ export default function SiteRow(props) {
         }}
       >
         <TouchableHighlight
+          accessibilityLabel={`${props.site.title}, ${props.site.url.replace(
+            /^https?:\/\//,
+            '',
+          )}`}
+          accessibilityRole="button"
           underlayColor={'theme.background'}
           activeOpacity={0.8}
           onPress={() => _click()}

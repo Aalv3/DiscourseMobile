@@ -48,16 +48,37 @@ fresh authorization attempt. A deterministic one-shot regression test covers the
 - Zero-member posture: 8/8 PASS
 - Admission readiness: 10/10 PASS
 
-## Honest limits and verdict
+## Final Android closeout
 
-The app's own account-removal control was not completed end to end after the remediation build; the
-attempted final fixture never obtained a key and was safely closed. A byte-for-byte real callback
-replay was intentionally not captured because retaining the encrypted callback would create an auth
-artifact; the one-shot logic is covered deterministically instead. Compose/upload/DM restrictions
-were certified at the backend boundary but not through every native/browser affordance. Bounded
-TalkBack authenticated-flow evidence was not completed.
+A second bounded production-backed exercise closed the remaining device lanes except the initial
+signed-out authentication-return defect:
+
+- The native swipe-to-remove control revoked the active User API key, removed the secure local site
+  credential and token-free account metadata, cleared cookies, and returned to the signed-out
+  Connect state. Force-stop/relaunch did not restore private state. The server retains only the
+  expected revoked audit row, not an active key.
+- A synthetic text-only topic was created successfully. The browser composer exposed no file input,
+  picker, camera, or upload control; the Android manifest exposes no share receiver and removes broad
+  storage permissions. The synthetic topic was permanently destroyed at close.
+- A member profile exposed no Message action. A deliberately constructed direct message route could
+  display the core composer, but the server rejected Send with the clear policy message that the
+  user cannot be messaged; no private topic or post was created.
+- TalkBack on API 35 identified three unlabeled critical controls in the authenticated home shell.
+  The Adjuster Network patch now labels Add, Settings, About Discourse, the site/account row, and the
+  revealed Remove account action with explicit roles. The measured tree then exposed meaningful
+  names for the home navigation, Floor, Activity, and account-removal control. This is bounded device
+  evidence, not a comprehensive WCAG claim.
+- All synthetic identities were closed with the certified AN-037 workflow after their active keys,
+  browser state, topic, temporary secrets, logs, and evidence were disposed. No invitation existed.
+
+The remaining defect is reproducible on the exact production ESR: when a signed-out user opens the
+User API Key v2 authorization URL, completes initial web authentication, and returns to the app, the
+authorization screen is not resumed. A second Connect action is still required. Wrapping the URL in
+a login `return_path` was tested and rejected because the deployed login flow still returned to the
+public root. Automatically reopening a browser on every foreground event would make explicit cancel
+and browser-close behavior untruthful, so that workaround was not shipped. Nonce consumption,
+callback validation, and replay resistance remain intact.
 
 Accordingly, AN-2703/AN-2708 authenticated Android lifecycle remains **NO-GO for production release**
-until a follow-up device wave completes app-initiated removal/logout, authenticated TalkBack, and the
-native/browser compose-upload-DM negative matrix. This does not invalidate the security remediation
-or the lifecycle results above.
+on the single authentication-return UX blocker. Account removal, compose/upload/DM restrictions,
+bounded authenticated TalkBack, and the previously certified security lifecycle are otherwise GO.
