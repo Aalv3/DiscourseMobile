@@ -1,4 +1,7 @@
-import { consumePendingAuthAttempt } from '../authAttempt';
+import {
+  consumePendingAuthAttempt,
+  shouldOpenCallbackOneTimePassword,
+} from '../authAttempt';
 
 describe('authentication attempt state', () => {
   test('is consumed exactly once', () => {
@@ -13,5 +16,10 @@ describe('authentication attempt state', () => {
       site: null,
       nonce: null,
     });
+  });
+
+  test('opens the callback OTP only for the isolated iOS WebView session', () => {
+    expect(shouldOpenCallbackOneTimePassword('android')).toBe(false);
+    expect(shouldOpenCallbackOneTimePassword('ios')).toBe(true);
   });
 });

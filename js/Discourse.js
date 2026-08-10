@@ -46,6 +46,7 @@ import {
 import { BlurView } from '@react-native-community/blur';
 
 import BackgroundFetch from './platforms/background-fetch';
+import { shouldOpenCallbackOneTimePassword } from './authAttempt';
 
 const { DiscourseKeyboardShortcuts } = NativeModules;
 
@@ -240,7 +241,12 @@ class Discourse extends React.Component {
 
       // initial auth payload
       if (params.payload) {
-        this._siteManager.handleAuthPayload(params.payload);
+        const accepted = await this._siteManager.handleAuthPayload(
+          params.payload,
+        );
+        if (!accepted) {
+          return;
+        }
       }
 
       // received one-time-password request from SafariView
@@ -260,7 +266,10 @@ class Discourse extends React.Component {
       }
 
       // one-time-password received, launch site with it
-      if (params.oneTimePassword) {
+      if (
+        params.oneTimePassword &&
+        shouldOpenCallbackOneTimePassword(Platform.OS)
+      ) {
         const OTP = this._siteManager.decryptHelper(params.oneTimePassword);
         this.openUrl(`${site.url}/session/otp/${OTP}`);
       }

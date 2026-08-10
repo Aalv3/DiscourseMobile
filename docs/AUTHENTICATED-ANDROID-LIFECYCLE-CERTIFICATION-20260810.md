@@ -71,14 +71,30 @@ signed-out authentication-return defect:
 - All synthetic identities were closed with the certified AN-037 workflow after their active keys,
   browser state, topic, temporary secrets, logs, and evidence were disposed. No invitation existed.
 
-The remaining defect is reproducible on the exact production ESR: when a signed-out user opens the
-User API Key v2 authorization URL, completes initial web authentication, and returns to the app, the
-authorization screen is not resumed. A second Connect action is still required. Wrapping the URL in
-a login `return_path` was tested and rejected because the deployed login flow still returned to the
-public root. Automatically reopening a browser on every foreground event would make explicit cancel
-and browser-close behavior untruthful, so that workaround was not shipped. Nonce consumption,
-callback validation, and replay resistance remain intact.
+## Authentication-return remediation
 
-Accordingly, AN-2703/AN-2708 authenticated Android lifecycle remains **NO-GO for production release**
-on the single authentication-return UX blocker. Account removal, compose/upload/DM restrictions,
-bounded authenticated TalkBack, and the previously certified security lifecycle are otherwise GO.
+The earlier second-Connect observation combined two distinct conditions. The first synthetic account
+was active and approved but had not completed Discourse email confirmation, so its initial login did
+not exercise the normal active-account continuation. With a fully active, approved, email-confirmed
+synthetic account, the exact ESR preserved the full `/user-api-key/new` request in its
+`destination_url` cookie and continued directly from login to the authorization screen after one
+Connect tap.
+
+A genuine post-approval defect remained in the native client. The encrypted callback contains both
+the User API Key payload and an optional one-time password. After accepting and securely storing the
+payload, the upstream client always opened the one-time-password URL. On Android, authentication and
+private browsing already share the same system-browser session, so this redundant navigation stole
+focus from the authenticated app and landed Chrome on the public root. The client now waits for
+payload validation, stops immediately on rejection, and processes the callback one-time password
+only on iOS, where the private native WebView has a separate cookie jar.
+
+On a reset API 35 app/browser state, one Connect tap opened the canonical system-browser login,
+continued naturally to approval, returned through the encrypted callback, and left the app in its
+authenticated state. Floor and Activity loaded, force-stop/relaunch preserved the session, and the
+native remove action still cleared local state and remained signed out after relaunch. The control
+path retained nonce validation, one-shot consumption, replay resistance, callback scheme/host
+validation, and secure storage. No backend change was required.
+
+Accordingly, AN-2703/AN-2708 authenticated Android lifecycle is **GO for the certified Android
+foundation**. Store identity/signing and Mac/Xcode iOS lifecycle certification remain separate
+release gates.

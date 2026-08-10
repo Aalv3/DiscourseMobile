@@ -36,6 +36,8 @@ Android `com.discourse`, iOS upstream product bundle identifiers, and the shared
 
 On a Mac, use the pinned Xcode/React Native toolchain, install Pods, configure a non-production signing team, and test iPhone/iPad simulators for Keychain migration/deletion, auth callback and Universal Link association, ATS, background snapshots, cache separation, VoiceOver, Dynamic Type, light/dark mode, revoked sessions, reinstall semantics, and release-log silence. No iOS runtime certification is claimed from Windows.
 
+The User API Key callback is processed before any session handoff. Android retains the authenticated system-browser cookie session and must not reopen the callback one-time-password URL after storing the encrypted key payload. iOS keeps the one-time-password handoff because its native WebView cookie jar is separate; that platform-specific behavior requires Mac/Xcode runtime certification. Rejected, stale, malformed, or replayed payloads must never continue to either handoff.
+
 ## Upstream maintenance
 
 The Adjuster Network patch layer is intentionally concentrated in configuration, security/credential modules, `Site`/`SiteManager`, top-level navigation, WebView policy, manifests, tests, and these documents. Authentication, navigation, WebView, Firebase/push, and manifest changes are expected upstream conflict areas.
