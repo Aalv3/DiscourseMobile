@@ -16,6 +16,7 @@ import { credentialStore } from './secureCredentialStore';
 import { isCanonicalUrl, isSafeAuthCallback } from './adjusterNetworkSecurity';
 import { adjusterNetwork } from './adjusterNetworkConfig';
 import CookieManager from '@react-native-cookies/cookies';
+import { consumePendingAuthAttempt } from './authAttempt';
 
 const { DiscourseKeyboardShortcuts } = NativeModules;
 const REFRESH_THROTTLE_MS = 5000;
@@ -423,6 +424,12 @@ class SiteManager {
   }
 
   async handleAuthPayload(payload) {
+    // An authorization response is a one-shot capability. Consume the pending
+    // state before decrypting so malformed, mismatched, and replayed callbacks
+    // all fail closed and require a fresh browser authorization.
+    const { site: nonceSite, nonce: expectedNonce } =
+      consumePendingAuthAttempt(this);
+
     let decrypted;
     try {
       decrypted = JSON.parse(this.decryptHelper(payload));
@@ -431,8 +438,8 @@ class SiteManager {
     }
 
     if (
-      !this._nonceSite ||
-      decrypted.nonce !== this._nonce ||
+      !nonceSite ||
+      decrypted.nonce !== expectedNonce ||
       typeof decrypted.key !== 'string' ||
       decrypted.key.length < 1 ||
       decrypted.key.length > 4096
@@ -441,19 +448,16 @@ class SiteManager {
       return false;
     }
 
-    this._nonceSite.authToken = decrypted.key;
-    this._nonceSite.hasPush = decrypted.push;
-    this._nonceSite.apiVersion = decrypted.api;
-    await credentialStore.storeSiteToken(
-      this._nonceSite.url,
-      this._nonceSite.authToken,
-    );
+    nonceSite.authToken = decrypted.key;
+    nonceSite.hasPush = decrypted.push;
+    nonceSite.apiVersion = decrypted.api;
+    await credentialStore.storeSiteToken(nonceSite.url, nonceSite.authToken);
     this.save();
 
     // cause we want to stop rendering connect
     this._onChange();
 
-    this._nonceSite
+    nonceSite
       .refresh()
       .then(() => {
         this._onChange();
