@@ -1,0 +1,7 @@
+{
+  "name": "react-native-safari-web-auth",
+  "version": "2.0.0-adjuster-network.1",
+  "description": "Authentication helper for React Native using ASWebAuthenticationSession.",
+  "main": "index.js",
+  "license": "MIT"
+}

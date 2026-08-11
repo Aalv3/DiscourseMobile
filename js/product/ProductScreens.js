@@ -4,6 +4,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -51,18 +52,16 @@ export function WelcomeScreen({ onConnect, onLogin, busy }) {
           width >= 700 && styles.welcomeWide,
         ]}
       >
-        <View
-          style={[styles.brandMark, { backgroundColor: colors.hero }]}
-          accessibilityLabel="Adjuster Network logo"
-          accessibilityRole="image"
-        >
-          <View style={styles.logoRoof} />
-          <Text style={styles.logoA}>A</Text>
-          <Text style={styles.logoN}>N</Text>
+        <View style={styles.brandLogoPlate}>
+          <Image
+            source={require('../../img/adjuster-network-logo.png')}
+            style={styles.brandLogo}
+            resizeMode="contain"
+            accessible
+            accessibilityRole="image"
+            accessibilityLabel="Adjuster Network"
+          />
         </View>
-        <Text style={[styles.wordmark, { color: colors.text }]}>
-          ADJUSTER NETWORK
-        </Text>
         <Text
           accessibilityRole="header"
           style={[styles.welcomeTitle, { color: colors.text }]}
@@ -759,41 +758,16 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   welcomeWide: { paddingVertical: 50 },
-  brandMark: {
-    width: 76,
-    height: 76,
-    borderRadius: 22,
+  brandLogoPlate: {
+    width: 260,
+    height: 186,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    padding: 10,
   },
-  logoRoof: {
-    position: 'absolute',
-    top: 16,
-    width: 43,
-    height: 43,
-    borderLeftWidth: 7,
-    borderTopWidth: 7,
-    borderColor: '#FFFFFF',
-    transform: [{ rotate: '45deg' }],
-  },
-  logoA: {
-    position: 'absolute',
-    bottom: 8,
-    left: 15,
-    color: '#FFFFFF',
-    fontSize: 30,
-    fontWeight: '900',
-  },
-  logoN: {
-    position: 'absolute',
-    bottom: 8,
-    right: 12,
-    color: '#F04B3E',
-    fontSize: 30,
-    fontWeight: '900',
-  },
-  wordmark: { fontSize: 13, fontWeight: '900', letterSpacing: 2.2 },
+  brandLogo: { width: 240, aspectRatio: 1183 / 845 },
   welcomeTitle: { fontSize: 38, lineHeight: 44, fontWeight: '850' },
   welcomeBody: { fontSize: 18, lineHeight: 27 },
   valueCard: {

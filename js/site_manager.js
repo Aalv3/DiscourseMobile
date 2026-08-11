@@ -5,7 +5,6 @@ import _ from 'lodash';
 import { Alert, NativeModules, Platform } from 'react-native';
 import PushNotificationIOS from '@react-native-community/push-notification-ios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import SafariWebAuth from 'react-native-safari-web-auth';
 import Site from './site';
 import RNKeyPair from 'react-native-key-pair';
 import DeviceInfo from 'react-native-device-info';
@@ -17,6 +16,7 @@ import { isCanonicalUrl, isSafeAuthCallback } from './adjusterNetworkSecurity';
 import { adjusterNetwork } from './adjusterNetworkConfig';
 import CookieManager from '@react-native-cookies/cookies';
 import { consumePendingAuthAttempt } from './authAttempt';
+import { requestIOSAuth } from './iosAuthSession';
 
 const { DiscourseKeyboardShortcuts } = NativeModules;
 const REFRESH_THROTTLE_MS = 5000;
@@ -522,32 +522,18 @@ class SiteManager {
   }
 
   async requestAuth(url) {
-    try {
-      const authRequest = await SafariWebAuth.requestAuth(
-        url,
-        this.customScheme,
-        false,
-        // third parameter sets prefersEphemeralWebBrowserSession in ASWebAuthenticationSession,
-        // when true, it skips iOS dialog prompt but uses incognito mode (i.e. user always has to log in)
-      );
+    const authRequest = await requestIOSAuth(url, this.customScheme, false);
+    const urlParams = this.parseURLparameters(authRequest);
 
-      if (authRequest && isSafeAuthCallback(authRequest)) {
-        const urlParams = this.parseURLparameters(authRequest);
-
-        if (urlParams.payload) {
-          await this.handleAuthPayload(urlParams.payload);
-        }
-
-        if (urlParams.oneTimePassword) {
-          const OTP = this.decryptHelper(urlParams.oneTimePassword);
-          return `${this.activeSite.url}/session/otp/${OTP}`;
-        } else {
-          return this.activeSite.url;
-        }
-      }
-    } catch {
-      return;
+    if (urlParams.payload) {
+      await this.handleAuthPayload(urlParams.payload);
     }
+
+    if (urlParams.oneTimePassword) {
+      const OTP = this.decryptHelper(urlParams.oneTimePassword);
+      return `${this.activeSite.url}/session/otp/${OTP}`;
+    }
+    return this.activeSite.url;
   }
 
   parseURLparameters(string) {

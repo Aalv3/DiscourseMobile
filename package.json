@@ -17,6 +17,7 @@
     "test:unit": "jest",
     "test:unit:watch": "jest --watch",
     "verify:backend": "node scripts/verify-backend-contract.mjs",
+    "verify:ios-auth": "node scripts/verify-ios-auth-presentation.mjs",
     "verify:release-readiness": "node scripts/verify-native-release-readiness.mjs",
     "test-ipad": "detox test --configuration ios.sim.debug -n 'iPad (10th generation)'"
   },
@@ -53,7 +54,7 @@
     "react-native-progress": "^5.0.1",
     "react-native-reanimated": "^4.1.0",
     "react-native-safari-view": "git+https://github.com/samsaffron/react-native-safari-view.git",
-    "react-native-safari-web-auth": "2.0.0",
+    "react-native-safari-web-auth": "file:vendor/react-native-safari-web-auth",
     "react-native-safe-area-context": "^5.6.1",
     "react-native-screens": "^4.15.4",
     "react-native-siri-shortcut": "^3.2.4",
