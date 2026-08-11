@@ -6,7 +6,9 @@ The canonical checkout is the `Aalv3/DiscourseMobile` fork on
 `codex/an-2700-native-foundation`. Upstream baseline `e8bf7472` is followed by the Adjuster Network
 foundation; `b077b917` contains the Android build/runtime evidence and `e713b052` is a later cleanup.
 The branch continues through authenticated closeout commits `85a3c108`, `042768ad`, `009ca386` and
-`e3bc322b`. No app has been signed, uploaded or published.
+`e3bc322b`, release preparation through `9a00388c`, and the current product-UI commit `ee64e4f2`.
+The branch is clean, pushed, and 0 ahead/0 behind its upstream branch. No app has been signed,
+uploaded or published.
 
 ## Counsel-independent disposition
 
@@ -49,9 +51,11 @@ the fail-closed release-readiness audit with zero failures/owner decisions, and 
 `assembleDebug` on JDK 17. The Windows native compiler required one worker to avoid an environmental
 Clang resource crash; the clean constrained rebuild passed. No signed artifact was produced.
 
-The three approved store URL candidates were checked against production on 2026-08-11. `/privacy`,
-`/support` and `/account-deletion` each returned HTTP 404, so none is adopted into store metadata.
-This records route availability only and does not authorize counsel-controlled privacy language.
+The three eventual store URL candidates were rechecked against production after the public
+legal/support wave. `/privacy`, `/support` and `/account-deletion` each return anonymous/crawler
+HTTP 200 with the correct HTTPS canonical URL. They are technically suitable URL destinations, but
+Privacy and Terms remain visibly **DRAFT — COUNSEL REVIEW REQUIRED**; route availability does not
+authorize store submission or adoption of unapproved policy language.
 
 The original minimum packet was:
 
