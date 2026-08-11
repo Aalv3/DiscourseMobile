@@ -57,3 +57,9 @@ ID, iOS app and Share Extension bundle IDs, unique callback scheme, Apple team/c
 Android keystore custody, approved Universal/App Link domains, association-file authorization,
 Firebase decision/configuration, version/build numbering, store listing owner, and approved privacy
 answers. Secrets stay out of Git. Store upload/submission remains a separate authorization.
+
+The Mac itself is an external execution prerequisite, not an owner product choice. Minimum access is
+an interactive shell and Xcode Simulator session on a Mac that can check out the canonical branch,
+install the locked dependencies, reach the synthetic test environment when separately authorized,
+and return redacted evidence artifacts. The unsigned simulator wave can run before Apple signing or
+store access is supplied.

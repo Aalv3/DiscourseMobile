@@ -57,6 +57,11 @@ check(
   iosInfo.includes('<key>NSAllowsArbitraryLoads</key>\n\t<false/>') ? 'PASS' : 'FAIL',
   'Arbitrary loads must remain disabled',
 );
+check(
+  'iOS runtime evidence',
+  process.platform === 'darwin' ? 'READY_TO_EXECUTE' : 'EXTERNAL_BLOCKER',
+  'Requires an accessible Mac with supported Xcode and iPhone/iPad simulator runtimes; simulator evidence does not require signing',
+);
 
 const failed = findings.filter(item => item.state === 'FAIL');
 const pending = findings.filter(item => item.state === 'OWNER_INPUT');
