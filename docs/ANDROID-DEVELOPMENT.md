@@ -33,9 +33,12 @@ Run `powershell -File scripts/verify-android-toolchain.ps1` in the same configur
 
 ## Debug-only generated files
 
-Upstream omits `android/gradle.properties` and `android/app/google-services.json` because its private Fastlane bootstrap generates them with release credentials. Never run that private bootstrap or copy upstream secrets for local Adjuster Network work.
+Upstream omits `android/gradle.properties` because its private Fastlane bootstrap generates it with release credentials. Never run that private bootstrap or copy upstream secrets for local Adjuster Network work.
 
-For a local debug compile, create an ignored `android/gradle.properties` with `MYAPP_VERSION`, AndroidX, Hermes, new-architecture, and architecture values. Release keystore properties must remain placeholders and no release task may be run. A debug compile also requires an ignored Firebase JSON matching `com.discourse`; until an owner Firebase project is authorized, use a clearly synthetic, nonfunctional local file. Neither file may be committed.
+The owner-approved founding-beta configuration commits the non-secret version, AndroidX, Hermes,
+new-architecture and architecture values in `android/gradle.properties`. Release keystore properties
+remain out of band. Firebase and Google Services are removed because push, analytics and crash
+reporting are disabled; no `google-services.json` is required or permitted for this release.
 
 ## Gates
 

@@ -26,8 +26,6 @@
     "@react-native-community/push-notification-ios": "^1.11.0",
     "@react-native-community/segmented-control": "^2.2.0",
     "@react-native-cookies/cookies": "6.2.1",
-    "@react-native-firebase/app": "^23.2.1",
-    "@react-native-firebase/messaging": "^23.2.1",
     "@react-native-vector-icons/fontawesome5": "^12.2.0",
     "@react-navigation/bottom-tabs": "^6.5.20",
     "@react-navigation/native": "^6.0.8",

@@ -47,7 +47,7 @@ class ShareViewController: UIViewController {
 
                   DispatchQueue.main.async {
                     if let application = UIApplication.value(forKeyPath: #keyPath(UIApplication.shared)) as? UIApplication {
-                        application.open(URL(string: "discourse://share?sharedUrl=\(url)")!, options: [:], completionHandler: nil)
+                        application.open(URL(string: "adjusternetwork://share?sharedUrl=\(url)")!, options: [:], completionHandler: nil)
                     }
                   }
               }
@@ -63,7 +63,7 @@ class ShareViewController: UIViewController {
 
                   DispatchQueue.main.async {
                     if let application = UIApplication.value(forKeyPath: #keyPath(UIApplication.shared)) as? UIApplication {
-                        application.open(URL(string: "discourse://share?sharedUrl=\(url)")!, options: [:], completionHandler: nil)
+                        application.open(URL(string: "adjusternetwork://share?sharedUrl=\(url)")!, options: [:], completionHandler: nil)
                     }
                   }
               }

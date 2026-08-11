@@ -28,10 +28,6 @@
       android:supportsRtl="true"
       android:usesCleartextTraffic="false">
 
-      <meta-data
-        android:name="com.google.firebase.messaging.default_notification_icon"
-        android:resource="@drawable/ic_stat_name" />
-
       <activity
           android:name="com.discourse.MainActivity"
           android:label="@string/app_name"
@@ -47,13 +43,22 @@
               <action android:name="android.intent.action.VIEW" />
               <category android:name="android.intent.category.DEFAULT" />
               <category android:name="android.intent.category.BROWSABLE" />
-              <data android:scheme="discourse" android:host="auth_redirect" />
+              <data android:scheme="adjusternetwork" android:host="auth_redirect" />
           </intent-filter>
           <intent-filter>
               <action android:name="android.intent.action.VIEW" />
               <category android:name="android.intent.category.DEFAULT" />
               <category android:name="android.intent.category.BROWSABLE" />
-              <data android:scheme="discourse" android:host="open" />
+              <data android:scheme="adjusternetwork" android:host="open" />
+          </intent-filter>
+          <intent-filter android:autoVerify="true">
+              <action android:name="android.intent.action.VIEW" />
+              <category android:name="android.intent.category.DEFAULT" />
+              <category android:name="android.intent.category.BROWSABLE" />
+              <data android:scheme="https" android:host="adjusternetwork.org" />
+              <data android:pathPrefix="/t/" />
+              <data android:pathPrefix="/c/" />
+              <data android:pathPrefix="/u/" />
           </intent-filter>
           <intent-filter>
               <action android:name="open_topic" />

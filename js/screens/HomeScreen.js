@@ -98,7 +98,7 @@ class HomeScreen extends React.Component {
 
     const shortcutOptions = {
       // This activity type needs to be set in `NSUserActivityTypes` on the Info.plist
-      activityType: 'org.discourse.DiscourseApp.SiriShortcut',
+      activityType: 'org.adjusternetwork.app.SiriShortcut',
       keywords: ['discourse', 'forums', 'hub', 'discoursehub', site.title],
       persistentIdentifier: 'DiscourseHubShortcut',
       isEligibleForSearch: true,

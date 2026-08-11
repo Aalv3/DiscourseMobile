@@ -26,7 +26,34 @@ The branch continues through authenticated closeout commits `85a3c108`, `042768a
 
 ## Exact unresolved release gates
 
-The minimum true owner input is one written configuration packet containing:
+The owner supplied the release-identity packet on 2026-08-11:
+
+- Android and iOS app ID `org.adjusternetwork.app`; Share Extension
+  `org.adjusternetwork.app.ShareExtension`;
+- owned callback scheme `adjusternetwork://`;
+- association domain `adjusternetwork.org`, initially limited to `/t/*`, `/c/*` and `/u/*`;
+- Firebase removed for founding beta while push, analytics and crash reporting stay off;
+- version `1.0.0`, initial build `1`;
+- owner custody of both store accounts and signing material, with keys and recovery material outside
+  Git and CI; and
+- the recorded factual store privacy/data-use inventory, subject to final technical verification.
+
+The identifiers, callback declarations, Android App Link intent paths, iOS associated-domain
+entitlement, version/build metadata and Firebase removal are configured locally. Inherited Discourse
+team/profile references were removed. Signing remains intentionally unconfigured until the owner
+supplies the actual Apple Team identifier and out-of-band Android/iOS credentials at the signed-build
+wave.
+
+Post-change verification passes immutable install, Prettier, ESLint, all 12 Jest suites / 42 tests,
+the fail-closed release-readiness audit with zero failures/owner decisions, and a clean Android API 35
+`assembleDebug` on JDK 17. The Windows native compiler required one worker to avoid an environmental
+Clang resource crash; the clean constrained rebuild passed. No signed artifact was produced.
+
+The three approved store URL candidates were checked against production on 2026-08-11. `/privacy`,
+`/support` and `/account-deletion` each returned HTTP 404, so none is adopted into store metadata.
+This records route availability only and does not authorize counsel-controlled privacy language.
+
+The original minimum packet was:
 
 1. the owned Android application ID, iOS app bundle ID, iOS Share Extension bundle ID and unique
    callback scheme;

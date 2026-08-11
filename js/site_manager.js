@@ -26,8 +26,8 @@ class SiteManager {
   _subscribers = [];
   sites = [];
   activeSite = null;
-  customScheme = 'discourse';
-  urlScheme = 'discourse://auth_redirect';
+  customScheme = 'adjusternetwork';
+  urlScheme = 'adjusternetwork://auth_redirect';
   deviceName = 'Adjuster Network - Unknown Mobile Device';
   hotTopicsHidden = false;
   siteURLsHidden = false;

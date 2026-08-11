@@ -4,8 +4,9 @@
 import { adjusterNetwork } from './adjusterNetworkConfig';
 
 const CALLBACKS = Object.freeze([
-  'discourse://auth_redirect',
-  'discourse://open',
+  'adjusternetwork://auth_redirect',
+  'adjusternetwork://open',
+  'adjusternetwork://share',
 ]);
 
 export function parseHttpsUrl(value) {

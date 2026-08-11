@@ -32,7 +32,11 @@ Push remains disabled. A future implementation must default lock-screen previews
 
 ## Release identity and iOS follow-up
 
-Android `com.discourse`, iOS upstream product bundle identifiers, and the shared `discourse` URL scheme are not production identity approvals. The owner must select and control the Android application ID, iOS bundle ID, verified web domains, signing teams/certificates, and callback scheme before store preparation.
+The owner-approved founding-beta identity is `org.adjusternetwork.app` for Android and iOS,
+`org.adjusternetwork.app.ShareExtension` for the iOS extension, and the `adjusternetwork://` callback
+scheme. App/Universal Links use `adjusternetwork.org` and are initially limited to topic, category and
+user paths. Firebase is removed while push remains off. The owner holds both store accounts and is
+the initial signing custodian; signing keys and recovery material remain outside Git and CI.
 
 On a Mac, use the pinned Xcode/React Native toolchain, install Pods, configure a non-production signing team, and test iPhone/iPad simulators for Keychain migration/deletion, auth callback and Universal Link association, ATS, background snapshots, cache separation, VoiceOver, Dynamic Type, light/dark mode, revoked sessions, reinstall semantics, and release-log silence. No iOS runtime certification is claimed from Windows.
 

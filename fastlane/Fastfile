@@ -2,11 +2,11 @@ fastlane_require "base64"
 fastlane_require "fileutils"
 fastlane_require "json"
 
-IOS_APP_VERSION = "2.2.3"
-ANDROID_APP_VERSION = "2.2.0" # run `fastlane bootstrap` after editing this
+IOS_APP_VERSION = "1.0.0"
+ANDROID_APP_VERSION = "1.0.0"
 PROJECT_NAME = "Discourse"
-IOS_TEAM_ID = "6T3LU73T8S"
-KEYS_REPOSITORY = "git@github.com:discourse-org/discourse-mobile-keys.git"
+IOS_TEAM_ID = ENV.fetch("AN_IOS_TEAM_ID")
+KEYS_REPOSITORY = ENV.fetch("AN_SIGNING_KEYS_REPOSITORY")
 
 default_platform :ios
 
@@ -40,13 +40,13 @@ lane :bootstrap do
 # Generated from `fastlane bootstrap` do not edit or commit
 
 # iOS
-app_identifier "org.discourse.DiscourseApp"
+app_identifier "org.adjusternetwork.app"
 apple_id "#{secrets["apple_id"]}"
 team_id "#{IOS_TEAM_ID}"
 
 # Android
 json_key_file "fastlane/google-play-api-secret.json"
-package_name "com.discourse"
+package_name "org.adjusternetwork.app"
 TEMPLATE
   File.write("Appfile", appfile)
 
@@ -54,7 +54,7 @@ TEMPLATE
 # Generated from `fastlane bootstrap` do not edit or commit
 MYAPP_VERSION=#{ANDROID_APP_VERSION}
 MYAPP_RELEASE_STORE_FILE=my-release-key.keystore
-MYAPP_RELEASE_KEY_ALIAS=discourse
+MYAPP_RELEASE_KEY_ALIAS=adjusternetwork
 MYAPP_RELEASE_STORE_PASSWORD=#{google_key_store_password}
 MYAPP_RELEASE_KEY_PASSWORD=#{google_key_store_password}
 
@@ -106,8 +106,6 @@ TEMPLATE
   key_store = Base64.decode64(File.open("my-release-key.keystore").read)
   File.write(File.expand_path("../android/app/my-release-key.keystore"), key_store)
 
-  google_services = File.open("keys/google-services.json").read
-  File.write(File.expand_path("../android/app/google-services.json"), google_services)
 end
 
 def secrets
@@ -153,14 +151,14 @@ platform :ios do
       type: "appstore",
       git_url: KEYS_REPOSITORY,
       api_key_path: "fastlane/keys/appstoreconnect-key.json",
-      app_identifier: ["org.discourse.DiscourseApp", "org.discourse.DiscourseApp.ShareExtension"]
+      app_identifier: ["org.adjusternetwork.app", "org.adjusternetwork.app.ShareExtension"]
     )
     match(
       force: true,
       type: "adhoc",
       git_url: KEYS_REPOSITORY,
       api_key_path: "fastlane/keys/appstoreconnect-key.json",
-      app_identifier: ["org.discourse.DiscourseApp", "org.discourse.DiscourseApp.ShareExtension"]
+      app_identifier: ["org.adjusternetwork.app", "org.adjusternetwork.app.ShareExtension"]
     )
     # match(force: true, type: "development", git_url: KEYS_REPOSITORY)
   end
@@ -172,8 +170,8 @@ platform :ios do
       export_method: "app-store",
       export_options: {
         provisioningProfiles: {
-          "org.discourse.DiscourseApp" => "match AppStore org.discourse.DiscourseApp 1776778136",
-          "org.discourse.DiscourseApp.ShareExtension" => "match AppStore org.discourse.DiscourseApp.ShareExtension 1776778138"
+          "org.adjusternetwork.app" => "match AppStore org.adjusternetwork.app",
+          "org.adjusternetwork.app.ShareExtension" => "match AppStore org.adjusternetwork.app.ShareExtension"
         }
       },
       clean: true,
@@ -194,8 +192,8 @@ platform :ios do
       export_method: "ad-hoc",
       export_options: {
         provisioningProfiles: {
-          "org.discourse.DiscourseApp" => "match AdHoc org.discourse.DiscourseApp 1776778144",
-          "org.discourse.DiscourseApp.ShareExtension" => "match AdHoc org.discourse.DiscourseApp.ShareExtension 1776778146"
+          "org.adjusternetwork.app" => "match AdHoc org.adjusternetwork.app",
+          "org.adjusternetwork.app.ShareExtension" => "match AdHoc org.adjusternetwork.app.ShareExtension"
         }
       },
       clean: true,

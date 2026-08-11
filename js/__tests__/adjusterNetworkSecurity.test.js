@@ -31,10 +31,13 @@ describe('native navigation security boundary', () => {
   });
 
   test('accepts only exact supported callback authorities', () => {
-    expect(isSafeAuthCallback('discourse://auth_redirect?payload=opaque')).toBe(
+    expect(
+      isSafeAuthCallback('adjusternetwork://auth_redirect?payload=opaque'),
+    ).toBe(true);
+    expect(isSafeAuthCallback('adjusternetwork://open?siteUrl=x')).toBe(true);
+    expect(isSafeAuthCallback('adjusternetwork://share?sharedUrl=x')).toBe(
       true,
     );
-    expect(isSafeAuthCallback('discourse://open?siteUrl=x')).toBe(true);
     expect(isSafeAuthCallback('discourse://auth_redirect.evil?payload=x')).toBe(
       false,
     );

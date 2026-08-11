@@ -53,7 +53,6 @@ react {
     /* Autolinking */
     autolinkLibrariesWithApp()
 }
-
 /**
  * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
  */
@@ -80,11 +79,11 @@ android {
     compileSdk rootProject.ext.compileSdkVersion
 
     defaultConfig {
-        applicationId "com.discourse"
+        applicationId "org.adjusternetwork.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         multiDexEnabled true
-        versionCode 243
+        versionCode 1
         versionName MYAPP_VERSION
     }
 
@@ -131,6 +130,4 @@ dependencies {
 
     implementation 'org.jetbrains:annotations:16.0.2'
 }
-
-apply plugin: 'com.google.gms.google-services'
 

@@ -19,7 +19,7 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.3</string>
+	<string>1.0.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleURLTypes</key>
@@ -28,16 +28,16 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>org.discourse.DiscourseApp</string>
+			<string>org.adjusternetwork.app</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>discourse</string>
+				<string>adjusternetwork</string>
 			</array>
 		</dict>
 		<dict/>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>700</string>
+	<string>1</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSApplicationQueriesSchemes</key>
@@ -61,7 +61,7 @@
 	<string>Allows the app to upload images from your library into an Adjuster Network post.</string>
 	<key>NSUserActivityTypes</key>
 	<array>
-		<string>org.discourse.DiscourseApp.SiriShortcut</string>
+		<string>org.adjusternetwork.app.SiriShortcut</string>
 	</array>
 	<key>RCTNewArchEnabled</key>
 	<true/>
@@ -75,7 +75,6 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
-		<string>remote-notification</string>
 	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>

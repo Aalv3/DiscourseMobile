@@ -42,14 +42,18 @@ export const nativeContracts = Object.freeze({
   authentication: Object.freeze({
     protocol: 'discourse_user_api_key_v2',
     approvalSurface: 'system_browser',
-    callback: 'discourse://auth_redirect',
+    callback: 'adjusternetwork://auth_redirect',
     tokenStorage: 'async_storage',
     serverAuthoritative: true,
   }),
   deepLinks: Object.freeze({
     canonicalOrigin: 'https://adjusternetwork.org',
-    notificationRoute: 'discourse://open',
-    appLinks: 'release_gated',
+    notificationRoute: 'adjusternetwork://open',
+    appLinks: Object.freeze([
+      'https://adjusternetwork.org/t/*',
+      'https://adjusternetwork.org/c/*',
+      'https://adjusternetwork.org/u/*',
+    ]),
   }),
   appearance: Object.freeze({
     source: 'system',

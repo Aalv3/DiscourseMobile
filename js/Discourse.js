@@ -8,14 +8,12 @@ import {
   Appearance,
   AppState,
   Linking,
-  PermissionsAndroid,
   Platform,
   NativeModules,
   NativeEventEmitter,
   Settings,
   StatusBar,
   StyleSheet,
-  ToastAndroid,
   View,
 } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
@@ -132,56 +130,6 @@ class Discourse extends React.Component {
       PushNotificationIOS.getInitialNotification().then(e => {
         if (e) {
           this._handleNotification(e);
-        }
-      });
-    }
-
-    if (adjusterNetwork.features.push && Platform.OS === 'android') {
-      const firebaseMessaging = require('./platforms/firebase').default;
-      PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
-      );
-
-      firebaseMessaging.getToken().then(fcmToken => {
-        if (fcmToken) {
-          this._siteManager.registerClientId(fcmToken);
-        }
-      });
-
-      this.onTokenRefreshListener = firebaseMessaging.onTokenRefresh(
-        fcmToken => {
-          if (fcmToken) {
-            this._siteManager.registerClientId(fcmToken);
-          }
-        },
-      );
-
-      // notification received while app is in foreground
-      // visible alert currently unsupported
-      // show just a toast for now
-      firebaseMessaging.onMessage(async remoteMessage => {
-        const message =
-          remoteMessage.notification.title +
-          '\n' +
-          remoteMessage.notification.body;
-        ToastAndroid.show(message, ToastAndroid.LONG);
-      });
-
-      // notification clicked while app is in background/closed
-      firebaseMessaging.onNotificationOpenedApp(async remoteMessage => {
-        let url = null;
-
-        if (remoteMessage.data.payload) {
-          // new v1 FCM API
-          const payload = JSON.parse(remoteMessage.data.payload);
-          url = payload.discourse_url;
-        } else {
-          // legacy FCM API
-          url = remoteMessage.data.discourse_url;
-        }
-
-        if (url) {
-          this.openUrl(url);
         }
       });
     }
@@ -332,7 +280,7 @@ class Discourse extends React.Component {
       addShortcutListener(({ userInfo }) => {
         if (userInfo.siteUrl) {
           this._handleOpenUrl({
-            url: `discourse://share?sharedUrl=${userInfo.siteUrl}`,
+            url: `adjusternetwork://share?sharedUrl=${userInfo.siteUrl}`,
           });
         }
       });
