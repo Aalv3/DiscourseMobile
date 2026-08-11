@@ -17,6 +17,7 @@
     "test:unit": "jest",
     "test:unit:watch": "jest --watch",
     "verify:backend": "node scripts/verify-backend-contract.mjs",
+    "verify:release-readiness": "node scripts/verify-native-release-readiness.mjs",
     "test-ipad": "detox test --configuration ios.sim.debug -n 'iPad (10th generation)'"
   },
   "dependencies": {
