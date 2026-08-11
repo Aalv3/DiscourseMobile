@@ -27,15 +27,18 @@ corepack yarn eslint
 corepack yarn test:unit --runInBand
 corepack yarn verify:release-readiness | tee "$evidence_root/readiness.json"
 
-rm -rf "$repo_root/ios/build-readiness"
-xcodebuild \
-  -workspace ios/Discourse.xcworkspace \
-  -scheme Discourse \
-  -configuration Release \
-  -sdk iphonesimulator \
-  -destination 'generic/platform=iOS Simulator' \
-  -derivedDataPath ios/build-readiness \
-  CODE_SIGNING_ALLOWED=NO \
-  build | tee "$evidence_root/xcodebuild.log"
+for configuration in Debug Release; do
+  configuration_slug=$(printf '%s' "$configuration" | tr '[:upper:]' '[:lower:]')
+  derived_data="ios/build-readiness-$configuration_slug"
+  xcodebuild \
+    -workspace ios/Discourse.xcworkspace \
+    -scheme Discourse \
+    -configuration "$configuration" \
+    -sdk iphonesimulator \
+    -destination 'generic/platform=iOS Simulator' \
+    -derivedDataPath "$derived_data" \
+    CODE_SIGNING_ALLOWED=NO \
+    clean build | tee "$evidence_root/xcodebuild-$configuration_slug.log"
+done
 
-printf '%s\n' 'BUILD PASS. Continue with the manual runtime matrix in docs/IOS-MAC-RELEASE-READINESS-WAVE.md.'
+printf '%s\n' 'DEBUG + RELEASE BUILDS PASS. Continue with the manual runtime matrix in docs/IOS-MAC-RELEASE-READINESS-WAVE.md.'

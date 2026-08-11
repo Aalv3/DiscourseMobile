@@ -11320,8 +11320,8 @@ __metadata:
 
 "react-native-safari-web-auth@file:vendor/react-native-safari-web-auth::locator=discourse-mobile%40workspace%3A.":
   version: 2.0.0-adjuster-network.1
-  resolution: "react-native-safari-web-auth@file:vendor/react-native-safari-web-auth#vendor/react-native-safari-web-auth::hash=e5f9b8&locator=discourse-mobile%40workspace%3A."
-  checksum: 10/fd0a02e3b4376e016728d9918b1e95794f2c174374c70aa14137f8c011fdb75631c7566d2af93c7c2b195d396fed183b030b2f96ea626761616c22f55ac57c9e
+  resolution: "react-native-safari-web-auth@file:vendor/react-native-safari-web-auth#vendor/react-native-safari-web-auth::hash=5cb38c&locator=discourse-mobile%40workspace%3A."
+  checksum: 10/507e92934fd643f00c96b7eaee2fc0dd5be2b5933b90fce85591b80a9349f7fa09e42c12e61a0b8b950773a11be2ebea2e7b85b4ff91bbc96291b5c835f2e600
   languageName: node
   linkType: hard
 

@@ -38,10 +38,18 @@ target 'Discourse' do
     # 0.80 pins that fmt version, so compile only this pod as C++17 until React
     # Native is upgraded to a version that includes a newer fmt release.
     installer.pods_project.targets.each do |target|
-      next unless target.name == "fmt"
-
       target.build_configurations.each do |build_config|
-        build_config.build_settings["CLANG_CXX_LANGUAGE_STANDARD"] = "c++17"
+        if target.name == "fmt"
+          build_config.build_settings["CLANG_CXX_LANGUAGE_STANDARD"] = "c++17"
+        end
+
+        # Xcode 26 no longer supports the oldest deployment targets declared by
+        # transitive pods. The app already requires a newer iOS version, so
+        # normalize only lower pod declarations to the established Podfile floor.
+        declared_target = build_config.build_settings["IPHONEOS_DEPLOYMENT_TARGET"]
+        if declared_target && Gem::Version.new(declared_target) < app_ios_deployment_target
+          build_config.build_settings["IPHONEOS_DEPLOYMENT_TARGET"] = app_ios_deployment_target.version
+        end
       end
     end
 
