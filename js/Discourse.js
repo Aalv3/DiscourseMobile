@@ -45,6 +45,16 @@ import { BlurView } from '@react-native-community/blur';
 
 import BackgroundFetch from './platforms/background-fetch';
 import { shouldOpenCallbackOneTimePassword } from './authAttempt';
+import {
+  AskScreen,
+  DiscussionsScreen,
+  FloorScreen,
+  IntelligenceScreen,
+  OnboardingScreen,
+  ProfileScreen,
+  WelcomeScreen,
+  onboardingComplete,
+} from './product/ProductScreens';
 
 const { DiscourseKeyboardShortcuts } = NativeModules;
 
@@ -144,6 +154,10 @@ class Discourse extends React.Component {
       largerUI: largerUI,
       theme: colorScheme === 'dark' ? themes.dark : themes.light,
       privacyShield: false,
+      signedIn: false,
+      onboardingReady: false,
+      onboardingDone: false,
+      connecting: false,
     };
 
     this.subscription = Appearance.addChangeListener(() => {
@@ -254,6 +268,16 @@ class Discourse extends React.Component {
   }
 
   componentDidMount() {
+    this._productSiteSubscription = () => {
+      this.setState({
+        signedIn: this._siteManager.connectedSitesCount() > 0,
+      });
+    };
+    this._siteManager.subscribe(this._productSiteSubscription);
+    this._productSiteSubscription();
+    onboardingComplete().then(done =>
+      this.setState({ onboardingReady: true, onboardingDone: done }),
+    );
     this._appStateSubscription = AppState.addEventListener(
       'change',
       this._handleAppStateChange,
@@ -391,6 +415,7 @@ class Discourse extends React.Component {
   }
 
   componentWillUnmount() {
+    this._siteManager.unsubscribe(this._productSiteSubscription);
     this.eventEmitter?.removeAllListeners('keyInputEvent');
     this._appStateSubscription?.remove();
     this._handleOpenUrlSubscription?.remove();
@@ -425,6 +450,38 @@ class Discourse extends React.Component {
           Linking.openURL(url);
         }
       });
+    }
+  }
+
+  async connectCanonical() {
+    this.setState({ connecting: true });
+    try {
+      let site = this._siteManager
+        .listSites()
+        .find(item => isCanonicalUrl(item.url));
+      if (!site) {
+        site = await Site.fromTerm(adjusterNetwork.canonicalOrigin);
+        if (!site) {
+          Alert.alert(
+            'Unable to connect',
+            'Adjuster Network could not be reached. Check your connection and try again.',
+          );
+          return;
+        }
+        this._siteManager.add(site);
+      }
+      this._siteManager.setActiveSite(site);
+      const authUrl = await this._siteManager.generateAuthURL(site);
+      if (Platform.OS === 'ios') {
+        const returnUrl = await this._siteManager.requestAuth(authUrl);
+        if (returnUrl) this.openUrl(returnUrl);
+      } else {
+        this.openUrl(authUrl);
+      }
+    } catch {
+      Alert.alert('Unable to connect', 'Please try again in a moment.');
+    } finally {
+      this.setState({ connecting: false });
     }
   }
 
@@ -474,6 +531,32 @@ class Discourse extends React.Component {
     };
 
     const theme = this.state.theme;
+
+    if (!this.state.signedIn) {
+      return (
+        <ThemeContext.Provider value={theme}>
+          <StatusBar barStyle={theme.barStyle} />
+          <WelcomeScreen
+            busy={this.state.connecting}
+            onConnect={() => this.connectCanonical()}
+            onLogin={() => this.connectCanonical()}
+          />
+          {this.state.privacyShield && this._blurView(theme.name)}
+        </ThemeContext.Provider>
+      );
+    }
+
+    if (this.state.onboardingReady && !this.state.onboardingDone) {
+      return (
+        <ThemeContext.Provider value={theme}>
+          <StatusBar barStyle={theme.barStyle} />
+          <OnboardingScreen
+            onFinish={() => this.setState({ onboardingDone: true })}
+          />
+          {this.state.privacyShield && this._blurView(theme.name)}
+        </ThemeContext.Provider>
+      );
+    }
 
     return (
       <NavigationContainer>
@@ -527,19 +610,19 @@ class Discourse extends React.Component {
                     }}
                   >
                     {props => (
-                      <Screens.Home
+                      <FloorScreen
                         {...props}
                         screenProps={{ ...screenProps }}
                       />
                     )}
                   </Tab.Screen>
                   <Tab.Screen
-                    name={'Notifications'}
+                    name={'Discussions'}
                     options={{
-                      title: adjusterNetwork.navigation.activity.label,
+                      title: 'Discussions',
                       tabBarIcon: ({ color }) => (
                         <FontAwesome5
-                          name={'bell'}
+                          name={'comments'}
                           size={18}
                           color={color}
                           iconStyle="solid"
@@ -548,7 +631,67 @@ class Discourse extends React.Component {
                     }}
                   >
                     {props => (
-                      <Screens.Notifications
+                      <DiscussionsScreen
+                        {...props}
+                        screenProps={{ ...screenProps }}
+                      />
+                    )}
+                  </Tab.Screen>
+                  <Tab.Screen
+                    name="Ask"
+                    options={{
+                      title: 'Ask',
+                      tabBarIcon: ({ color }) => (
+                        <FontAwesome5
+                          name="plus-circle"
+                          size={20}
+                          color={color}
+                          iconStyle="solid"
+                        />
+                      ),
+                    }}
+                  >
+                    {props => (
+                      <AskScreen {...props} screenProps={{ ...screenProps }} />
+                    )}
+                  </Tab.Screen>
+                  <Tab.Screen
+                    name="Intelligence"
+                    options={{
+                      title: 'Intel',
+                      tabBarIcon: ({ color }) => (
+                        <FontAwesome5
+                          name="signal"
+                          size={18}
+                          color={color}
+                          iconStyle="solid"
+                        />
+                      ),
+                    }}
+                  >
+                    {props => (
+                      <IntelligenceScreen
+                        {...props}
+                        screenProps={{ ...screenProps }}
+                      />
+                    )}
+                  </Tab.Screen>
+                  <Tab.Screen
+                    name="Profile"
+                    options={{
+                      title: 'You',
+                      tabBarIcon: ({ color }) => (
+                        <FontAwesome5
+                          name="user"
+                          size={18}
+                          color={color}
+                          iconStyle="solid"
+                        />
+                      ),
+                    }}
+                  >
+                    {props => (
+                      <ProfileScreen
                         {...props}
                         screenProps={{ ...screenProps }}
                       />
