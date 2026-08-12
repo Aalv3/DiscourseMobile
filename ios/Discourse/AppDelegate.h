@@ -1,5 +1,6 @@
 
 #import <RCTAppDelegate.h>
+#import <Expo/Expo.h>
 #import <UIKit/UIKit.h>
 #import <UserNotifications/UserNotifications.h>
 #import <UserNotifications/UNUserNotificationCenter.h>

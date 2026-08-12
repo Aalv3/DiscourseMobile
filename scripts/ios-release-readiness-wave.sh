@@ -22,8 +22,8 @@ pod --version
 corepack yarn install --immutable
 bundle install
 bundle exec pod install --project-directory=ios
-corepack yarn prettier
-corepack yarn eslint
+corepack yarn format:check
+corepack yarn lint
 corepack yarn test:unit --runInBand
 corepack yarn verify:release-readiness | tee "$evidence_root/readiness.json"
 

@@ -11,8 +11,8 @@
 
 ```text
 corepack yarn install --immutable
-corepack yarn prettier
-corepack yarn eslint
+corepack yarn format:check
+corepack yarn lint
 corepack yarn test:unit --runInBand
 corepack yarn verify:backend
 ```

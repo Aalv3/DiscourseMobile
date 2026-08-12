@@ -1,4 +1,5 @@
 {
-  "name": "Discourse",
-  "displayName": "Adjuster Network"
+  "name": "Adjuster Network",
+  "slug": "adjuster-network",
+  "version": "1.0.0"
 }

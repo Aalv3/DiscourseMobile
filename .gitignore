@@ -91,3 +91,8 @@ fastlane/report.xml
 !.yarn/sdks
 !.yarn/versions
 .aider*
+
+# Expo
+.expo
+dist/
+web-build/

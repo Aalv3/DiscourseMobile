@@ -44,8 +44,8 @@ reporting are disabled; no `google-services.json` is required or permitted for t
 
 ```powershell
 corepack yarn install --immutable
-corepack yarn prettier
-corepack yarn eslint
+corepack yarn format:check
+corepack yarn lint
 corepack yarn test:unit --runInBand
 corepack yarn verify:backend
 & .\android\gradlew.bat -p android assembleDebug --no-daemon
