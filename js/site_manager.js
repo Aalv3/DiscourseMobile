@@ -480,7 +480,7 @@ class SiteManager {
           return this.generateNonce(site);
         })
         .then(nonce => {
-          let scopes = 'notifications,session_info,one_time_password';
+          let scopes = 'read,notifications,session_info,one_time_password';
 
           let params = {
             scopes: scopes,
