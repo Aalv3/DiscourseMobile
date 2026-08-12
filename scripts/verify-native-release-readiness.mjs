@@ -11,6 +11,11 @@ const iosInfo = read('ios/Discourse/Info.plist');
 const iosEntitlements = read('ios/Discourse/Discourse.entitlements');
 const productConfig = read('js/adjusterNetworkConfig.js');
 const packageManifest = read('package.json');
+const siteManager = read('js/site_manager.js');
+const productScreens = read('js/product/ProductScreens.js');
+const keyPairPatch = read(
+  '.yarn/patches/react-native-key-pair-https-9b14573360.patch',
+);
 
 check(
   'privacy controls',
@@ -84,6 +89,25 @@ check(
   'iOS ATS',
   iosInfo.includes('<key>NSAllowsArbitraryLoads</key>\n\t<false/>') ? 'PASS' : 'FAIL',
   'Arbitrary loads must remain disabled',
+);
+check(
+  'iOS authentication key lifecycle',
+  packageManifest.includes('react-native-key-pair-https-9b14573360.patch') &&
+    keyPairPatch.includes('SecItemDelete((CFDictionaryRef)oldPrivateKey)') &&
+    siteManager.includes('keys = await credentialStore.readRSAKeys()') &&
+    siteManager.includes('await credentialStore.storeRSAKeys(keys)')
+    ? 'PASS'
+    : 'FAIL',
+  'Temporary RSA staging keys must be removed and Keychain failures must reject instead of leaving authentication pending',
+);
+check(
+  'iOS canonical welcome branding',
+  productScreens.includes("height: 171, aspectRatio: 1183 / 845") &&
+    productScreens.includes("overflow: 'hidden'") &&
+    productScreens.includes('accessibilityLabel="Adjuster Network"')
+    ? 'PASS'
+    : 'FAIL',
+  'The canonical Retina logo must remain bounded, aspect-correct and accessible',
 );
 check(
   'iOS runtime evidence',

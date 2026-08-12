@@ -29,7 +29,9 @@ corepack yarn verify:release-readiness | tee "$evidence_root/readiness.json"
 
 for configuration in Debug Release; do
   configuration_slug=$(printf '%s' "$configuration" | tr '[:upper:]' '[:lower:]')
-  derived_data="ios/build-readiness-$configuration_slug"
+  # Keep generated binary plists outside ios/. CocoaPods recursively scans the
+  # project directory and can otherwise attempt to parse DerivedData artifacts.
+  derived_data="$evidence_root/derived-data-$configuration_slug"
   xcodebuild \
     -workspace ios/Discourse.xcworkspace \
     -scheme Discourse \

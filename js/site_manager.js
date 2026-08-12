@@ -151,35 +151,34 @@ class SiteManager {
   }
 
   async ensureRSAKeys() {
-    return new Promise(resolve => {
-      if (this.rsaKeys) {
-        resolve();
-        return;
+    if (this.rsaKeys) {
+      return;
+    }
+
+    let keys = await credentialStore.readRSAKeys();
+    if (!keys) {
+      const legacyKeys = await AsyncStorage.getItem('@Discourse.rsaKeys');
+      if (legacyKeys) {
+        keys = JSON.parse(legacyKeys);
+      } else {
+        keys = await new Promise((resolve, reject) => {
+          RNKeyPair.generate(pair => {
+            if (pair?.public && pair?.private) {
+              resolve(pair);
+            } else {
+              reject(new Error('rsa_key_generation_failed'));
+            }
+          });
+        });
       }
 
-      credentialStore.readRSAKeys().then(keys => {
-        if (keys) {
-          this.rsaKeys = keys;
-          resolve();
-          return;
-        }
-        AsyncStorage.getItem('@Discourse.rsaKeys').then(json => {
-          if (json) {
-            this.rsaKeys = JSON.parse(json);
-            credentialStore
-              .storeRSAKeys(this.rsaKeys)
-              .then(() =>
-                AsyncStorage.removeItem('@Discourse.rsaKeys').then(resolve),
-              );
-          } else {
-            RNKeyPair.generate(pair => {
-              this.rsaKeys = pair;
-              credentialStore.storeRSAKeys(this.rsaKeys).then(resolve);
-            });
-          }
-        });
-      });
-    });
+      await credentialStore.storeRSAKeys(keys);
+      if (legacyKeys) {
+        await AsyncStorage.removeItem('@Discourse.rsaKeys');
+      }
+    }
+
+    this.rsaKeys = keys;
   }
 
   isLoading() {

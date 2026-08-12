@@ -47,7 +47,7 @@
     "react-native-draggable-flatlist": "^4.0.3",
     "react-native-gesture-handler": "^2.15.0",
     "react-native-immutable-list-view": "^2.0.0",
-    "react-native-key-pair": "git+https://github.com/samsaffron/react-native-key-pair",
+    "react-native-key-pair": "patch:react-native-key-pair@https%3A//github.com/samsaffron/react-native-key-pair.git%23commit=824e17546e3c258826bd7b41bb38b46c26bef50f#~/.yarn/patches/react-native-key-pair-https-9b14573360.patch",
     "react-native-keychain": "10.0.0",
     "react-native-localize": "^2.2.3",
     "react-native-popover-view": "^5.1.9",

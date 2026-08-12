@@ -5587,7 +5587,7 @@ __metadata:
     react-native-draggable-flatlist: "npm:^4.0.3"
     react-native-gesture-handler: "npm:^2.15.0"
     react-native-immutable-list-view: "npm:^2.0.0"
-    react-native-key-pair: "git+https://github.com/samsaffron/react-native-key-pair"
+    react-native-key-pair: "patch:react-native-key-pair@https%3A//github.com/samsaffron/react-native-key-pair.git%23commit=824e17546e3c258826bd7b41bb38b46c26bef50f#~/.yarn/patches/react-native-key-pair-https-9b14573360.patch"
     react-native-keychain: "npm:10.0.0"
     react-native-localize: "npm:^2.2.3"
     react-native-popover-view: "npm:^5.1.9"
@@ -11244,10 +11244,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-key-pair@git+https://github.com/samsaffron/react-native-key-pair":
+"react-native-key-pair@https://github.com/samsaffron/react-native-key-pair.git#commit=824e17546e3c258826bd7b41bb38b46c26bef50f":
   version: 1.1.2
   resolution: "react-native-key-pair@https://github.com/samsaffron/react-native-key-pair.git#commit=824e17546e3c258826bd7b41bb38b46c26bef50f"
   checksum: 10/b717f9ee41bb5cccccc9fb4b836bd2c61ca87b1aed35b68e180aa0f6e42cd62bee10f73d676e13cbee3202745bd3a2f1ce2f133fed45ae36535ca1c9ef45fdae
+  languageName: node
+  linkType: hard
+
+"react-native-key-pair@patch:react-native-key-pair@https%3A//github.com/samsaffron/react-native-key-pair.git%23commit=824e17546e3c258826bd7b41bb38b46c26bef50f#~/.yarn/patches/react-native-key-pair-https-9b14573360.patch":
+  version: 1.1.2
+  resolution: "react-native-key-pair@patch:react-native-key-pair@https%3A//github.com/samsaffron/react-native-key-pair.git%23commit=824e17546e3c258826bd7b41bb38b46c26bef50f#~/.yarn/patches/react-native-key-pair-https-9b14573360.patch::version=1.1.2&hash=84a9b5"
+  checksum: 10/e58d83ef7c1e5b6e01f6683d22b06c85656f71b60220cd871a7a6f0022c0c755cd90237e80b93eadb22529a9723605b65e9c7250757fccce92b5413c6700a1eb
   languageName: node
   linkType: hard
 
@@ -11320,8 +11327,8 @@ __metadata:
 
 "react-native-safari-web-auth@file:vendor/react-native-safari-web-auth::locator=discourse-mobile%40workspace%3A.":
   version: 2.0.0-adjuster-network.1
-  resolution: "react-native-safari-web-auth@file:vendor/react-native-safari-web-auth#vendor/react-native-safari-web-auth::hash=5cb38c&locator=discourse-mobile%40workspace%3A."
-  checksum: 10/507e92934fd643f00c96b7eaee2fc0dd5be2b5933b90fce85591b80a9349f7fa09e42c12e61a0b8b950773a11be2ebea2e7b85b4ff91bbc96291b5c835f2e600
+  resolution: "react-native-safari-web-auth@file:vendor/react-native-safari-web-auth#vendor/react-native-safari-web-auth::hash=c6b996&locator=discourse-mobile%40workspace%3A."
+  checksum: 10/12ca5e0b6c7fbe6b7bee7aceb16bb6a46348d0588f7fa7417264f3d12d58fd97fe4db6a457b521df4e848a29130871849bda4d4f1a1736461653b1a2eb46b6a6
   languageName: node
   linkType: hard
 

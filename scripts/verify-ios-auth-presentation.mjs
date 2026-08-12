@@ -4,6 +4,13 @@ const source = fs.readFileSync(
   new URL('../vendor/react-native-safari-web-auth/ios/SafariWebAuth.mm', import.meta.url),
   'utf8',
 );
+const podspec = fs.readFileSync(
+  new URL(
+    '../vendor/react-native-safari-web-auth/react-native-safari-web-auth.podspec',
+    import.meta.url,
+  ),
+  'utf8',
+);
 
 const assertions = [
   ['uses a connected UIWindowScene', source.includes('UIApplication.sharedApplication.connectedScenes')],
@@ -14,6 +21,10 @@ const assertions = [
   ['does not create an unattached anchor', !source.includes('[[UIWindow alloc] init]')],
   ['settles the native promise only once', source.includes('if (settled)') && source.includes('settled = YES')],
   ['does not compile Swift in the auth pod', !fs.existsSync(new URL('../vendor/react-native-safari-web-auth/ios/SafariWebAuth.swift', import.meta.url))],
+  [
+    'links AuthenticationServices explicitly',
+    podspec.includes('s.frameworks = "AuthenticationServices", "UIKit"'),
+  ],
 ];
 
 for (const [label, passed] of assertions) {

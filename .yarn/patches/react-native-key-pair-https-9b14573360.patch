@@ -1,0 +1,41 @@
+diff --git a/ios/RNKeyPair.m b/ios/RNKeyPair.m
+index 89ed9a45cf89f0a24424abfa0aed7b75197eb2a0..198879e7e4531c097b25a87d29b8f972428969bc 100644
+--- a/ios/RNKeyPair.m
++++ b/ios/RNKeyPair.m
+@@ -166,0 +167,16 @@ RCT_EXPORT_MODULE()
++    // These keys are only staging material used to export PEM strings. Older
++    // versions left them in the Keychain forever under fixed tags, causing all
++    // subsequent generation attempts (including after reinstall) to collide.
++    NSDictionary *oldPrivateKey = @{
++      (id)kSecClass : (id)kSecClassKey,
++      (id)kSecAttrApplicationTag : privateTag,
++      (id)kSecAttrKeyType : (id)kSecAttrKeyTypeRSA
++    };
++    NSDictionary *oldPublicKey = @{
++      (id)kSecClass : (id)kSecClassKey,
++      (id)kSecAttrApplicationTag : publicTag,
++      (id)kSecAttrKeyType : (id)kSecAttrKeyTypeRSA
++    };
++    SecItemDelete((CFDictionaryRef)oldPrivateKey);
++    SecItemDelete((CFDictionaryRef)oldPublicKey);
++
+@@ -169 +187,3 @@ RCT_EXPORT_MODULE()
+-    NSAssert( sanityCheck == noErr && publicKeyRef != NULL && privateKeyRef != NULL, @"Something really bad went wrong with generating the key pair." );
++    if (sanityCheck != noErr || publicKeyRef == NULL || privateKeyRef == NULL) {
++      return @{};
++    }
+@@ -193,0 +214,10 @@ RCT_EXPORT_MODULE()
++    if (publicKeyBits == nil || privateKeyBits == nil) {
++      SecItemDelete((CFDictionaryRef)oldPrivateKey);
++      SecItemDelete((CFDictionaryRef)oldPublicKey);
++      if (publicKeyRef) CFRelease(publicKeyRef);
++      if (privateKeyRef) CFRelease(privateKeyRef);
++      if (publicKeyBits) CFRelease(publicKeyBits);
++      if (privateKeyBits) CFRelease(privateKeyBits);
++      return @{};
++    }
++
+@@ -197,0 +231,3 @@ RCT_EXPORT_MODULE()
++    SecItemDelete((CFDictionaryRef)oldPrivateKey);
++    SecItemDelete((CFDictionaryRef)oldPublicKey);
++

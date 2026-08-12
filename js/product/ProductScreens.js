@@ -766,8 +766,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
     padding: 10,
+    overflow: 'hidden',
   },
-  brandLogo: { width: 240, aspectRatio: 1183 / 845 },
+  // An explicit height prevents Fabric from falling back to the PNG's Retina
+  // pixel dimensions while it resolves the intrinsic image size.
+  brandLogo: { width: 240, height: 171, aspectRatio: 1183 / 845 },
   welcomeTitle: { fontSize: 38, lineHeight: 44, fontWeight: '850' },
   welcomeBody: { fontSize: 18, lineHeight: 27 },
   valueCard: {
