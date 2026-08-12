@@ -5,6 +5,8 @@ import * as Keychain from 'react-native-keychain';
 
 const USERNAME = 'adjuster-network';
 const RSA_SERVICE = 'org.adjusternetwork.native.rsa.v1';
+const PUSH_INSTALLATION_SERVICE =
+  'org.adjusternetwork.native.push-installation.v1';
 
 function originKey(origin) {
   let hash = 5381;
@@ -51,5 +53,14 @@ export const credentialStore = Object.freeze({
   },
   removeRSAKeys() {
     return remove(RSA_SERVICE);
+  },
+  storePushInstallationId(installationId) {
+    return store(PUSH_INSTALLATION_SERVICE, installationId);
+  },
+  readPushInstallationId() {
+    return read(PUSH_INSTALLATION_SERVICE);
+  },
+  removePushInstallationId() {
+    return remove(PUSH_INSTALLATION_SERVICE);
   },
 });

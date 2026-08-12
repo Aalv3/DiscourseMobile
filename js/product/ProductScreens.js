@@ -25,6 +25,7 @@ import {
 } from './ProductComponents';
 import { activeMemberSite, loadCommunity, topicPath } from './ProductData';
 import { radius, spacing } from './DesignSystem';
+import { adjusterNetwork } from '../adjusterNetworkConfig';
 
 const ONBOARDING_KEY = '@AdjusterNetwork.onboarding.v1';
 const interests = ['CAT & Storm', 'Property', 'Auto', 'Field Tools', 'Career'];
@@ -582,6 +583,12 @@ export function ProfileScreen({ screenProps }) {
         </View>
       </Card>
       <SectionTitle title="Account" />
+      {adjusterNetwork.features.pushEducation ? (
+        <NotificationEducation
+          status={screenProps.pushStatus}
+          onEnable={screenProps.enablePush}
+        />
+      ) : null}
       <ProfileLink
         icon="user"
         label="View profile"
@@ -615,6 +622,46 @@ export function ProfileScreen({ screenProps }) {
     </Screen>
   );
 }
+
+const NotificationEducation = ({ status, onEnable }) => {
+  const colors = useProductTheme();
+  const denied = status === 'denied';
+  const enabled = status === 'enabled';
+  return (
+    <Card style={styles.notificationEducation}>
+      <View style={styles.notificationEducationHeader}>
+        <FontAwesome5
+          name="bell"
+          size={18}
+          color={colors.accent}
+          iconStyle="solid"
+        />
+        <Text style={[styles.cardTitle, { color: colors.text }]}>
+          Notifications
+        </Text>
+      </View>
+      <Text style={[styles.cardBody, { color: colors.muted }]}>
+        {enabled
+          ? 'Important member activity is enabled for this device.'
+          : denied
+          ? 'Notifications are off. You can keep using every member feature.'
+          : 'Choose whether this device may alert you to important member activity. No marketing.'}
+      </Text>
+      {!enabled ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Enable member notifications"
+          onPress={onEnable}
+          style={[styles.notificationEnable, { borderColor: colors.accent }]}
+        >
+          <Text style={[styles.profileLabel, { color: colors.accent }]}>
+            Enable notifications
+          </Text>
+        </Pressable>
+      ) : null}
+    </Card>
+  );
+};
 
 const ProfileLink = ({ icon, label, detail, onPress, danger }) => {
   const colors = useProductTheme();
@@ -931,6 +978,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   profileLabel: { fontSize: 16, fontWeight: '650' },
+  notificationEducation: { marginBottom: spacing.md },
+  notificationEducationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  notificationEnable: {
+    minHeight: 44,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.md,
+  },
   onboarding: {
     flex: 1,
     width: '100%',

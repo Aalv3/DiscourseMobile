@@ -13,7 +13,13 @@ export const adjusterNetwork = Object.freeze({
     analytics: false,
     crashReporting: false,
     push: false,
+    pushEducation: false,
+    pushDelivery: false,
     publicNativePreview: false,
+  }),
+  push: Object.freeze({
+    backendOrigin: null,
+    environment: 'production',
   }),
   navigation: Object.freeze({
     floor: Object.freeze({

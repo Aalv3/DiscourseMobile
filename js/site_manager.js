@@ -46,6 +46,10 @@ class SiteManager {
     });
   }
 
+  setPushFoundation(pushFoundation) {
+    this.pushFoundation = pushFoundation;
+  }
+
   exists(site) {
     return !!_.find(this.sites, { url: site.url });
   }
@@ -75,6 +79,7 @@ class SiteManager {
     if (index >= 0) {
       let removableSite = this.sites.splice(index, 1)[0];
 
+      await this.pushFoundation?.logout(removableSite);
       if (removableSite.authToken) {
         await removableSite.revokeApiKey().catch(() => {});
       }

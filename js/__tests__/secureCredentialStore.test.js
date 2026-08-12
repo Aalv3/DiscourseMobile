@@ -32,4 +32,14 @@ describe('secure credential store', () => {
     const [, , options] = Keychain.setGenericPassword.mock.calls[0];
     expect(options.service).toBe('org.adjusternetwork.native.rsa.v1');
   });
+
+  test('stores push installation identity separately from account tokens', async () => {
+    await credentialStore.storePushInstallationId('synthetic-installation');
+    const [, value, options] = Keychain.setGenericPassword.mock.calls[0];
+    expect(value).toBe('synthetic-installation');
+    expect(options.service).toBe(
+      'org.adjusternetwork.native.push-installation.v1',
+    );
+    expect(options.accessible).toBe('device-only');
+  });
 });

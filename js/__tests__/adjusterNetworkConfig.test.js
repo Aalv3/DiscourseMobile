@@ -27,6 +27,8 @@ describe('Adjuster Network product boundary', () => {
       analytics: false,
       crashReporting: false,
       push: false,
+      pushEducation: false,
+      pushDelivery: false,
       publicNativePreview: false,
     });
   });

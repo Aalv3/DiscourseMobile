@@ -42,6 +42,11 @@ import {
   securityEvent,
 } from './adjusterNetworkSecurity';
 import { BlurView } from '@react-native-community/blur';
+import { PushFoundation } from './pushFoundation';
+import { PushBackendClient } from './pushBackendClient';
+import { pushInstallationStore } from './pushInstallationStore';
+import { pushTransport } from './platforms/push-transport';
+import { routePush } from './pushRouting';
 
 import BackgroundFetch from './platforms/background-fetch';
 import {
@@ -106,6 +111,19 @@ class Discourse extends React.Component {
   constructor(props) {
     super(props);
     this._siteManager = new SiteManager();
+    this._pushFoundation = new PushFoundation({
+      enabled: adjusterNetwork.features.pushDelivery,
+      environment: adjusterNetwork.push.environment,
+      appId: 'org.adjusternetwork.app',
+      appVersion: DeviceInfo.getVersion(),
+      build: DeviceInfo.getBuildNumber(),
+      store: pushInstallationStore,
+      transport: pushTransport,
+      client: new PushBackendClient({
+        origin: adjusterNetwork.push.backendOrigin,
+      }),
+    });
+    this._siteManager.setPushFoundation(this._pushFoundation);
     this._refresh = this._refresh.bind(this);
     this._initBackgroundFetch = this._initBackgroundFetch.bind(this);
 
@@ -162,6 +180,7 @@ class Discourse extends React.Component {
       onboardingReady: false,
       onboardingDone: false,
       connecting: false,
+      pushStatus: 'unknown',
     };
 
     this.subscription = Appearance.addChangeListener(() => {
@@ -187,12 +206,12 @@ class Discourse extends React.Component {
   }
 
   _handleNotification(e) {
-    const url = e._data && e._data.discourse_url;
-
-    if (url) {
-      this._siteManager.setActiveSite(url);
-      this.openUrl(url);
-    }
+    const site = this._siteManager.activeSite || this._siteManager.sites[0];
+    routePush(e?._data, {
+      origin: adjusterNetwork.canonicalOrigin,
+      authenticated: Boolean(site?.authToken),
+      openUrl: this.openUrl.bind(this),
+    });
   }
 
   async _handleOpenUrl(event) {
@@ -538,6 +557,13 @@ class Discourse extends React.Component {
       deviceId: this.state.deviceId,
       largerUI: this.state.largerUI,
       toggleTheme: this._toggleTheme.bind(this),
+      pushStatus: this.state.pushStatus,
+      enablePush: async () => {
+        const site = this._siteManager.activeSite || this._siteManager.sites[0];
+        if (!site) return;
+        const status = await this._pushFoundation.enable(site);
+        this.setState({ pushStatus: status });
+      },
     };
 
     const theme = this.state.theme;
