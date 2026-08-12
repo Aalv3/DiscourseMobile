@@ -523,16 +523,23 @@ class SiteManager {
   async requestAuth(url) {
     const authRequest = await requestIOSAuth(url, this.customScheme, false);
     const urlParams = this.parseURLparameters(authRequest);
+    let acceptedPayload = false;
 
     if (urlParams.payload) {
-      await this.handleAuthPayload(urlParams.payload);
+      acceptedPayload = await this.handleAuthPayload(urlParams.payload);
+      if (!acceptedPayload) {
+        throw new Error('auth_payload_rejected');
+      }
     }
 
     if (urlParams.oneTimePassword) {
       const OTP = this.decryptHelper(urlParams.oneTimePassword);
       return `${this.activeSite.url}/session/otp/${OTP}`;
     }
-    return this.activeSite.url;
+    // A payload callback has already completed native authorization. Do not
+    // immediately navigate to the site root: the signed-in navigator may not
+    // have mounted yet, and the product UI owns the post-login destination.
+    return acceptedPayload ? null : this.activeSite.url;
   }
 
   parseURLparameters(string) {

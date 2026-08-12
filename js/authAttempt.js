@@ -19,3 +19,7 @@ export function shouldOpenCallbackOneTimePassword(platform) {
   // separate native WebView session.
   return platform === 'ios';
 }
+
+export function shouldReportAuthFailure(connectedSitesCount) {
+  return connectedSitesCount < 1;
+}

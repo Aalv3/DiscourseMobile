@@ -44,12 +44,16 @@ import {
 import { BlurView } from '@react-native-community/blur';
 
 import BackgroundFetch from './platforms/background-fetch';
-import { shouldOpenCallbackOneTimePassword } from './authAttempt';
+import {
+  shouldOpenCallbackOneTimePassword,
+  shouldReportAuthFailure,
+} from './authAttempt';
 import {
   AskScreen,
   DiscussionsScreen,
   FloorScreen,
   IntelligenceScreen,
+  LoungeScreen,
   OnboardingScreen,
   ProfileScreen,
   WelcomeScreen,
@@ -479,7 +483,13 @@ class Discourse extends React.Component {
         this.openUrl(authUrl);
       }
     } catch {
-      Alert.alert('Unable to connect', 'Please try again in a moment.');
+      // iOS can deliver the verified callback through Linking while the
+      // presentation promise concurrently reports browser invalidation. Once
+      // the callback has established a connected site, that verified state is
+      // authoritative and must not be surfaced as a failed login.
+      if (shouldReportAuthFailure(this._siteManager.connectedSitesCount())) {
+        Alert.alert('Unable to connect', 'Please try again in a moment.');
+      }
     } finally {
       this.setState({ connecting: false });
     }
@@ -632,6 +642,27 @@ class Discourse extends React.Component {
                   >
                     {props => (
                       <DiscussionsScreen
+                        {...props}
+                        screenProps={{ ...screenProps }}
+                      />
+                    )}
+                  </Tab.Screen>
+                  <Tab.Screen
+                    name="Lounge"
+                    options={{
+                      title: 'Lounge',
+                      tabBarIcon: ({ color }) => (
+                        <FontAwesome5
+                          name="comment"
+                          size={18}
+                          color={color}
+                          iconStyle="solid"
+                        />
+                      ),
+                    }}
+                  >
+                    {props => (
+                      <LoungeScreen
                         {...props}
                         screenProps={{ ...screenProps }}
                       />

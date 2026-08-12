@@ -343,6 +343,56 @@ export function DiscussionsScreen({ screenProps }) {
   );
 }
 
+export function LoungeScreen({ screenProps }) {
+  const site = activeMemberSite(screenProps.siteManager);
+  const data = useCommunity(screenProps.siteManager);
+  const lounge = data.categories.find(
+    category => category.name.toLowerCase() === 'lounge',
+  );
+  const topics = lounge
+    ? data.topics.filter(topic => topic.category_id === lounge.id)
+    : [];
+
+  return (
+    <Screen>
+      <PageHeader eyebrow="Ordinary members" title="Lounge" />
+      <SectionTitle
+        title="Member conversation"
+        detail="A private place for useful peer connection beyond active claims work."
+      />
+      {data.loading ? (
+        <StateCard
+          loading
+          title="Loading the Lounge"
+          body="Checking for private member conversation."
+        />
+      ) : data.error ? (
+        <StateCard
+          icon="triangle-exclamation"
+          title="Lounge unavailable"
+          body="We couldn’t reach the private network. Nothing cached is being presented as current."
+          action={<Action label="Try again" onPress={data.refresh} secondary />}
+        />
+      ) : topics.length ? (
+        topics.map(topic => (
+          <TopicCard
+            key={topic.id}
+            topic={topic}
+            site={site}
+            openUrl={screenProps.openUrl}
+          />
+        ))
+      ) : (
+        <StateCard
+          icon="comment"
+          title="The Lounge is quiet"
+          body="There are no Lounge conversations to show yet."
+        />
+      )}
+    </Screen>
+  );
+}
+
 export function AskScreen({ screenProps }) {
   const colors = useProductTheme();
   const site = activeMemberSite(screenProps.siteManager);

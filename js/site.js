@@ -6,6 +6,7 @@ import _ from 'lodash';
 import fetch from './../lib/fetch';
 import { isCanonicalUrl } from './adjusterNetworkSecurity';
 import { credentialStore } from './secureCredentialStore';
+import { classifyAuthResponse } from './authResponsePolicy';
 
 class Site {
   static discoverUrl() {
@@ -160,10 +161,15 @@ class Site {
         .then(r1 => {
           if (r1.status === 200) {
             return r1.json();
-          } else if (r1.status === 401 || r1.status === 403) {
+          } else if (classifyAuthResponse(r1.status) === 'revoked') {
             this.logoff();
             credentialStore.removeSiteToken(this.url).catch(() => {});
             throw 'auth_revoked';
+          } else if (classifyAuthResponse(r1.status) === 'forbidden') {
+            // A valid, narrowly scoped user API key can be forbidden from an
+            // endpoint without being revoked. Preserve the session and let the
+            // caller render an unavailable state.
+            throw 'auth_forbidden';
           } else {
             // if (r1.status === 403) {
             //   this.logoff();
