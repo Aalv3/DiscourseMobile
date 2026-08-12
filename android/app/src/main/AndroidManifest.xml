@@ -1,69 +1,55 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-  xmlns:tools="http://schemas.android.com/tools" package="com.discourse">
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove"/>
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="remove"/>
-    <uses-permission android:name="android.permission.READ_PHONE_STATE" tools:node="remove"/>
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.VIBRATE"/>
-    <uses-permission android:name="${permissionName}" tools:node="remove"/>
-    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove"/>
-
-    <uses-feature
-        android:name="android.hardware.camera"
-        android:required="false" />
-    <uses-feature
-        android:name="android.hardware.camera.autofocus"
-        android:required="false" />
-
-    <application
-      android:name="com.discourse.MainApplication"
-      android:allowBackup="false"
-      android:label="@string/app_name"
-      android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
-      android:launchMode="singleTask"
-      android:exported="true"
-      android:icon="@mipmap/ic_launcher"
-      android:theme="@style/AppTheme"
-      android:supportsRtl="true"
-      android:usesCleartextTraffic="false">
-
-      <activity
-          android:name="com.discourse.MainActivity"
-          android:label="@string/app_name"
-          android:launchMode="singleTask"
-          android:configChanges="keyboard|keyboardHidden|orientation|screenSize"
-          android:exported="true">
-          <intent-filter>
-            <action android:name="android.intent.action.MAIN" />
-            <action android:name="android.intent.action.DOWNLOAD_COMPLETE"/>
-            <category android:name="android.intent.category.LAUNCHER" />
-          </intent-filter>
-          <intent-filter>
-              <action android:name="android.intent.action.VIEW" />
-              <category android:name="android.intent.category.DEFAULT" />
-              <category android:name="android.intent.category.BROWSABLE" />
-              <data android:scheme="adjusternetwork" android:host="auth_redirect" />
-          </intent-filter>
-          <intent-filter>
-              <action android:name="android.intent.action.VIEW" />
-              <category android:name="android.intent.category.DEFAULT" />
-              <category android:name="android.intent.category.BROWSABLE" />
-              <data android:scheme="adjusternetwork" android:host="open" />
-          </intent-filter>
-          <intent-filter android:autoVerify="true">
-              <action android:name="android.intent.action.VIEW" />
-              <category android:name="android.intent.category.DEFAULT" />
-              <category android:name="android.intent.category.BROWSABLE" />
-              <data android:scheme="https" android:host="adjusternetwork.org" />
-              <data android:pathPrefix="/t/" />
-              <data android:pathPrefix="/c/" />
-              <data android:pathPrefix="/u/" />
-          </intent-filter>
-          <intent-filter>
-              <action android:name="open_topic" />
-              <category android:name="android.intent.category.DEFAULT" />
-          </intent-filter>
-      </activity>
-    </application>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools" package="com.discourse">
+  <uses-permission android:name="android.permission.INTERNET"/>
+  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove"/>
+  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="remove"/>
+  <uses-permission android:name="android.permission.READ_PHONE_STATE" tools:node="remove"/>
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+  <uses-permission android:name="android.permission.VIBRATE"/>
+  <uses-permission android:name="${permissionName}" tools:node="remove"/>
+  <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove"/>
+  <uses-feature android:name="android.hardware.camera" android:required="false"/>
+  <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
+  <application android:name="com.discourse.MainApplication" android:allowBackup="false" android:label="@string/app_name" android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode" android:launchMode="singleTask" android:exported="true" android:icon="@mipmap/ic_launcher" android:theme="@style/AppTheme" android:supportsRtl="true" android:usesCleartextTraffic="false">
+    <activity android:name="com.discourse.MainActivity" android:label="@string/app_name" android:launchMode="singleTask" android:configChanges="keyboard|keyboardHidden|orientation|screenSize" android:exported="true">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <action android:name="android.intent.action.DOWNLOAD_COMPLETE"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="adjusternetwork" android:host="auth_redirect"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="adjusternetwork" android:host="open"/>
+      </intent-filter>
+      <intent-filter android:autoVerify="true">
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="https" android:host="adjusternetwork.org"/>
+        <data android:pathPrefix="/t/"/>
+        <data android:pathPrefix="/c/"/>
+        <data android:pathPrefix="/u/"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="open_topic"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+      </intent-filter>
+    </activity>
+    <meta-data android:name="expo.modules.updates.ENABLED" android:value="true"/>
+    <meta-data android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH" android:value="ALWAYS"/>
+    <meta-data android:name="expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS" android:value="0"/>
+    <meta-data android:name="expo.modules.updates.EXPO_UPDATE_URL" android:value="https://u.expo.dev/1142c79f-1c43-412a-a2ef-1efb3951177a"/>
+    <meta-data android:name="expo.modules.updates.EXPO_RUNTIME_VERSION" android:value="@string/expo_runtime_version"/>
+    <meta-data android:name="expo.modules.updates.HAS_EMBEDDED_UPDATE" android:value="true"/>
+    <meta-data android:name="expo.modules.updates.DISABLE_ANTI_BRICKING_MEASURES" android:value="false"/>
+    <meta-data android:name="expo.modules.updates.CODE_SIGNING_CERTIFICATE" android:value="-----BEGIN CERTIFICATE-----&#xA;MIIDITCCAgmgAwIBAgIJbvtAu4FPC+BuMA0GCSqGSIb3DQEBCwUAMDoxODA2BgNV&#xA;BAMTL0EzIFNvZnR3YXJlIFZlbnR1cmVzIExMQyAvIEFkanVzdGVyIE5ldHdvcmsg&#xA;T1RBMB4XDTI2MDgxMjE2MzAyMloXDTM2MDgxMjE2MzAyMlowOjE4MDYGA1UEAxMv&#xA;QTMgU29mdHdhcmUgVmVudHVyZXMgTExDIC8gQWRqdXN0ZXIgTmV0d29yayBPVEEw&#xA;ggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDROhxQGKG8g0jXf/yZn8X5&#xA;j/NxYzEX7qpjMlQHfswAaWkep5WMU6sO+AaejrnzJTLYFdD4GGlBbP513p/MhmMv&#xA;95KoKawY+NHUiGdaTVMXxdDd6fLonQuZp37rXtEnFHKQx9N/aaBrVMb7zI37UnDO&#xA;thLs+bVsA0TTSXEwzRT1NGJ6Pak0uvj5Ez6bkWgaU/nNYVI+q2KLAo4V9PJf+tft&#xA;P7EgYyUteyVYdIfC9yPvAufY+8EOGhe7+xwsDdUdanigvGScV+GwdM9I7/oIZ1XX&#xA;cNluCIAUTZ4nawj8xKXUfIWA0bAVVQOkmSOmC+XsynntNM/s/LiNmA0rpaEPNRyl&#xA;AgMBAAGjKjAoMA4GA1UdDwEB/wQEAwIHgDAWBgNVHSUBAf8EDDAKBggrBgEFBQcD&#xA;AzANBgkqhkiG9w0BAQsFAAOCAQEAMh/wNW7SQlob0yxY71f4rBd2TV3d/cy5DtPL&#xA;A7lzBEl8Xv6qae9GgqFENr14IRXjgdUuqVdi3zCw9QMsjdtyQacpg+S71Ah5CLFn&#xA;90WyDsteY4ksmwd4PuH9GgPTOOEwKIrohoks7NAcB4XgU+QAMt3L7QRfRkK8QKEs&#xA;MmcOLoj+kEWdzKKiVw38JSM69OAVV7nz9RAGMSh4i3nL5XBLxvJD5LVrcGQiQ0nU&#xA;SlgQuZCYyGNU+t2B7IKsVhU3e2gIrdMJzVH/pngGFwsiBl707jlu9adghGSefUBS&#xA;pIpf8KPg/QhFLth8wt3BTd7oo68mNk5vUHANv3cL58rfs5Clfw==&#xA;-----END CERTIFICATE-----"/>
+    <meta-data android:name="expo.modules.updates.CODE_SIGNING_METADATA" android:value="{&quot;keyid&quot;:&quot;main&quot;,&quot;alg&quot;:&quot;rsa-v1_5-sha256&quot;}"/>
+  </application>
 </manifest>
