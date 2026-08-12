@@ -46,9 +46,9 @@ Do not rerun or expand iPad work unless the iPhone pass reveals a shared regress
 
 - Universal Links remain external-blocked until the real Apple Team ID is supplied and configured in
   the AASA app ID and native entitlement. AASA transport is GO; full Universal Links are not.
-- The build currently warns that `NSLocationWhenInUseUsageDescription` is empty. Before store
-  readiness, determine whether location access is actually used; remove the unused declaration or
-  provide accurate owner-approved purpose text. No cleanup was implemented at this checkpoint.
+- Location access is unused: the product tree contains no Core Location API/import, location
+  dependency or location entitlement. The inherited empty `NSLocationWhenInUseUsageDescription`
+  declaration was removed on resume; simulator build validation must remain warning-free for it.
 - Production push notifications remain a mandatory pre-store implementation and certification gate.
   That work has not started.
 - OTA updates remain a mandatory pre-store gate, including integrity, channel selection and rollback

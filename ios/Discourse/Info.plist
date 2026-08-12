@@ -53,8 +53,6 @@
 	<dict/>
 	<key>NSCameraUsageDescription</key>
 	<string>Allows the app to upload images from your camera into an Adjuster Network post.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Allows the app to upload audio and video into an Adjuster Network post.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
