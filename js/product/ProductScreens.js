@@ -559,7 +559,7 @@ export function IntelligenceScreen({ screenProps }) {
   );
 }
 
-export function ProfileScreen({ screenProps, navigation }) {
+export function ProfileScreen({ screenProps }) {
   const colors = useProductTheme();
   const site = activeMemberSite(screenProps.siteManager);
   const username = site?.username || 'Member';
@@ -606,7 +606,7 @@ export function ProfileScreen({ screenProps, navigation }) {
         icon="sign-out-alt"
         label="Log out of this device"
         danger
-        onPress={() => navigation.navigate('Settings')}
+        onPress={() => screenProps.siteManager.remove(site)}
       />
       <Text style={[styles.finePrint, { color: colors.muted }]}>
         Only safe basic identity is shown here. Advanced professional fields are
