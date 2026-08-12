@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome5 from '@react-native-vector-icons/fontawesome5';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAssets } from 'expo-asset';
 import {
   Action,
   Card,
@@ -45,6 +46,9 @@ const Screen = ({ children }) => {
 export function WelcomeScreen({ onConnect, onLogin, busy }) {
   const colors = useProductTheme();
   const { width } = useWindowDimensions();
+  const [brandAssets] = useAssets([
+    require('../../img/adjuster-network-logo.png'),
+  ]);
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.canvas }]}>
       <ScrollView
@@ -55,7 +59,11 @@ export function WelcomeScreen({ onConnect, onLogin, busy }) {
       >
         <View style={styles.brandLogoPlate}>
           <Image
-            source={require('../../img/adjuster-network-logo.png')}
+            source={
+              brandAssets?.[0]?.localUri
+                ? { uri: brandAssets[0].localUri }
+                : undefined
+            }
             style={styles.brandLogo}
             resizeMode="contain"
             accessible
