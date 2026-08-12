@@ -600,6 +600,10 @@ class Discourse extends React.Component {
                     tabBarLabelStyle: {
                       fontSize: this.state.largerUI ? 16 : 12,
                     },
+                    // Bottom tabs have fixed-width slots. Letting Dynamic Type
+                    // scale six labels makes the destinations overlap and clip;
+                    // the tab buttons still expose their full titles to VoiceOver.
+                    tabBarAllowFontScaling: false,
                     tabBarActiveTintColor: theme.blueCallToAction,
                     tabBarInactiveTintColor: theme.grayTabInactiveColor,
                     tabBarBackground: () => this._blurView(theme.name),
