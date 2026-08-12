@@ -12,9 +12,9 @@
 
 ## LBD-056 disposition
 
-LBD-056 remains **NO-GO**, narrowed to the remaining owner-operated iPhone certification and the
-external Apple identity gate. iPhone/mobile is the launch priority. The completed iPad matrix is
-useful regression evidence but is non-blocking and must not displace the iPhone closeout.
+The counsel-independent iPhone LBD-056 matrix is complete. Overall LBD-056 remains **NO-GO only on
+the external Apple identity gate**: the real Apple Team ID is still required for full Universal
+Links. iPhone/mobile remains the launch priority; iPad evidence is supporting and non-blocking.
 
 Passed on the current native line:
 
@@ -33,14 +33,33 @@ Passed on the current native line:
 
 ## Exact resume point
 
-Tomorrow, fetch this branch and begin with the **owner-operated iPhone closeout only**. Through the
-normal supported login flow, the owner enters the permanent ordinary-member credential directly into
-the simulator; it must not be echoed, logged, screenshotted, committed or placed in evidence. Then
-certify callback/content, Keychain force-quit/relaunch, all six member screens, logout/login,
-reinstall isolation, light/dark, authenticated Dynamic Type, full manual VoiceOver focus/labels/
-controls traversal, background privacy in the app switcher, and a final sanitized log review.
+Do not rerun the completed iPhone/iPad certification without a relevant source change. Resume at the
+external Apple Team ID/Universal Links gate. Push notifications and OTA integrity/channel/rollback
+remain the next mandatory implementation/certification programs, but must begin only when separately
+authorized. Signing and store submission remain prohibited.
 
-Do not rerun or expand iPad work unless the iPhone pass reveals a shared regression.
+## iPhone closeout — 2026-08-12
+
+The owner completed ordinary-member authentication and manual accessibility/privacy actions without
+placing the credential in commands or evidence. The iPhone closeout passed:
+
+- native authorization, callback, four-scope authenticated content and no persistent Connecting
+  state;
+- Keychain persistence across force-quit/relaunch;
+- Floor, Discussions, Lounge, Ask, Intelligence and You in light/dark, with ordinary-member identity
+  and no admin, moderator or operator surface;
+- authenticated AX XXXL Dynamic Type with scrollable content and all six tabs exposed with complete
+  accessibility labels and tab positions;
+- owner-operated VoiceOver traversal for focus order, labels, controls, actionability and clipping;
+- owner-operated app-switcher verification that the background privacy shield hides private content
+  and restores it only after foregrounding;
+- logout cleanup followed by a second normal authorization/callback/content load; and
+- uninstall/reinstall account isolation: the new installation opened signed out with no member
+  identity, private content, RSA collision or cross-account leakage.
+
+The final sanitized three-hour simulator log scan covered 14,851 app log lines and found zero
+credential-field, auth-callback query or private-payload matches. Local screenshots/build logs remain
+under ignored `.local/` evidence and contain no password capture.
 
 ## Remaining gates and prohibitions
 
