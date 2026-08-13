@@ -15,10 +15,8 @@ module.exports = {
     fallbackToCacheTimeout: 0,
     useEmbeddedUpdate: true,
     disableAntiBrickingMeasures: false,
-    codeSigningCertificate: './certs/certificate.pem',
-    codeSigningMetadata: {
-      keyid: 'main',
-      alg: 'rsa-v1_5-sha256',
+    requestHeaders: {
+      'expo-channel-name': process.env.AN_OTA_CHANNEL || 'staging',
     },
   },
   extra: {

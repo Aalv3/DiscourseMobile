@@ -3,6 +3,15 @@
 Adjuster Network uses EAS Update through `expo-updates` for JavaScript and
 bundled assets only. The native iOS and Android projects remain hand-managed.
 
+## Build 1 security model
+
+Build 1 uses standard EAS Update transport on the existing Starter account.
+EAS project isolation, HTTPS delivery, artifact hashes, the explicit native
+runtime boundary, staging and production channels, anti-bricking, and the
+embedded recovery bundle remain mandatory. End-to-end publisher code signing
+is explicitly deferred; release evidence must not claim cryptographic update
+signing until that capability is configured and certified.
+
 ## Immutable boundaries
 
 - Runtime `an-ios-android-1.0.0-native-1` is a hard compatibility boundary.
@@ -12,8 +21,7 @@ bundled assets only. The native iOS and Android projects remain hand-managed.
 - The embedded bundle remains enabled. Launch waits zero milliseconds for the
   network; a downloaded update becomes eligible on a later launch.
 - Expo anti-bricking measures must remain enabled.
-- The app embeds only the public signing certificate. The private key lives
-  outside Git and must be backed up in the owner-controlled secret store.
+- Build 1 does not embed a publisher signing certificate.
 
 Run `yarn verify:ota` before every native build or update publication.
 
@@ -25,8 +33,7 @@ passed on staging; promote/republish that update group rather than rebuilding
 it. Record Git SHA, runtime, update group and update IDs, artifact hashes,
 channel, signer key ID, rollout percentage, and the verification result.
 
-1. Publish a signed update to `staging` with the private-key path supplied only
-   through the release environment.
+1. Publish an update to `staging` under the owner-controlled EAS project.
 2. Certify the update on a staging-channel binary, including offline relaunch,
    auth/Keychain, member screens, privacy, accessibility, and readiness.
 3. Republish the certified update group to `production`; do not rebundle it.

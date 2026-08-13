@@ -14,34 +14,12 @@
     <string>an-ios-android-1.0.0-native-1</string>
     <key>EXUpdatesHasEmbeddedUpdate</key>
     <true/>
+    <key>EXUpdatesRequestHeaders</key>
+    <dict>
+      <key>expo-channel-name</key>
+      <string>staging</string>
+    </dict>
     <key>EXUpdatesDisableAntiBrickingMeasures</key>
     <false/>
-    <key>EXUpdatesCodeSigningCertificate</key>
-    <string>-----BEGIN CERTIFICATE-----
-MIIDITCCAgmgAwIBAgIJbvtAu4FPC+BuMA0GCSqGSIb3DQEBCwUAMDoxODA2BgNV
-BAMTL0EzIFNvZnR3YXJlIFZlbnR1cmVzIExMQyAvIEFkanVzdGVyIE5ldHdvcmsg
-T1RBMB4XDTI2MDgxMjE2MzAyMloXDTM2MDgxMjE2MzAyMlowOjE4MDYGA1UEAxMv
-QTMgU29mdHdhcmUgVmVudHVyZXMgTExDIC8gQWRqdXN0ZXIgTmV0d29yayBPVEEw
-ggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDROhxQGKG8g0jXf/yZn8X5
-j/NxYzEX7qpjMlQHfswAaWkep5WMU6sO+AaejrnzJTLYFdD4GGlBbP513p/MhmMv
-95KoKawY+NHUiGdaTVMXxdDd6fLonQuZp37rXtEnFHKQx9N/aaBrVMb7zI37UnDO
-thLs+bVsA0TTSXEwzRT1NGJ6Pak0uvj5Ez6bkWgaU/nNYVI+q2KLAo4V9PJf+tft
-P7EgYyUteyVYdIfC9yPvAufY+8EOGhe7+xwsDdUdanigvGScV+GwdM9I7/oIZ1XX
-cNluCIAUTZ4nawj8xKXUfIWA0bAVVQOkmSOmC+XsynntNM/s/LiNmA0rpaEPNRyl
-AgMBAAGjKjAoMA4GA1UdDwEB/wQEAwIHgDAWBgNVHSUBAf8EDDAKBggrBgEFBQcD
-AzANBgkqhkiG9w0BAQsFAAOCAQEAMh/wNW7SQlob0yxY71f4rBd2TV3d/cy5DtPL
-A7lzBEl8Xv6qae9GgqFENr14IRXjgdUuqVdi3zCw9QMsjdtyQacpg+S71Ah5CLFn
-90WyDsteY4ksmwd4PuH9GgPTOOEwKIrohoks7NAcB4XgU+QAMt3L7QRfRkK8QKEs
-MmcOLoj+kEWdzKKiVw38JSM69OAVV7nz9RAGMSh4i3nL5XBLxvJD5LVrcGQiQ0nU
-SlgQuZCYyGNU+t2B7IKsVhU3e2gIrdMJzVH/pngGFwsiBl707jlu9adghGSefUBS
-pIpf8KPg/QhFLth8wt3BTd7oo68mNk5vUHANv3cL58rfs5Clfw==
------END CERTIFICATE-----</string>
-    <key>EXUpdatesCodeSigningMetadata</key>
-    <dict>
-      <key>keyid</key>
-      <string>main</string>
-      <key>alg</key>
-      <string>rsa-v1_5-sha256</string>
-    </dict>
   </dict>
 </plist>
