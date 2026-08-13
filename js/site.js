@@ -17,6 +17,7 @@ class Site {
     'apiVersion',
     'authToken',
     'chatNotifications',
+    'clientId',
     'createdAt',
     'description',
     'flagCount',

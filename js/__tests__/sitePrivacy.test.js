@@ -10,4 +10,13 @@ describe('site privacy serialization', () => {
     expect(site.toJSON()).not.toHaveProperty('authToken');
     expect(JSON.stringify(site)).not.toContain('synthetic-secret');
   });
+
+  test('persists the non-secret User API client identifier', () => {
+    const site = new Site({
+      url: 'https://adjusternetwork.org',
+      clientId: 'synthetic-client-id',
+    });
+
+    expect(site.toJSON()).toHaveProperty('clientId', 'synthetic-client-id');
+  });
 });

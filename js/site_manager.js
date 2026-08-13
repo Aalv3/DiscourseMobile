@@ -205,9 +205,13 @@ class SiteManager {
           const records = JSON.parse(json).filter(record =>
             isCanonicalUrl(record.url),
           );
+          const clientId = await this.getClientId();
           this.sites = await Promise.all(
             records.map(async obj => {
               const site = new Site(obj);
+              // Repair sites saved by older builds that retained the manager
+              // client ID but did not serialize it with site metadata.
+              site.clientId = site.clientId || clientId;
               if (obj.authToken) {
                 await credentialStore.storeSiteToken(site.url, obj.authToken);
               }
@@ -485,6 +489,11 @@ class SiteManager {
       this.getClientId()
         .then(cid => {
           clientId = cid;
+          // Discourse binds a User API Key to the client_id included in the
+          // authorization request. Keep that same identifier on the Site so
+          // every authenticated request can send User-Api-Client-Id.
+          site.clientId = cid;
+          this.save();
           return this.generateNonce(site);
         })
         .then(nonce => {
