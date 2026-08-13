@@ -13,13 +13,15 @@ export const adjusterNetwork = Object.freeze({
     analytics: false,
     crashReporting: false,
     push: false,
-    pushEducation: false,
-    pushDelivery: false,
+    pushEducation: true,
+    // Enables device registration with the A3-owned dark backend. Server-side
+    // delivery switches remain authoritative and OFF during certification.
+    pushDelivery: true,
     publicNativePreview: false,
   }),
   push: Object.freeze({
-    backendOrigin: null,
-    environment: 'production',
+    backendOrigin: 'https://adjusternetwork.org',
+    environment: 'development',
   }),
   navigation: Object.freeze({
     floor: Object.freeze({

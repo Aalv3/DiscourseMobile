@@ -561,8 +561,28 @@ class Discourse extends React.Component {
       enablePush: async () => {
         const site = this._siteManager.activeSite || this._siteManager.sites[0];
         if (!site) return;
-        const status = await this._pushFoundation.enable(site);
-        this.setState({ pushStatus: status });
+        this.setState({ pushStatus: 'working' });
+        try {
+          const status = await this._pushFoundation.enable(site);
+          this.setState({ pushStatus: status });
+        } catch (error) {
+          const safeFailures = [
+            'push_token_timeout',
+            'secure_random_unavailable',
+            'push_backend_rejected',
+            'push_backend_unconfigured',
+            'push_token_failed',
+            'push_installation_failed',
+            'push_backend_failed',
+          ];
+          const safeBackendStatus = /^push_backend_rejected_(?:[1-5][0-9]{2}|transport)$/.test(
+            error?.message || '',
+          );
+          const reason = safeFailures.includes(error?.message) || safeBackendStatus
+            ? error.message
+            : 'push_registration_failed';
+          this.setState({ pushStatus: reason });
+        }
       },
     };
 

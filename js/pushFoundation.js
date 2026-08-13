@@ -47,13 +47,33 @@ export class PushFoundation {
       await this.store.setPreference('denied');
       return 'denied';
     }
-    const token = await this.transport.token();
-    const installationId = await this.store.installationId();
-    await this.client.register({
-      installationId,
-      authToken: account.authToken,
-      registration: this.registration(token),
-    });
+    let token;
+    try {
+      token = await this.transport.token();
+    } catch {
+      throw new Error('push_token_failed');
+    }
+    let installationId;
+    try {
+      installationId = await this.store.installationId();
+    } catch {
+      throw new Error('push_installation_failed');
+    }
+    try {
+      await this.client.register({
+        installationId,
+        authToken: account.authToken,
+        authClientId: account.clientId,
+        registration: this.registration(token),
+      });
+    } catch (error) {
+      const safeStatus = /^push_backend_rejected_(?:[1-5][0-9]{2}|transport)$/.test(
+        error?.message || '',
+      )
+        ? error.message
+        : 'push_backend_failed';
+      throw new Error(safeStatus);
+    }
     this.account = account;
     await this.store.setPreference('enabled');
     this.tokenSubscription?.remove?.();
@@ -69,6 +89,7 @@ export class PushFoundation {
     await this.client.refresh({
       installationId,
       authToken: this.account.authToken,
+      authClientId: this.account.clientId,
       registration: this.registration(token),
     });
     return true;
@@ -80,6 +101,7 @@ export class PushFoundation {
     await this.client.updatePreferences({
       installationId,
       authToken: this.account.authToken,
+      authClientId: this.account.clientId,
       enabled,
     });
     await this.store.setPreference(enabled ? 'enabled' : 'denied');
@@ -93,7 +115,11 @@ export class PushFoundation {
     if (!this.enabled || !account?.authToken) return false;
     const installationId = await this.store.installationId();
     await this.client
-      .unregister({ installationId, authToken: account.authToken })
+      .unregister({
+        installationId,
+        authToken: account.authToken,
+        authClientId: account.clientId,
+      })
       .catch(() => {});
     await this.store.setPreference('unknown');
     return true;

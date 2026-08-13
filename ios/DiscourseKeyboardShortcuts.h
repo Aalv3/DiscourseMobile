@@ -4,5 +4,6 @@
 @interface DiscourseKeyboardShortcuts : RCTEventEmitter<RCTBridgeModule>
 
 - (void) sendEvent:(NSString *)eventName;
++ (void)storeAPNSToken:(NSData *)deviceToken;
 
 @end

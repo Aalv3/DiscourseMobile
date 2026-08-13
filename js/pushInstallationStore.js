@@ -2,12 +2,21 @@
 'use strict';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { NativeModules, Platform } from 'react-native';
 import { credentialStore } from './secureCredentialStore';
 
 const INSTALLATION_MARKER = '@AdjusterNetwork.push-installation.v1';
 const PREFERENCE_KEY = '@AdjusterNetwork.push-preference.v1';
 
-function secureRandomId() {
+async function secureRandomId() {
+  if (Platform.OS === 'ios') {
+    const nativeId =
+      await NativeModules.DiscourseKeyboardShortcuts?.generateSecureInstallationId?.();
+    if (typeof nativeId === 'string' && /^[0-9a-f]{64}$/.test(nativeId)) {
+      return nativeId;
+    }
+    throw new Error('secure_random_unavailable');
+  }
   const cryptoApi = global.crypto;
   if (!cryptoApi || typeof cryptoApi.getRandomValues !== 'function') {
     throw new Error('secure_random_unavailable');
@@ -39,7 +48,7 @@ export class PushInstallationStore {
     }
     let id = marker && (await this.secureStore.readPushInstallationId());
     if (!id) {
-      id = this.idFactory();
+      id = await this.idFactory();
       await this.secureStore.storePushInstallationId(id);
     }
     await this.storage.setItem(INSTALLATION_MARKER, '1');

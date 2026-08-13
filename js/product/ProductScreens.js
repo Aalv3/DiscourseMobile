@@ -635,6 +635,8 @@ const NotificationEducation = ({ status, onEnable }) => {
   const colors = useProductTheme();
   const denied = status === 'denied';
   const enabled = status === 'enabled';
+  const working = status === 'working';
+  const failed = typeof status === 'string' && status.includes('_');
   return (
     <Card style={styles.notificationEducation}>
       <View style={styles.notificationEducationHeader}>
@@ -651,11 +653,15 @@ const NotificationEducation = ({ status, onEnable }) => {
       <Text style={[styles.cardBody, { color: colors.muted }]}>
         {enabled
           ? 'Important member activity is enabled for this device.'
+          : working
+          ? 'Finishing secure registration for this device…'
+          : failed
+          ? `Secure registration could not finish (${status}).`
           : denied
           ? 'Notifications are off. You can keep using every member feature.'
           : 'Choose whether this device may alert you to important member activity. No marketing.'}
       </Text>
-      {!enabled ? (
+      {!enabled && !working ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Enable member notifications"

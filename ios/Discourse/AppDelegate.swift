@@ -27,6 +27,23 @@ public class AppDelegate: ExpoAppDelegate, UNUserNotificationCenterDelegate {
       in: window,
       launchOptions: launchOptions
     )
+    UNUserNotificationCenter.current().getNotificationSettings { settings in
+      let authorizationState: String
+      switch settings.authorizationStatus {
+      case .authorized, .provisional, .ephemeral:
+        authorizationState = "granted"
+      case .denied:
+        authorizationState = "denied"
+      case .notDetermined:
+        authorizationState = "not_determined"
+      @unknown default:
+        authorizationState = "unknown"
+      }
+      guard authorizationState == "granted" else { return }
+      DispatchQueue.main.async {
+        application.registerForRemoteNotifications()
+      }
+    }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
@@ -103,6 +120,7 @@ public class AppDelegate: ExpoAppDelegate, UNUserNotificationCenterDelegate {
     _ application: UIApplication,
     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
   ) {
+    DiscourseKeyboardShortcuts.storeAPNSToken(deviceToken)
     RNCPushNotificationIOS.didRegisterForRemoteNotifications(withDeviceToken: deviceToken)
     super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
   }

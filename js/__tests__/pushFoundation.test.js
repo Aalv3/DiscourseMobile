@@ -44,7 +44,10 @@ function fixture(permission = 'granted') {
 }
 
 describe('push foundation lifecycle', () => {
-  const account = { authToken: 'synthetic-user-api-key' };
+  const account = {
+    authToken: 'synthetic-user-api-key',
+    clientId: 'synthetic-client-id',
+  };
 
   test('default-off mode never asks permission or contacts a backend', async () => {
     const deps = fixture();
@@ -67,6 +70,7 @@ describe('push foundation lifecycle', () => {
     expect(deps.client.register).toHaveBeenCalledWith({
       installationId: 'installation',
       authToken: account.authToken,
+      authClientId: account.clientId,
       registration: {
         platform: 'ios',
         environment: 'staging',
@@ -76,6 +80,25 @@ describe('push foundation lifecycle', () => {
         transportToken: 'transport-token',
       },
     });
+  });
+
+  test.each([
+    ['token', 'push_token_failed'],
+    ['installation', 'push_installation_failed'],
+    ['backend', 'push_backend_failed'],
+  ])('reports only the safe %s failure stage', async (stage, expected) => {
+    const deps = fixture();
+    if (stage === 'token') {
+      deps.transport.token.mockRejectedValue(new Error('private provider error'));
+    } else if (stage === 'installation') {
+      deps.store.installationId.mockRejectedValue(
+        new Error('private keychain error'),
+      );
+    } else {
+      deps.client.register.mockRejectedValue(new Error('private API error'));
+    }
+
+    await expect(deps.foundation.enable(account)).rejects.toThrow(expected);
   });
 
   test('refreshes a rotated token and unregisters on logout', async () => {
@@ -90,6 +113,7 @@ describe('push foundation lifecycle', () => {
     expect(deps.client.unregister).toHaveBeenCalledWith({
       installationId: 'installation',
       authToken: account.authToken,
+      authClientId: account.clientId,
     });
     expect(deps.store.setPreference).toHaveBeenLastCalledWith('unknown');
   });
@@ -101,6 +125,7 @@ describe('push foundation lifecycle', () => {
     expect(deps.client.updatePreferences).toHaveBeenCalledWith({
       installationId: 'installation',
       authToken: account.authToken,
+      authClientId: account.clientId,
       enabled: false,
     });
     expect(deps.store.setPreference).toHaveBeenLastCalledWith('denied');

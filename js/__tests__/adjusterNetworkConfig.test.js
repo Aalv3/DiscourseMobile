@@ -22,14 +22,18 @@ describe('Adjuster Network product boundary', () => {
     }
   });
 
-  test('keeps unapproved telemetry and push disabled', () => {
+  test('keeps telemetry and the legacy relay disabled while enabling dark registration', () => {
     expect(adjusterNetwork.features).toMatchObject({
       analytics: false,
       crashReporting: false,
       push: false,
-      pushEducation: false,
-      pushDelivery: false,
+      pushEducation: true,
+      pushDelivery: true,
       publicNativePreview: false,
+    });
+    expect(adjusterNetwork.push).toEqual({
+      backendOrigin: 'https://adjusternetwork.org',
+      environment: 'development',
     });
   });
 });
