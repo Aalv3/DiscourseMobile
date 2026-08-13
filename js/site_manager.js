@@ -12,11 +12,15 @@ import JSEncrypt from './../lib/jsencrypt';
 import randomBytes from './../lib/random-bytes';
 import i18n from 'i18n-js';
 import { credentialStore } from './secureCredentialStore';
-import { isCanonicalUrl, isSafeAuthCallback } from './adjusterNetworkSecurity';
+import { isCanonicalUrl } from './adjusterNetworkSecurity';
 import { adjusterNetwork } from './adjusterNetworkConfig';
 import CookieManager from '@react-native-cookies/cookies';
 import { consumePendingAuthAttempt } from './authAttempt';
 import { requestIOSAuth } from './iosAuthSession';
+import {
+  parseAuthCallbackParameters,
+  parseDecryptedAuthPayload,
+} from './authCallback';
 
 const { DiscourseKeyboardShortcuts } = NativeModules;
 const REFRESH_THROTTLE_MS = 5000;
@@ -434,10 +438,9 @@ class SiteManager {
     const { site: nonceSite, nonce: expectedNonce } =
       consumePendingAuthAttempt(this);
 
-    let decrypted;
-    try {
-      decrypted = JSON.parse(this.decryptHelper(payload));
-    } catch {
+    const plaintext = this.decryptHelper(payload);
+    const decrypted = parseDecryptedAuthPayload(plaintext);
+    if (!decrypted) {
       return false;
     }
 
@@ -548,19 +551,7 @@ class SiteManager {
   }
 
   parseURLparameters(string) {
-    if (!isSafeAuthCallback(string)) {
-      return {};
-    }
-    let parsed = {};
-    (string.split('?')[1] || string)
-      .split('&')
-      .map(item => {
-        return item.split('=');
-      })
-      .forEach(item => {
-        parsed[item[0]] = decodeURIComponent(item[1]);
-      });
-    return parsed;
+    return parseAuthCallbackParameters(string);
   }
 
   getSeenNotificationMap() {
