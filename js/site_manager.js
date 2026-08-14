@@ -388,20 +388,6 @@ class SiteManager {
       .join('&');
   }
 
-  registerClientId(id) {
-    this.getClientId().then(existing => {
-      this.sites.forEach(site => {
-        site.clientId = id;
-      });
-
-      if (existing !== id) {
-        this.clientId = id;
-        AsyncStorage.setItem('@ClientId', this.clientId);
-        this.save();
-      }
-    });
-  }
-
   getClientId() {
     return new Promise(resolve => {
       if (this.clientId) {

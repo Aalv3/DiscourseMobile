@@ -80,7 +80,38 @@ describe('push foundation lifecycle', () => {
         transportToken: 'transport-token',
       },
     });
+    expect(account.clientId).toBe('synthetic-client-id');
   });
+
+  test.each([
+    ['permission before auth', 'transport-token'],
+    ['permission after auth', 'transport-token'],
+  ])(
+    'keeps auth, APNs, and installation identities separate: %s',
+    async (_timing, apnsToken) => {
+      const deps = fixture();
+      const authenticatedSite = {
+        authToken: 'synthetic-user-api-key',
+        clientId: 'auth-client-A',
+      };
+      deps.transport.token.mockResolvedValue(apnsToken);
+      deps.store.installationId.mockResolvedValue('installation-C');
+
+      await deps.foundation.enable(authenticatedSite);
+
+      expect(deps.client.register).toHaveBeenCalledWith(
+        expect.objectContaining({
+          installationId: 'installation-C',
+          authClientId: 'auth-client-A',
+          registration: expect.objectContaining({ transportToken: apnsToken }),
+        }),
+      );
+      expect(authenticatedSite.clientId).toBe('auth-client-A');
+      expect(new Set(['auth-client-A', apnsToken, 'installation-C']).size).toBe(
+        3,
+      );
+    },
+  );
 
   test.each([
     ['token', 'push_token_failed'],
@@ -89,7 +120,9 @@ describe('push foundation lifecycle', () => {
   ])('reports only the safe %s failure stage', async (stage, expected) => {
     const deps = fixture();
     if (stage === 'token') {
-      deps.transport.token.mockRejectedValue(new Error('private provider error'));
+      deps.transport.token.mockRejectedValue(
+        new Error('private provider error'),
+      );
     } else if (stage === 'installation') {
       deps.store.installationId.mockRejectedValue(
         new Error('private keychain error'),
@@ -116,6 +149,31 @@ describe('push foundation lifecycle', () => {
       authClientId: account.clientId,
     });
     expect(deps.store.setPreference).toHaveBeenLastCalledWith('unknown');
+    expect(account.clientId).toBe('synthetic-client-id');
+  });
+
+  test('APNs rotation before or after auth completion never mutates the auth client ID', async () => {
+    const deps = fixture();
+    const authenticatedSite = {
+      authToken: 'synthetic-user-api-key',
+      clientId: 'auth-client-A',
+    };
+    await deps.foundation.enable(authenticatedSite);
+
+    await deps.refresh('apns-token-B-before-callback');
+    expect(authenticatedSite.clientId).toBe('auth-client-A');
+    expect(deps.client.refresh).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        installationId: 'installation',
+        authClientId: 'auth-client-A',
+        registration: expect.objectContaining({
+          transportToken: 'apns-token-B-before-callback',
+        }),
+      }),
+    );
+
+    await deps.refresh('apns-token-B-after-callback');
+    expect(authenticatedSite.clientId).toBe('auth-client-A');
   });
 
   test('synchronizes an authenticated preference change', async () => {

@@ -173,10 +173,6 @@ class Discourse extends React.Component {
       PushNotificationIOS.addEventListener('localNotification', e =>
         this._handleNotification(e),
       );
-
-      PushNotificationIOS.addEventListener('register', s => {
-        this._siteManager.registerClientId(s);
-      });
     }
 
     const colorScheme = Appearance.getColorScheme();
