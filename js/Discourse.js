@@ -46,7 +46,7 @@ import { PushFoundation } from './pushFoundation';
 import { PushBackendClient } from './pushBackendClient';
 import { pushInstallationStore } from './pushInstallationStore';
 import { pushTransport } from './platforms/push-transport';
-import { routePush } from './pushRouting';
+import { PendingPushRoute } from './pushRouting';
 
 import BackgroundFetch from './platforms/background-fetch';
 import {
@@ -111,6 +111,7 @@ class Discourse extends React.Component {
   constructor(props) {
     super(props);
     this._siteManager = new SiteManager();
+    this._pushRoute = new PendingPushRoute();
     this._pushFoundation = new PushFoundation({
       enabled: adjusterNetwork.features.pushDelivery,
       environment: adjusterNetwork.push.environment,
@@ -144,6 +145,7 @@ class Discourse extends React.Component {
     };
 
     this._handleOpenUrl = this._handleOpenUrl.bind(this);
+    this._flushPendingPushRoute = this._flushPendingPushRoute.bind(this);
 
     if (adjusterNetwork.features.push && Platform.OS === 'ios') {
       PushNotificationIOS.addEventListener('notification', e =>
@@ -207,12 +209,38 @@ class Discourse extends React.Component {
   }
 
   _handleNotification(e) {
+    if (!this._pushRoute.accept(e)) {
+      securityEvent('push.route.rejected');
+      return false;
+    }
+    securityEvent('push.route.pending');
+    return this._flushPendingPushRoute();
+  }
+
+  _flushPendingPushRoute() {
+    if (!this.state) {
+      return false;
+    }
     const site = this._siteManager.activeSite || this._siteManager.sites[0];
-    routePush(e?._data, {
+    const navigationReady = Boolean(
+      this.state.signedIn &&
+        this.state.onboardingReady &&
+        this.state.onboardingDone &&
+        this._navigation,
+    );
+    const routed = this._pushRoute.flush({
       origin: adjusterNetwork.canonicalOrigin,
       authenticated: Boolean(site?.authToken),
+      navigationReady,
       openUrl: this.openUrl.bind(this),
     });
+    if (!routed && this._pushRoute.path) {
+      securityEvent('push.route.deferred');
+    }
+    if (routed) {
+      securityEvent('push.route.opened');
+    }
+    return routed;
   }
 
   async _handleOpenUrl(event) {
@@ -293,14 +321,18 @@ class Discourse extends React.Component {
 
   componentDidMount() {
     this._productSiteSubscription = () => {
-      this.setState({
-        signedIn: this._siteManager.connectedSitesCount() > 0,
-      });
+      this.setState(
+        { signedIn: this._siteManager.connectedSitesCount() > 0 },
+        this._flushPendingPushRoute,
+      );
     };
     this._siteManager.subscribe(this._productSiteSubscription);
     this._productSiteSubscription();
     onboardingComplete().then(done =>
-      this.setState({ onboardingReady: true, onboardingDone: done }),
+      this.setState(
+        { onboardingReady: true, onboardingDone: done },
+        this._flushPendingPushRoute,
+      ),
     );
     this._appStateSubscription = AppState.addEventListener(
       'change',
@@ -610,7 +642,12 @@ class Discourse extends React.Component {
         <ThemeContext.Provider value={theme}>
           <StatusBar barStyle={theme.barStyle} />
           <OnboardingScreen
-            onFinish={() => this.setState({ onboardingDone: true })}
+            onFinish={() =>
+              this.setState(
+                { onboardingDone: true },
+                this._flushPendingPushRoute,
+              )
+            }
           />
           {this.state.privacyShield && this._blurView(theme.name)}
         </ThemeContext.Provider>
@@ -618,7 +655,7 @@ class Discourse extends React.Component {
     }
 
     return (
-      <NavigationContainer>
+      <NavigationContainer onReady={this._flushPendingPushRoute}>
         <ThemeContext.Provider value={theme}>
           <StatusBar barStyle={theme.barStyle} />
           <Stack.Navigator
