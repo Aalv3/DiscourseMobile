@@ -1,0 +1,68 @@
+{
+  "audit": {
+    "sha": "7c9a25a49d3997e65d45c27784592ceef2d5e8ae",
+    "branch": "codex/notification-tap-routing",
+    "originMatch": true,
+    "device": "iPhone 17 Pro simulator (E281C0FD-BC09-46DB-B0C3-FF55F6EED966)",
+    "os": "iOS 26.5",
+    "configuration": "Release",
+    "productSourceChanged": false,
+    "status": "complete"
+  },
+  "counts": {
+    "statesAudited": 82,
+    "controlsEvaluated": 96,
+    "p0": 4,
+    "p1": 14,
+    "p2OtaSafe": 8,
+    "visual": 15,
+    "nativeP0": 2,
+    "nativeP1": 3
+  },
+  "captures": [
+    {
+      "id": "001",
+      "file": "screenshots/001-current-launch-light.png",
+      "state": "signed-out welcome",
+      "appearance": "light",
+      "dynamicType": "default",
+      "source": "current canonical Release simulator build"
+    },
+    {
+      "id": "002",
+      "file": "screenshots/002-current-launch-dark.png",
+      "state": "signed-out welcome",
+      "appearance": "dark",
+      "dynamicType": "default",
+      "source": "current canonical Release simulator build"
+    },
+    {
+      "id": "003",
+      "file": "screenshots/003-current-launch-large-text.png",
+      "state": "signed-out welcome",
+      "appearance": "light",
+      "dynamicType": "accessibility-extra-large",
+      "source": "current canonical Release simulator build"
+    }
+  ],
+  "automation": {
+    "jestSuites": 34,
+    "jestTests": 193,
+    "jest": "pass",
+    "eslint": "pass"
+  },
+  "uncaptured": [
+    {
+      "states": "current authenticated simulator breadth and production mutations",
+      "reason": "No approved disposable secure simulator credential/bootstrap was present; system-auth debugging was intentionally not reopened"
+    },
+    {
+      "states": "APNs receipt/tap, Keychain restoration, privacy shield, Universal Link cold launch, Share Extension",
+      "reason": "Hardware/system-only evidence was not repeated during breadth discovery"
+    },
+    {
+      "states": "VoiceOver/Switch Control, iPad, landscape",
+      "reason": "Structural accessibility audit only; outside current iPhone runtime scope"
+    }
+  ]
+}

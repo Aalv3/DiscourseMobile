@@ -1,0 +1,117 @@
+id,area,state_or_control,evidence,result,finding
+1,Signed out,Welcome light,current runtime,pass,current canonical Release capture 001
+2,Signed out,Welcome dark,current runtime,pass,current canonical Release capture 002
+3,Signed out,Welcome large text,current runtime,gap,accessibility-extra-large content is severely clipped and primary actions begin off-screen; capture 003
+4,Signed out,Connect free,structural+automated,routed,system auth not re-debugged
+5,Signed out,Log in,structural+automated,routed,system auth not re-debugged
+6,Signed out,Connecting disabled state,structural,pass,
+7,Signed out,Auth callback accepted,automated,pass,certified lane
+8,Signed out,Auth callback failure alert,automated,pass,
+9,Onboarding,Not started routing,automated,pass,
+10,Onboarding,Welcome step,structural,pass,
+11,Onboarding,Private by default step,structural,pass,
+12,Onboarding,Claim-data safety step,structural,pass,
+13,Onboarding,Profile context step,structural,gap,too shallow for owner Adjuster Card requirement
+14,Onboarding,Interests step,structural,pass,
+15,Onboarding,Continue,automated,pass,
+16,Onboarding,Back,structural,pass,
+17,Onboarding,Skip for now,automated+prior physical,pass,
+18,Onboarding,Incomplete next-login reminder,automated+prior physical,pass,
+19,Onboarding,Finish completion,automated+prior physical,pass,
+20,Onboarding,Completed relogin,automated+prior physical,pass,
+21,Primary,Floor loading,structural,pass,
+22,Primary,Floor current content,structural,gap,static intelligence panels
+23,Primary,Floor offline error,structural,pass,truthful no-cache state
+24,Primary,Floor retry,structural,pass,
+25,Primary,Floor topic card,automated+prior physical,pass,
+26,Primary,Floor Search,automated,pass,
+27,Primary,Floor Notifications,automated,pass,badge refresh lag
+28,Discussions,List loading,structural,pass,
+29,Discussions,All filter,structural,pass,
+30,Discussions,Unanswered filter,structural,pass,
+31,Discussions,Category pill,structural,gap,filters one latest page only
+32,Discussions,Empty filter state,structural,pass,
+33,Discussions,Topic open,automated+prior physical,pass,
+34,Category,Native category collection,automated,pass,
+35,Category,Collection retry,structural,pass,
+36,Category,Collection empty,structural,pass,
+37,Topic,Loading,structural,pass,
+38,Topic,Unavailable/deleted,automated,pass,
+39,Topic,Back,automated+prior physical,pass,
+40,Topic,Join discussion,automated+prior physical,pass,
+41,Topic,Reply to post,automated+prior physical,pass,
+42,Topic,Reply-parent jump,automated,pass,
+43,Topic,Change reply target,automated,pass,
+44,Topic,Reply submit,automated+prior physical,pass,
+45,Topic,Reply error,automated,pass,
+46,Topic,Delete own reply,automated+prior physical,pass,
+47,Topic,Edit own post,structural,missing,P0
+48,Topic,Delete own discussion,automated+prior physical,pass,
+49,Topic,Creator delete cancel,automated+prior physical,pass,
+50,Topic,Closed/archived reply reason,automated,pass,
+51,Lounge,Channel discovery,automated+prior physical,pass,
+52,Lounge,History loading,automated+prior physical,pass,
+53,Lounge,Empty state,structural,pass,
+54,Lounge,Composer focus/keyboard,automated+prior physical,pass,
+55,Lounge,Emoji picker,automated+prior physical,pass,
+56,Lounge,Send,automated+prior physical,pass,
+57,Lounge,Send disabled reason,automated,pass,
+58,Lounge,Load older history,automated,pass,
+59,Lounge,10-second refresh,automated,pass,P2 realtime gap
+60,Lounge,Delete own message,automated,implemented,current physical mutation untested
+61,Lounge,Delete other message,automated,hidden,
+62,Ask,Privacy guidance,structural+prior physical,pass,
+63,Ask,Category selection,automated+prior physical,pass,
+64,Ask,Title composer,structural+prior physical,pass,
+65,Ask,Body composer,structural+prior physical,pass,
+66,Ask,Submit disabled validation,automated,pass,
+67,Ask,Submit success/result topic,automated+prior physical,pass,
+68,Ask,Permission error,automated,pass,
+69,Intelligence,Today in Claims,automated+prior physical,route pass,empty-value gap
+70,Intelligence,Claims Weather,automated+prior physical,route pass,empty-value gap
+71,Intelligence,Field Knowledge,automated+prior physical,route pass,empty-value gap
+72,You,Notification education enable,automated+prior physical,pass,
+73,You,View profile,automated+prior physical,pass,
+74,You,Account and preferences,automated+prior physical,pass,
+75,You,Bookmarks,automated+prior physical,pass,
+76,You,Search,automated+prior physical,pass,
+77,You,Admin ordinary member,automated,hidden,
+78,You,Logout,automated+prior physical,pass,
+79,Profile,View own profile,automated+prior physical,pass,
+80,Profile,View other profile,automated,pass,
+81,Profile,Edit basic fields,automated+prior physical,pass,
+82,Profile,Save/error,automated,pass,
+83,Profile,Recent contributions,structural,dead row,P1
+84,Settings,Account row,automated+prior physical,pass,
+85,Settings,Notifications row,automated+prior physical,pass,
+86,Settings,Appearance row,automated+prior physical,pass,
+87,Settings,Privacy and Account row,automated+prior physical,pass,
+88,Settings,Advanced row,structural,removed intentionally,
+89,Notifications,Email Always,automated,pass,current physical persistence untested
+90,Notifications,Email Away/Never,automated,pass,
+91,Notifications,Enable device notifications,automated+prior physical,pass,
+92,Appearance,System/Light/Dark,automated+prior physical,pass,
+93,Privacy,Logout confirmation cancel,automated+prior physical,pass,
+94,Privacy,Logout confirmation delete,automated+prior physical,pass,
+95,Privacy,Account deletion,structural,noninteractive,P1
+96,Search,Empty input disabled,structural,pass,
+97,Search,Submit query,automated+prior physical,pass,
+98,Search,Topic result open,automated+prior physical,pass,
+99,Search,Empty results,structural,pass,
+100,Search,Member result,structural,missing,P1 copy/capability mismatch
+101,Bookmarks,Loading/list,automated+prior physical,pass,
+102,Bookmarks,Empty state,structural,pass,
+103,Bookmarks,Topic open,automated+prior physical,pass,
+104,Bookmarks,Create/remove,structural,missing,P1
+105,Notification center,New/Replies/All filters,structural,pass,stock visual treatment
+106,Notification center,Notification open,automated+prior physical,pass,
+107,Notification center,Deleted-topic filtering,automated,pass,badge total may lag
+108,System,Force quit/relaunch,prior physical,pass,current simulator authenticated state unavailable
+109,System,Privacy shield,automated,pass,current hardware visual not repeated
+110,System,Universal Link topic/category/profile,automated+prior physical,pass,
+111,System,External HTTPS,automated,pass,
+112,System,Invalid URL,automated,fail closed,
+113,System,Notification receipt/tap,automated+prior physical,pass,production APNs boundary P0
+114,System,Share URL,structural,gap,NATIVE-P0 extension implementation
+115,System,Share image,structural,broken,advertised but unhandled
+116,System,Offline API error,structural,pass,no cached read mode
