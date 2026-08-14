@@ -215,6 +215,7 @@ class Discourse extends React.Component {
       onboardingDismissedForSession: false,
       connecting: false,
       pushStatus: 'unknown',
+      memberContentVersion: 0,
     };
 
     this.subscription = Appearance.addChangeListener(() => {
@@ -689,6 +690,11 @@ class Discourse extends React.Component {
       toggleTheme: this._toggleTheme.bind(this),
       setThemePreference: this._toggleTheme.bind(this),
       themePreference: this.state.themePreference,
+      memberContentVersion: this.state.memberContentVersion,
+      invalidateMemberContent: () =>
+        this.setState(current => ({
+          memberContentVersion: current.memberContentVersion + 1,
+        })),
       pushStatus: this.state.pushStatus,
       enablePush: async () => {
         const site = this._siteManager.activeSite || this._siteManager.sites[0];

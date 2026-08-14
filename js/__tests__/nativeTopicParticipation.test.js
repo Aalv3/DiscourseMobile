@@ -17,7 +17,9 @@ describe('native topic participation', () => {
   test('uses the authenticated Discourse create-post endpoint', () => {
     expect(source).toContain("site.jsonApi('/posts.json', 'POST'");
     expect(source).toContain('topic_id: state.topic.id');
-    expect(source).toContain('reply_to_post_number: composer.replyToPostNumber');
+    expect(source).toContain(
+      'reply_to_post_number: composer.replyToPostNumber',
+    );
     expect(siteManagerSource).toContain(
       "'read,write,notifications,session_info,one_time_password'",
     );
@@ -26,7 +28,9 @@ describe('native topic participation', () => {
   test('provides an accessible native composer and refreshes after posting', () => {
     expect(source).toContain('label="Join discussion"');
     expect(source).toContain('accessibilityLabel="Reply text"');
-    expect(source).toContain("label={composer.submitting ? 'Posting…' : 'Post reply'}");
+    expect(source).toContain(
+      "label={composer.submitting ? 'Posting…' : 'Post reply'}",
+    );
     expect(source).toContain('await loadTopic();');
   });
 
@@ -62,7 +66,24 @@ describe('native topic participation', () => {
 
   test('exposes delete only when Guardian authorizes it', () => {
     expect(source).toContain('post.can_delete');
-    expect(source).toContain("site.jsonApi(`/posts/${post.id}.json`, 'DELETE')");
+    expect(source).toContain(
+      "site.jsonApi(`/posts/${post.id}.json`, 'DELETE')",
+    );
+  });
+
+  test('keeps creator-topic deletion separate behind backend capability', () => {
+    expect(source).toContain(
+      '`/native/v1/topics/${route.params.topicId}/capabilities`',
+    );
+    expect(source).toContain('payload?.can_creator_delete === true');
+    expect(source).toContain('creatorDelete.allowed');
+    expect(source).toContain('label="Delete discussion"');
+    expect(source).toContain("'Delete discussion?'");
+    expect(source).toContain('`/native/v1/topics/${state.topic.id}`');
+    expect(source).toContain("'DELETE'");
+    expect(source).toContain('error?.status === 404');
+    expect(source).toContain('screenProps.invalidateMemberContent()');
+    expect(source).toContain("screen: 'Discussions'");
   });
 
   test('does not present tombstone-inclusive list aggregates as replies', () => {

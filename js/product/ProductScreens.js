@@ -161,7 +161,7 @@ const Value = ({ icon, title, body }) => {
   );
 };
 
-function useCommunity(siteManager) {
+function useCommunity(siteManager, contentVersion) {
   const [state, setState] = useState({
     loading: true,
     error: false,
@@ -179,7 +179,7 @@ function useCommunity(siteManager) {
     } catch {
       setState(current => ({ ...current, loading: false, error: true }));
     }
-  }, [siteManager]);
+  }, [contentVersion, siteManager]);
   useEffect(() => {
     refresh();
   }, [refresh]);
@@ -226,7 +226,10 @@ const TopicCard = ({ topic, site, openUrl }) => {
 export function FloorScreen({ navigation, screenProps }) {
   const colors = useProductTheme();
   const site = activeMemberSite(screenProps.siteManager);
-  const data = useCommunity(screenProps.siteManager);
+  const data = useCommunity(
+    screenProps.siteManager,
+    screenProps.memberContentVersion,
+  );
   return (
     <Screen>
       <PageHeader
@@ -325,7 +328,10 @@ export function FloorScreen({ navigation, screenProps }) {
 
 export function DiscussionsScreen({ screenProps }) {
   const site = activeMemberSite(screenProps.siteManager);
-  const data = useCommunity(screenProps.siteManager);
+  const data = useCommunity(
+    screenProps.siteManager,
+    screenProps.memberContentVersion,
+  );
   const [filter, setFilter] = useState('All');
   const categories = [
     'All',
@@ -401,7 +407,10 @@ export function DiscussionsScreen({ screenProps }) {
 export function AskScreen({ screenProps }) {
   const colors = useProductTheme();
   const site = activeMemberSite(screenProps.siteManager);
-  const data = useCommunity(screenProps.siteManager);
+  const data = useCommunity(
+    screenProps.siteManager,
+    screenProps.memberContentVersion,
+  );
   const permittedCategories = askableCategories(data.categories);
   const [category, setCategory] = useState(null);
   const [question, setQuestion] = useState({

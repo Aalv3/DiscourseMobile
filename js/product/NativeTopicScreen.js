@@ -109,6 +109,10 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
     submitting: false,
     error: null,
   });
+  const [creatorDelete, setCreatorDelete] = useState({
+    loading: true,
+    allowed: false,
+  });
 
   const loadTopic = useCallback(async () => {
     if (!site?.authToken) {
@@ -138,6 +142,31 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
         });
     } else {
       setState({ loading: false, topic: null, error: 'signed_out' });
+    }
+    return () => {
+      mounted = false;
+    };
+  }, [route.params.topicId, site]);
+
+  useEffect(() => {
+    let mounted = true;
+    setCreatorDelete({ loading: true, allowed: false });
+    if (site?.authToken) {
+      site
+        .jsonApi(`/native/v1/topics/${route.params.topicId}/capabilities`)
+        .then(payload => {
+          if (mounted) {
+            setCreatorDelete({
+              loading: false,
+              allowed: payload?.can_creator_delete === true,
+            });
+          }
+        })
+        .catch(() => {
+          if (mounted) setCreatorDelete({ loading: false, allowed: false });
+        });
+    } else {
+      setCreatorDelete({ loading: false, allowed: false });
     }
     return () => {
       mounted = false;
@@ -239,6 +268,46 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
       ],
     );
 
+  const leaveDeletedTopic = () => {
+    screenProps.invalidateMemberContent();
+    navigation.popToTop();
+    navigation.navigate('HomeWrapper', { screen: 'Discussions' });
+  };
+
+  const deleteDiscussion = () =>
+    Alert.alert(
+      'Delete discussion?',
+      'This will remove your discussion and its replies from Adjuster Network.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await site.jsonApi(
+                `/native/v1/topics/${state.topic.id}`,
+                'DELETE',
+              );
+              leaveDeletedTopic();
+            } catch (error) {
+              if (error?.status === 404) {
+                leaveDeletedTopic();
+                return;
+              }
+              Alert.alert(
+                'Discussion not deleted',
+                error?.userMessages?.join(' ') ||
+                  (error?.status === 403
+                    ? 'Your account is not authorized to delete this discussion.'
+                    : 'The discussion could not be deleted. Check your connection and try again.'),
+              );
+            }
+          },
+        },
+      ],
+    );
+
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.canvas }]}>
       <NestedHeader title="Topic" onBack={() => navigation.goBack()} />
@@ -273,6 +342,16 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
           >
             {state.topic?.title}
           </Text>
+          {creatorDelete.allowed ? (
+            <View style={styles.topicManagement}>
+              <Action
+                label="Delete discussion"
+                icon="trash"
+                secondary
+                onPress={deleteDiscussion}
+              />
+            </View>
+          ) : null}
           {availability.allowed ? (
             <View style={styles.primaryReply}>
               <Action
@@ -530,6 +609,10 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
 }
 
 const styles = StyleSheet.create({
+  topicManagement: {
+    alignItems: 'flex-start',
+    marginBottom: spacing.md,
+  },
   safe: { flex: 1 },
   center: {
     flex: 1,
