@@ -3,6 +3,10 @@
 
 const SAFE_MEMBER_PATH = /^\/(t|c|u)\/[A-Za-z0-9._~!$&'()*+,;=:@%/?-]*$/;
 
+export function shouldObserveRemoteNotifications(platform, deliveryEnabled) {
+  return platform === 'ios' && deliveryEnabled === true;
+}
+
 export function safePushPath(payload) {
   const path = payload?.an?.route;
   if (typeof path !== 'string') {

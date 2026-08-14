@@ -4,9 +4,16 @@ import {
   PendingPushRoute,
   routePush,
   safePushPath,
+  shouldObserveRemoteNotifications,
 } from '../pushRouting';
 
 describe('privacy-safe push routing', () => {
+  test('observes A3 remote notifications independently of the disabled legacy relay', () => {
+    expect(shouldObserveRemoteNotifications('ios', true)).toBe(true);
+    expect(shouldObserveRemoteNotifications('ios', false)).toBe(false);
+    expect(shouldObserveRemoteNotifications('android', true)).toBe(false);
+  });
+
   test.each(['/t/member-topic/1', '/c/field-adjusting/4', '/u/qa_test'])(
     'allows member path %s',
     path => {
@@ -137,6 +144,80 @@ describe('privacy-safe push routing', () => {
       }),
     ).toBe(false);
     expect(pending.path).toBe('/u/qa_test');
+    expect(openUrl).not.toHaveBeenCalled();
+  });
+
+  test.each(['/t/member-topic/1', '/c/field-adjusting/4', '/u/qa_test'])(
+    'consumes cold-start route %s exactly once after restoration',
+    route => {
+      const pending = new PendingPushRoute();
+      const openUrl = jest.fn();
+      pending.accept({
+        _data: { an: { route }, userInteraction: 1 },
+      });
+
+      // Auth restoration, onboarding restoration, and NavigationContainer
+      // readiness may complete independently. Every early flush must retain the
+      // route rather than allowing the default Floor to erase it.
+      expect(
+        pending.flush({
+          origin: 'https://adjusternetwork.org',
+          authenticated: false,
+          navigationReady: false,
+          openUrl,
+        }),
+      ).toBe(false);
+      expect(pending.path).toBe(route);
+      expect(
+        pending.flush({
+          origin: 'https://adjusternetwork.org',
+          authenticated: true,
+          navigationReady: false,
+          openUrl,
+        }),
+      ).toBe(false);
+      expect(pending.path).toBe(route);
+      expect(
+        pending.flush({
+          origin: 'https://adjusternetwork.org',
+          authenticated: true,
+          navigationReady: true,
+          openUrl,
+        }),
+      ).toBe(true);
+      expect(openUrl).toHaveBeenCalledTimes(1);
+      expect(openUrl).toHaveBeenCalledWith(
+        `https://adjusternetwork.org${route}`,
+      );
+      expect(pending.path).toBeNull();
+      expect(
+        pending.flush({
+          origin: 'https://adjusternetwork.org',
+          authenticated: true,
+          navigationReady: true,
+          openUrl,
+        }),
+      ).toBe(false);
+      expect(openUrl).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  test('ordinary cold launch and invalid tap leave default Floor untouched', () => {
+    const pending = new PendingPushRoute();
+    const openUrl = jest.fn();
+    expect(
+      pending.accept({
+        _data: { an: { route: '/admin' }, userInteraction: 1 },
+      }),
+    ).toBe(false);
+    expect(
+      pending.flush({
+        origin: 'https://adjusternetwork.org',
+        authenticated: true,
+        navigationReady: true,
+        openUrl,
+      }),
+    ).toBe(false);
     expect(openUrl).not.toHaveBeenCalled();
   });
 });

@@ -46,7 +46,10 @@ import { PushFoundation } from './pushFoundation';
 import { PushBackendClient } from './pushBackendClient';
 import { pushInstallationStore } from './pushInstallationStore';
 import { pushTransport } from './platforms/push-transport';
-import { PendingPushRoute } from './pushRouting';
+import {
+  PendingPushRoute,
+  shouldObserveRemoteNotifications,
+} from './pushRouting';
 
 import BackgroundFetch from './platforms/background-fetch';
 import {
@@ -147,11 +150,24 @@ class Discourse extends React.Component {
     this._handleOpenUrl = this._handleOpenUrl.bind(this);
     this._flushPendingPushRoute = this._flushPendingPushRoute.bind(this);
 
-    if (adjusterNetwork.features.push && Platform.OS === 'ios') {
+    if (
+      shouldObserveRemoteNotifications(
+        Platform.OS,
+        adjusterNetwork.features.pushDelivery,
+      )
+    ) {
       PushNotificationIOS.addEventListener('notification', e =>
         this._handleNotification(e),
       );
 
+      PushNotificationIOS.getInitialNotification().then(e => {
+        if (e) {
+          this._handleNotification(e);
+        }
+      });
+    }
+
+    if (adjusterNetwork.features.push && Platform.OS === 'ios') {
       // local notifications, triggered via background fetch
       // for non-hosted sites only (sites where hasPush = false)
       PushNotificationIOS.addEventListener('localNotification', e =>
@@ -160,12 +176,6 @@ class Discourse extends React.Component {
 
       PushNotificationIOS.addEventListener('register', s => {
         this._siteManager.registerClientId(s);
-      });
-
-      PushNotificationIOS.getInitialNotification().then(e => {
-        if (e) {
-          this._handleNotification(e);
-        }
       });
     }
 
