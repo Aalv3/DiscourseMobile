@@ -69,6 +69,8 @@ import {
   onboardingComplete,
 } from './product/ProductScreens';
 import { productTheme } from './product/DesignSystem';
+import NativeTopicScreen from './product/NativeTopicScreen';
+import { nativeTopicRoute } from './nativeMemberRouting';
 
 const { DiscourseKeyboardShortcuts } = NativeModules;
 
@@ -497,6 +499,15 @@ class Discourse extends React.Component {
     if (kind !== 'internal') {
       return;
     }
+    const site = this._siteManager
+      .listSites()
+      .find(item => item.authToken && isCanonicalUrl(item.url));
+    const topicRoute = nativeTopicRoute(url, Boolean(site));
+    if (topicRoute) {
+      this._siteManager.setActiveSite(site);
+      this._navigation.navigate('Topic', topicRoute);
+      return;
+    }
     if (Platform.OS === 'ios') {
       this._navigation.navigate('WebView', {
         url: url,
@@ -910,6 +921,14 @@ class Discourse extends React.Component {
               <Stack.Screen name="WebView">
                 {props => (
                   <Screens.WebView
+                    {...props}
+                    screenProps={{ ...screenProps }}
+                  />
+                )}
+              </Stack.Screen>
+              <Stack.Screen name="Topic">
+                {props => (
+                  <NativeTopicScreen
                     {...props}
                     screenProps={{ ...screenProps }}
                   />

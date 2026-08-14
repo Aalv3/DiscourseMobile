@@ -273,6 +273,10 @@ class WebViewComponent extends React.Component {
               }
 
               if (classifyNavigation(request.url) === 'internal') {
+                if (/^https:\/\/adjusternetwork\.org\/t\//.test(request.url)) {
+                  this.props.screenProps.openUrl(request.url);
+                  return false;
+                }
                 return true;
               }
 
