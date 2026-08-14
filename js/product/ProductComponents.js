@@ -4,6 +4,7 @@
 import React, { useContext } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -21,11 +22,35 @@ export const PageHeader = ({ eyebrow, title, action }) => {
   return (
     <View style={styles.header}>
       <View style={styles.headerCopy}>
-        {eyebrow ? (
-          <Text style={[styles.eyebrow, { color: colors.accent }]}>
-            {eyebrow}
+        <View style={styles.brandRow}>
+          <View
+            accessible
+            accessibilityRole="image"
+            accessibilityLabel="Adjuster Network"
+            style={styles.brandMarkViewport}
+          >
+            <Image
+              source={require('../../img/adjuster-network-logo.png')}
+              resizeMode="contain"
+              style={styles.brandMark}
+            />
+          </View>
+          <Text
+            maxFontSizeMultiplier={1.2}
+            style={[styles.brandName, { color: colors.accent }]}
+          >
+            ADJUSTER NETWORK
           </Text>
-        ) : null}
+          {eyebrow ? (
+            <Text
+              maxFontSizeMultiplier={1.35}
+              numberOfLines={1}
+              style={[styles.eyebrow, { color: colors.muted }]}
+            >
+              {eyebrow}
+            </Text>
+          ) : null}
+        </View>
         <Text
           accessibilityRole="header"
           style={[styles.pageTitle, { color: colors.text }]}
@@ -175,18 +200,44 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
   },
   headerCopy: { flex: 1 },
-  eyebrow: {
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    marginBottom: 3,
+  brandRow: {
+    minHeight: 26,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+    overflow: 'hidden',
   },
-  pageTitle: { fontSize: 30, lineHeight: 36, fontWeight: '800' },
+  brandMarkViewport: {
+    width: 32,
+    height: 25,
+    overflow: 'hidden',
+    marginRight: 7,
+  },
+  brandMark: {
+    position: 'absolute',
+    width: 52,
+    height: 37,
+    left: -10,
+    top: -4,
+  },
+  brandName: {
+    fontSize: 11,
+    fontWeight: '850',
+    letterSpacing: 0.8,
+    flexShrink: 0,
+  },
+  eyebrow: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: '650',
+    textAlign: 'right',
+    marginLeft: spacing.sm,
+  },
+  pageTitle: { fontSize: 28, lineHeight: 34, fontWeight: '800' },
   card: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radius.md,

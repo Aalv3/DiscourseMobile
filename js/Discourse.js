@@ -17,6 +17,7 @@ import {
   View,
 } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   createStackNavigator,
   TransitionPresets,
@@ -67,6 +68,7 @@ import {
   WelcomeScreen,
   onboardingComplete,
 } from './product/ProductScreens';
+import { productTheme } from './product/DesignSystem';
 
 const { DiscourseKeyboardShortcuts } = NativeModules;
 
@@ -628,269 +630,305 @@ class Discourse extends React.Component {
     };
 
     const theme = this.state.theme;
+    const shellColors = productTheme(theme.name);
+    const navigationTheme = {
+      dark: theme.name === 'dark',
+      colors: {
+        primary: shellColors.accent,
+        background: shellColors.canvas,
+        card: shellColors.canvas,
+        text: shellColors.text,
+        border: shellColors.border,
+        notification: shellColors.accent,
+      },
+    };
 
     if (!this.state.signedIn) {
       return (
-        <ThemeContext.Provider value={theme}>
-          <StatusBar barStyle={theme.barStyle} />
-          <WelcomeScreen
-            busy={this.state.connecting}
-            onConnect={() => this.connectCanonical()}
-            onLogin={() => this.connectCanonical()}
-          />
-          {this.state.privacyShield && this._blurView(theme.name)}
-        </ThemeContext.Provider>
+        <SafeAreaProvider
+          style={{ flex: 1, backgroundColor: shellColors.canvas }}
+        >
+          <ThemeContext.Provider value={theme}>
+            <StatusBar barStyle={theme.barStyle} translucent={false} />
+            <WelcomeScreen
+              busy={this.state.connecting}
+              onConnect={() => this.connectCanonical()}
+              onLogin={() => this.connectCanonical()}
+            />
+            {this.state.privacyShield && this._blurView(theme.name)}
+          </ThemeContext.Provider>
+        </SafeAreaProvider>
       );
     }
 
     if (this.state.onboardingReady && !this.state.onboardingDone) {
       return (
-        <ThemeContext.Provider value={theme}>
-          <StatusBar barStyle={theme.barStyle} />
-          <OnboardingScreen
-            onFinish={() =>
-              this.setState(
-                { onboardingDone: true },
-                this._flushPendingPushRoute,
-              )
-            }
-          />
-          {this.state.privacyShield && this._blurView(theme.name)}
-        </ThemeContext.Provider>
+        <SafeAreaProvider
+          style={{ flex: 1, backgroundColor: shellColors.canvas }}
+        >
+          <ThemeContext.Provider value={theme}>
+            <StatusBar barStyle={theme.barStyle} translucent={false} />
+            <OnboardingScreen
+              onFinish={() =>
+                this.setState(
+                  { onboardingDone: true },
+                  this._flushPendingPushRoute,
+                )
+              }
+            />
+            {this.state.privacyShield && this._blurView(theme.name)}
+          </ThemeContext.Provider>
+        </SafeAreaProvider>
       );
     }
 
     return (
-      <NavigationContainer onReady={this._flushPendingPushRoute}>
-        <ThemeContext.Provider value={theme}>
-          <StatusBar barStyle={theme.barStyle} />
-          <Stack.Navigator
-            initialRouteName="Home"
-            presentation="modal"
-            screenOptions={({ navigation }) => {
-              this._navigation = navigation;
-              return {
-                headerShown: false,
-                gestureEnabled: true,
-                ...TransitionPresets.ModalSlideFromBottomIOS,
-                // ...TransitionPresets.ModalPresentationIOS is an interesting alternative
-                // see https://reactnavigation.org/docs/stack-navigator/#transitionpresets
-              };
-            }}
-          >
-            <Stack.Screen name="HomeWrapper">
-              {() => (
-                <Tab.Navigator
-                  screenOptions={{
-                    headerShown: false,
+      <SafeAreaProvider
+        style={{ flex: 1, backgroundColor: shellColors.canvas }}
+      >
+        <NavigationContainer
+          theme={navigationTheme}
+          onReady={this._flushPendingPushRoute}
+        >
+          <ThemeContext.Provider value={theme}>
+            <StatusBar barStyle={theme.barStyle} translucent={false} />
+            <Stack.Navigator
+              initialRouteName="Home"
+              presentation="modal"
+              screenOptions={({ navigation }) => {
+                this._navigation = navigation;
+                return {
+                  headerShown: false,
+                  gestureEnabled: true,
+                  ...TransitionPresets.ModalSlideFromBottomIOS,
+                  // ...TransitionPresets.ModalPresentationIOS is an interesting alternative
+                  // see https://reactnavigation.org/docs/stack-navigator/#transitionpresets
+                };
+              }}
+            >
+              <Stack.Screen name="HomeWrapper">
+                {() => (
+                  <Tab.Navigator
+                    screenOptions={{
+                      headerShown: false,
 
-                    tabBarStyle: {
-                      position: 'absolute',
-                      borderTopWidth: StyleSheet.hairlineWidth,
-                      borderTopColor: theme.grayBorder,
-                    },
-                    tabBarLabelStyle: {
-                      fontSize: this.state.largerUI ? 16 : 12,
-                    },
-                    // Bottom tabs have fixed-width slots. Letting Dynamic Type
-                    // scale six labels makes the destinations overlap and clip;
-                    // the tab buttons still expose their full titles to VoiceOver.
-                    tabBarAllowFontScaling: false,
-                    tabBarActiveTintColor: theme.blueCallToAction,
-                    tabBarInactiveTintColor: theme.grayTabInactiveColor,
-                    tabBarBackground: () => this._blurView(theme.name),
-                  }}
-                >
-                  <Tab.Screen
-                    name="Home"
-                    options={{
-                      title: adjusterNetwork.navigation.floor.label,
-                      tabBarIcon: ({ color }) => (
-                        <FontAwesome5
-                          name={'home'}
-                          size={18}
-                          color={color}
-                          iconStyle="solid"
-                        />
-                      ),
+                      tabBarStyle: {
+                        position: 'absolute',
+                        borderTopWidth: StyleSheet.hairlineWidth,
+                        borderTopColor: theme.grayBorder,
+                      },
+                      tabBarLabelStyle: {
+                        fontSize: this.state.largerUI ? 16 : 12,
+                      },
+                      // Bottom tabs have fixed-width slots. Letting Dynamic Type
+                      // scale six labels makes the destinations overlap and clip;
+                      // the tab buttons still expose their full titles to VoiceOver.
+                      tabBarAllowFontScaling: false,
+                      tabBarActiveTintColor: theme.blueCallToAction,
+                      tabBarInactiveTintColor: theme.grayTabInactiveColor,
+                      tabBarBackground: () => this._blurView(theme.name),
                     }}
                   >
-                    {props => (
-                      <FloorScreen
-                        {...props}
-                        screenProps={{ ...screenProps }}
-                      />
-                    )}
-                  </Tab.Screen>
-                  <Tab.Screen
-                    name={'Discussions'}
-                    options={{
-                      title: 'Discussions',
-                      tabBarIcon: ({ color }) => (
-                        <FontAwesome5
-                          name={'comments'}
-                          size={18}
-                          color={color}
-                          iconStyle="solid"
+                    <Tab.Screen
+                      name="Home"
+                      options={{
+                        title: adjusterNetwork.navigation.floor.label,
+                        tabBarIcon: ({ color }) => (
+                          <FontAwesome5
+                            name={'home'}
+                            size={18}
+                            color={color}
+                            iconStyle="solid"
+                          />
+                        ),
+                      }}
+                    >
+                      {props => (
+                        <FloorScreen
+                          {...props}
+                          screenProps={{ ...screenProps }}
                         />
-                      ),
-                    }}
-                  >
-                    {props => (
-                      <DiscussionsScreen
-                        {...props}
-                        screenProps={{ ...screenProps }}
-                      />
-                    )}
-                  </Tab.Screen>
-                  <Tab.Screen
-                    name="Lounge"
-                    options={{
-                      title: 'Lounge',
-                      tabBarIcon: ({ color }) => (
-                        <FontAwesome5
-                          name="comment"
-                          size={18}
-                          color={color}
-                          iconStyle="solid"
+                      )}
+                    </Tab.Screen>
+                    <Tab.Screen
+                      name={'Discussions'}
+                      options={{
+                        title: 'Discussions',
+                        tabBarIcon: ({ color }) => (
+                          <FontAwesome5
+                            name={'comments'}
+                            size={18}
+                            color={color}
+                            iconStyle="solid"
+                          />
+                        ),
+                      }}
+                    >
+                      {props => (
+                        <DiscussionsScreen
+                          {...props}
+                          screenProps={{ ...screenProps }}
                         />
-                      ),
-                    }}
-                  >
-                    {props => (
-                      <LoungeScreen
-                        {...props}
-                        screenProps={{ ...screenProps }}
-                      />
-                    )}
-                  </Tab.Screen>
-                  <Tab.Screen
-                    name="Ask"
-                    options={{
-                      title: 'Ask',
-                      tabBarIcon: ({ color }) => (
-                        <FontAwesome5
-                          name="plus-circle"
-                          size={20}
-                          color={color}
-                          iconStyle="solid"
+                      )}
+                    </Tab.Screen>
+                    <Tab.Screen
+                      name="Lounge"
+                      options={{
+                        title: 'Lounge',
+                        tabBarIcon: ({ color }) => (
+                          <FontAwesome5
+                            name="comment"
+                            size={18}
+                            color={color}
+                            iconStyle="solid"
+                          />
+                        ),
+                      }}
+                    >
+                      {props => (
+                        <LoungeScreen
+                          {...props}
+                          screenProps={{ ...screenProps }}
                         />
-                      ),
-                    }}
-                  >
-                    {props => (
-                      <AskScreen {...props} screenProps={{ ...screenProps }} />
-                    )}
-                  </Tab.Screen>
-                  <Tab.Screen
-                    name="Intelligence"
-                    options={{
-                      title: 'Intel',
-                      tabBarIcon: ({ color }) => (
-                        <FontAwesome5
-                          name="signal"
-                          size={18}
-                          color={color}
-                          iconStyle="solid"
+                      )}
+                    </Tab.Screen>
+                    <Tab.Screen
+                      name="Ask"
+                      options={{
+                        title: 'Ask',
+                        tabBarIcon: ({ color }) => (
+                          <FontAwesome5
+                            name="plus-circle"
+                            size={20}
+                            color={color}
+                            iconStyle="solid"
+                          />
+                        ),
+                      }}
+                    >
+                      {props => (
+                        <AskScreen
+                          {...props}
+                          screenProps={{ ...screenProps }}
                         />
-                      ),
-                    }}
-                  >
-                    {props => (
-                      <IntelligenceScreen
-                        {...props}
-                        screenProps={{ ...screenProps }}
-                      />
-                    )}
-                  </Tab.Screen>
-                  <Tab.Screen
-                    name="Profile"
-                    options={{
-                      title: 'You',
-                      tabBarIcon: ({ color }) => (
-                        <FontAwesome5
-                          name="user"
-                          size={18}
-                          color={color}
-                          iconStyle="solid"
+                      )}
+                    </Tab.Screen>
+                    <Tab.Screen
+                      name="Intelligence"
+                      options={{
+                        title: 'Intel',
+                        tabBarIcon: ({ color }) => (
+                          <FontAwesome5
+                            name="signal"
+                            size={18}
+                            color={color}
+                            iconStyle="solid"
+                          />
+                        ),
+                      }}
+                    >
+                      {props => (
+                        <IntelligenceScreen
+                          {...props}
+                          screenProps={{ ...screenProps }}
                         />
-                      ),
-                    }}
-                  >
-                    {props => (
-                      <ProfileScreen
-                        {...props}
-                        screenProps={{ ...screenProps }}
-                      />
-                    )}
-                  </Tab.Screen>
-                </Tab.Navigator>
-              )}
-            </Stack.Screen>
-            <Stack.Screen
-              name={'Settings'}
-              options={{
-                title: i18n.t('settings'),
-                headerShown: true,
-                headerStyle: {
-                  backgroundColor: theme.background,
-                },
-                headerTitleStyle: {
-                  color: theme.grayTitle,
-                },
-                headerTintColor: theme.grayUI,
-                headerMode: 'screen',
-                headerBackTitle: i18n.t('back'),
-                headerShadowVisible: false,
-              }}
-            >
-              {props => (
-                <Screens.Settings {...props} screenProps={{ ...screenProps }} />
-              )}
-            </Stack.Screen>
-            <Stack.Screen
-              name={'AddSite'}
-              options={{
-                title: i18n.t('add_single_site'),
-                headerShown: true,
-                headerStyle: {
-                  backgroundColor: theme.background,
-                },
-                headerTintColor: theme.grayUI,
-                headerTitleStyle: {
-                  color: theme.grayTitle,
-                },
-                headerMode: 'screen',
-                headerBackTitle: i18n.t('back'),
-                headerShadowVisible: false,
-              }}
-            >
-              {props => (
-                <Screens.AddSite
-                  {...props}
-                  screenProps={{ ...screenProps }}
-                  singleSiteAdd={true}
-                />
-              )}
-            </Stack.Screen>
-            <Stack.Screen name="WebView">
-              {props => (
-                <Screens.WebView {...props} screenProps={{ ...screenProps }} />
-              )}
-            </Stack.Screen>
-          </Stack.Navigator>
-          {this.state.privacyShield && (
-            <View
-              accessibilityLabel="Private content hidden"
-              accessibilityRole="summary"
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: theme.background },
-              ]}
-            />
-          )}
-        </ThemeContext.Provider>
-      </NavigationContainer>
+                      )}
+                    </Tab.Screen>
+                    <Tab.Screen
+                      name="Profile"
+                      options={{
+                        title: 'You',
+                        tabBarIcon: ({ color }) => (
+                          <FontAwesome5
+                            name="user"
+                            size={18}
+                            color={color}
+                            iconStyle="solid"
+                          />
+                        ),
+                      }}
+                    >
+                      {props => (
+                        <ProfileScreen
+                          {...props}
+                          screenProps={{ ...screenProps }}
+                        />
+                      )}
+                    </Tab.Screen>
+                  </Tab.Navigator>
+                )}
+              </Stack.Screen>
+              <Stack.Screen
+                name={'Settings'}
+                options={{
+                  title: i18n.t('settings'),
+                  headerShown: true,
+                  headerStyle: {
+                    backgroundColor: theme.background,
+                  },
+                  headerTitleStyle: {
+                    color: theme.grayTitle,
+                  },
+                  headerTintColor: theme.grayUI,
+                  headerMode: 'screen',
+                  headerBackTitle: i18n.t('back'),
+                  headerShadowVisible: false,
+                }}
+              >
+                {props => (
+                  <Screens.Settings
+                    {...props}
+                    screenProps={{ ...screenProps }}
+                  />
+                )}
+              </Stack.Screen>
+              <Stack.Screen
+                name={'AddSite'}
+                options={{
+                  title: i18n.t('add_single_site'),
+                  headerShown: true,
+                  headerStyle: {
+                    backgroundColor: theme.background,
+                  },
+                  headerTintColor: theme.grayUI,
+                  headerTitleStyle: {
+                    color: theme.grayTitle,
+                  },
+                  headerMode: 'screen',
+                  headerBackTitle: i18n.t('back'),
+                  headerShadowVisible: false,
+                }}
+              >
+                {props => (
+                  <Screens.AddSite
+                    {...props}
+                    screenProps={{ ...screenProps }}
+                    singleSiteAdd={true}
+                  />
+                )}
+              </Stack.Screen>
+              <Stack.Screen name="WebView">
+                {props => (
+                  <Screens.WebView
+                    {...props}
+                    screenProps={{ ...screenProps }}
+                  />
+                )}
+              </Stack.Screen>
+            </Stack.Navigator>
+            {this.state.privacyShield && (
+              <View
+                accessibilityLabel="Private content hidden"
+                accessibilityRole="summary"
+                style={[
+                  StyleSheet.absoluteFill,
+                  { backgroundColor: theme.background },
+                ]}
+              />
+            )}
+          </ThemeContext.Provider>
+        </NavigationContainer>
+      </SafeAreaProvider>
     );
   }
 }
