@@ -757,6 +757,9 @@ export function OnboardingScreen({ onFinish }) {
     );
     onFinish();
   };
+  const skipForNow = () => {
+    onFinish();
+  };
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.canvas }]}>
       <ScrollView
@@ -841,7 +844,11 @@ export function OnboardingScreen({ onFinish }) {
           {step > 0 ? (
             <Action label="Back" secondary onPress={() => setStep(step - 1)} />
           ) : null}
-          <Pressable accessibilityRole="button" onPress={finish}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityHint="Onboarding will appear again the next time you open the app"
+            onPress={skipForNow}
+          >
             <Text style={[styles.skip, { color: colors.muted }]}>
               Skip for now
             </Text>
