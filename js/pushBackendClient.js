@@ -32,12 +32,17 @@ async function expectSuccess(response) {
 }
 
 export class PushBackendClient {
-  constructor({ origin, fetchImpl = fetch }) {
+  constructor({ origin, fetchImpl = fetch, nonceFactory }) {
     this.origin = origin;
     this.fetchImpl = fetchImpl;
+    this.nonceFactory = nonceFactory;
   }
 
-  request(url, method, authToken, authClientId, body) {
+  async request(url, method, authToken, authClientId, body) {
+    const nonce = await this.nonceFactory?.();
+    if (typeof nonce !== 'string' || !/^[A-Za-z0-9_-]{16,80}$/.test(nonce)) {
+      throw new Error('push_backend_nonce_unavailable');
+    }
     return this.fetchImpl(url, {
       method,
       headers: {
@@ -45,6 +50,7 @@ export class PushBackendClient {
         'Content-Type': 'application/json',
         'User-Api-Key': authToken,
         'User-Api-Client-Id': authClientId,
+        'X-AN-Push-Nonce': nonce,
       },
       body: body ? JSON.stringify(body) : undefined,
     }).then(expectSuccess);
@@ -56,7 +62,14 @@ export class PushBackendClient {
       'PUT',
       authToken,
       authClientId,
-      registration,
+      {
+        registration: {
+          platform: registration.platform,
+          environment: registration.environment,
+          app_id: registration.appId,
+          token: registration.transportToken,
+        },
+      },
     );
   }
 
@@ -66,7 +79,7 @@ export class PushBackendClient {
       'POST',
       authToken,
       authClientId,
-      registration,
+      { token: registration.transportToken },
     );
   }
 
@@ -89,7 +102,6 @@ export class PushBackendClient {
       '/preferences',
     );
     return this.request(preferencesUrl, 'PUT', authToken, authClientId, {
-      installationId,
       enabled: Boolean(enabled),
     });
   }

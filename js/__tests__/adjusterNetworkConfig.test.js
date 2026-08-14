@@ -33,7 +33,7 @@ describe('Adjuster Network product boundary', () => {
     });
     expect(adjusterNetwork.push).toEqual({
       backendOrigin: 'https://adjusternetwork.org',
-      environment: 'development',
+      environment: 'staging',
     });
   });
 });

@@ -21,7 +21,9 @@ export const adjusterNetwork = Object.freeze({
   }),
   push: Object.freeze({
     backendOrigin: 'https://adjusternetwork.org',
-    environment: 'development',
+    // The backend's staging environment is bound to Apple's APNs sandbox
+    // (`aps-environment=development`) and can never deliver through production.
+    environment: 'staging',
   }),
   navigation: Object.freeze({
     floor: Object.freeze({

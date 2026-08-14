@@ -55,6 +55,10 @@ export class PushInstallationStore {
     return id;
   }
 
+  requestNonce() {
+    return this.idFactory();
+  }
+
   async preference() {
     const value = await this.storage.getItem(PREFERENCE_KEY);
     return ['unknown', 'denied', 'enabled'].includes(value) ? value : 'unknown';

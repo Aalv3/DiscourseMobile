@@ -121,6 +121,7 @@ class Discourse extends React.Component {
       transport: pushTransport,
       client: new PushBackendClient({
         origin: adjusterNetwork.push.backendOrigin,
+        nonceFactory: () => pushInstallationStore.requestNonce(),
       }),
     });
     this._siteManager.setPushFoundation(this._pushFoundation);
@@ -575,12 +576,14 @@ class Discourse extends React.Component {
             'push_installation_failed',
             'push_backend_failed',
           ];
-          const safeBackendStatus = /^push_backend_rejected_(?:[1-5][0-9]{2}|transport)$/.test(
-            error?.message || '',
-          );
-          const reason = safeFailures.includes(error?.message) || safeBackendStatus
-            ? error.message
-            : 'push_registration_failed';
+          const safeBackendStatus =
+            /^push_backend_rejected_(?:[1-5][0-9]{2}|transport)$/.test(
+              error?.message || '',
+            );
+          const reason =
+            safeFailures.includes(error?.message) || safeBackendStatus
+              ? error.message
+              : 'push_registration_failed';
           this.setState({ pushStatus: reason });
         }
       },

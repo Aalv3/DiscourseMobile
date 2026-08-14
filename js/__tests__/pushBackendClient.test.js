@@ -6,12 +6,18 @@ describe('A3 push backend client', () => {
     const client = new PushBackendClient({
       origin: 'https://push.adjusternetwork.org',
       fetchImpl,
+      nonceFactory: () => Promise.resolve('nonce_0123456789abcdef'),
     });
     await client.register({
       installationId: 'install/id',
       authToken: 'synthetic-key',
       authClientId: 'synthetic-client-id',
-      registration: { platform: 'ios', transportToken: 'synthetic-token' },
+      registration: {
+        platform: 'ios',
+        environment: 'staging',
+        appId: 'org.adjusternetwork.app',
+        transportToken: 'synthetic-token',
+      },
     });
     expect(fetchImpl.mock.calls[0][0]).toBe(
       'https://push.adjusternetwork.org/native/v1/push/registrations/install%2Fid',
@@ -20,6 +26,15 @@ describe('A3 push backend client', () => {
     expect(fetchImpl.mock.calls[0][1].headers).toMatchObject({
       'User-Api-Key': 'synthetic-key',
       'User-Api-Client-Id': 'synthetic-client-id',
+      'X-AN-Push-Nonce': 'nonce_0123456789abcdef',
+    });
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual({
+      registration: {
+        platform: 'ios',
+        environment: 'staging',
+        app_id: 'org.adjusternetwork.app',
+        token: 'synthetic-token',
+      },
     });
   });
 
@@ -27,6 +42,7 @@ describe('A3 push backend client', () => {
     const client = new PushBackendClient({
       origin: null,
       fetchImpl: jest.fn(),
+      nonceFactory: () => Promise.resolve('nonce_0123456789abcdef'),
     });
     await expect(
       client.unregister({ installationId: 'id', authToken: 'key' }),
@@ -37,6 +53,7 @@ describe('A3 push backend client', () => {
     const client = new PushBackendClient({
       origin: 'https://adjusternetwork.org',
       fetchImpl: jest.fn(() => Promise.resolve({ status: 403 })),
+      nonceFactory: () => Promise.resolve('nonce_0123456789abcdef'),
     });
     await expect(
       client.register({
@@ -52,9 +69,26 @@ describe('A3 push backend client', () => {
     const client = new PushBackendClient({
       origin: 'https://api.discourse.org',
       fetchImpl: jest.fn(),
+      nonceFactory: () => Promise.resolve('nonce_0123456789abcdef'),
     });
     await expect(
       client.unregister({ installationId: 'id', authToken: 'key' }),
     ).rejects.toThrow('push_backend_unconfigured');
+  });
+
+  test('fails closed when a fresh request nonce is unavailable', async () => {
+    const client = new PushBackendClient({
+      origin: 'https://adjusternetwork.org',
+      fetchImpl: jest.fn(),
+      nonceFactory: () => Promise.resolve('short'),
+    });
+    await expect(
+      client.register({
+        installationId: 'id',
+        authToken: 'key',
+        authClientId: 'client',
+        registration: {},
+      }),
+    ).rejects.toThrow('push_backend_nonce_unavailable');
   });
 });
