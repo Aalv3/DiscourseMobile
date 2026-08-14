@@ -5,6 +5,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -51,67 +53,73 @@ export function WelcomeScreen({ onConnect, onLogin, busy }) {
   ]);
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.canvas }]}>
-      <ScrollView
-        contentContainerStyle={[
-          styles.welcome,
-          width >= 700 && styles.welcomeWide,
-        ]}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.safe}
       >
-        <View style={styles.brandLogoPlate}>
-          <Image
-            source={
-              brandAssets?.[0]?.localUri
-                ? { uri: brandAssets[0].localUri }
-                : undefined
-            }
-            style={styles.brandLogo}
-            resizeMode="contain"
-            accessible
-            accessibilityRole="image"
-            accessibilityLabel="Adjuster Network"
-          />
-        </View>
-        <Text
-          accessibilityRole="header"
-          style={[styles.welcomeTitle, { color: colors.text }]}
+        <ScrollView
+          contentContainerStyle={[
+            styles.welcome,
+            width >= 700 && styles.welcomeWide,
+          ]}
+          keyboardShouldPersistTaps="handled"
         >
-          The private professional network built for adjusters.
-        </Text>
-        <Text style={[styles.welcomeBody, { color: colors.muted }]}>
-          Trade field knowledge, ask better questions, and keep up with
-          claims—without putting claim data in public view.
-        </Text>
-        <View
-          style={[styles.valueCard, { backgroundColor: colors.surfaceAlt }]}
-        >
-          <Value
-            icon="user-shield"
-            title="Members only"
-            body="Professional conversation stays inside the network."
+          <View style={styles.brandLogoPlate}>
+            <Image
+              source={
+                brandAssets?.[0]?.localUri
+                  ? { uri: brandAssets[0].localUri }
+                  : undefined
+              }
+              style={styles.brandLogo}
+              resizeMode="contain"
+              accessible
+              accessibilityRole="image"
+              accessibilityLabel="Adjuster Network"
+            />
+          </View>
+          <Text
+            accessibilityRole="header"
+            style={[styles.welcomeTitle, { color: colors.text }]}
+          >
+            The private professional network built for adjusters.
+          </Text>
+          <Text style={[styles.welcomeBody, { color: colors.muted }]}>
+            Trade field knowledge, ask better questions, and keep up with
+            claims—without putting claim data in public view.
+          </Text>
+          <View
+            style={[styles.valueCard, { backgroundColor: colors.surfaceAlt }]}
+          >
+            <Value
+              icon="user-shield"
+              title="Members only"
+              body="Professional conversation stays inside the network."
+            />
+            <Value
+              icon="handshake"
+              title="Free membership"
+              body="Connect with peers across the claims community."
+            />
+            <Value
+              icon="clipboard-check"
+              title="Useful by design"
+              body="Claims intelligence, practical knowledge, and focused discussions."
+            />
+          </View>
+          <Action
+            label={busy ? 'Connecting…' : 'Connect free'}
+            icon="arrow-right"
+            onPress={onConnect}
+            disabled={busy}
           />
-          <Value
-            icon="handshake"
-            title="Free membership"
-            body="Connect with peers across the claims community."
-          />
-          <Value
-            icon="clipboard-check"
-            title="Useful by design"
-            body="Claims intelligence, practical knowledge, and focused discussions."
-          />
-        </View>
-        <Action
-          label={busy ? 'Connecting…' : 'Connect free'}
-          icon="arrow-right"
-          onPress={onConnect}
-          disabled={busy}
-        />
-        <Action label="Log in" onPress={onLogin} secondary disabled={busy} />
-        <Text style={[styles.finePrint, { color: colors.muted }]}>
-          Never post names, policy numbers, addresses, photos, or other
-          claim-identifying information.
-        </Text>
-      </ScrollView>
+          <Action label="Log in" onPress={onLogin} secondary disabled={busy} />
+          <Text style={[styles.finePrint, { color: colors.muted }]}>
+            Never post names, policy numbers, addresses, photos, or other
+            claim-identifying information.
+          </Text>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -751,7 +759,10 @@ export function OnboardingScreen({ onFinish }) {
   };
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.canvas }]}>
-      <View style={styles.onboarding}>
+      <ScrollView
+        contentContainerStyle={styles.onboarding}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.progress}>
           {[0, 1, 2, 3, 4].map(i => (
             <View
@@ -836,7 +847,7 @@ export function OnboardingScreen({ onFinish }) {
             </Text>
           </Pressable>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -864,31 +875,33 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 620,
     alignSelf: 'center',
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     justifyContent: 'center',
-    gap: 14,
+    gap: 10,
   },
   welcomeWide: { paddingVertical: 50 },
   brandLogoPlate: {
-    width: 260,
-    height: 186,
-    borderRadius: 18,
+    width: 156,
+    height: 112,
+    borderRadius: 14,
+    alignSelf: 'center',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
-    padding: 10,
+    padding: 6,
     overflow: 'hidden',
   },
   // An explicit height prevents Fabric from falling back to the PNG's Retina
   // pixel dimensions while it resolves the intrinsic image size.
-  brandLogo: { width: 240, height: 171, aspectRatio: 1183 / 845 },
-  welcomeTitle: { fontSize: 38, lineHeight: 44, fontWeight: '850' },
-  welcomeBody: { fontSize: 18, lineHeight: 27 },
+  brandLogo: { width: 144, height: 103, aspectRatio: 1183 / 845 },
+  welcomeTitle: { fontSize: 30, lineHeight: 36, fontWeight: '850' },
+  welcomeBody: { fontSize: 16, lineHeight: 23 },
   valueCard: {
-    padding: 18,
+    padding: 14,
     borderRadius: radius.lg,
-    gap: 18,
-    marginVertical: 6,
+    gap: 12,
+    marginVertical: 2,
   },
   value: { flexDirection: 'row', gap: 13 },
   valueCopy: { flex: 1 },
@@ -1007,30 +1020,31 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   onboarding: {
-    flex: 1,
+    flexGrow: 1,
     width: '100%',
     maxWidth: 620,
     alignSelf: 'center',
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
   },
   progress: { flexDirection: 'row', gap: 6 },
   progressBar: { height: 4, flex: 1, borderRadius: 2 },
   onboardingIcon: {
-    marginTop: 60,
-    width: 64,
-    height: 64,
-    borderRadius: 20,
+    marginTop: 32,
+    width: 56,
+    height: 56,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   onboardingTitle: {
-    fontSize: 32,
-    lineHeight: 39,
+    fontSize: 28,
+    lineHeight: 34,
     fontWeight: '850',
-    marginTop: 24,
+    marginTop: 18,
   },
-  onboardingBody: { fontSize: 18, lineHeight: 27, marginTop: 12 },
-  onboardingActions: { marginTop: 'auto', gap: 10 },
+  onboardingBody: { fontSize: 17, lineHeight: 25, marginTop: 10 },
+  onboardingActions: { marginTop: 'auto', paddingTop: 24, gap: 8 },
   skip: { textAlign: 'center', padding: 12, fontSize: 15, fontWeight: '600' },
   interests: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 24 },
 });
