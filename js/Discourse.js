@@ -54,7 +54,7 @@ import {
 import BackgroundFetch from './platforms/background-fetch';
 import {
   shouldOpenCallbackOneTimePassword,
-  shouldReportAuthFailure,
+  shouldReportAuthFailureAfterSettlement,
 } from './authAttempt';
 import {
   AskScreen,
@@ -545,7 +545,7 @@ class Discourse extends React.Component {
       // presentation promise concurrently reports browser invalidation. Once
       // the callback has established a connected site, that verified state is
       // authoritative and must not be surfaced as a failed login.
-      if (shouldReportAuthFailure(this._siteManager.connectedSitesCount())) {
+      if (await shouldReportAuthFailureAfterSettlement(this._siteManager)) {
         Alert.alert('Unable to connect', 'Please try again in a moment.');
       }
     } finally {

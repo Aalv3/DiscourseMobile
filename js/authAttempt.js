@@ -23,3 +23,24 @@ export function shouldOpenCallbackOneTimePassword(platform) {
 export function shouldReportAuthFailure(connectedSitesCount) {
   return connectedSitesCount < 1;
 }
+
+export async function shouldReportAuthFailureAfterSettlement(
+  siteManager,
+  duration = 2000,
+) {
+  if (!shouldReportAuthFailure(siteManager.connectedSitesCount())) {
+    return false;
+  }
+
+  try {
+    await siteManager.waitFor(
+      duration,
+      () => !shouldReportAuthFailure(siteManager.connectedSitesCount()),
+    );
+  } catch {
+    // If the Linking callback does not establish a connected site during this
+    // bounded window, the original native presentation failure is authoritative.
+  }
+
+  return shouldReportAuthFailure(siteManager.connectedSitesCount());
+}
