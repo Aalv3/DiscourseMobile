@@ -17,10 +17,7 @@ import {
   View,
 } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
-import {
-  SafeAreaProvider,
-  SafeAreaView,
-} from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
   createStackNavigator,
   TransitionPresets,
@@ -79,6 +76,7 @@ import {
   loadOnboardingState,
   onboardingSessionId,
   ONBOARDING_STATUS,
+  recordOnboardingAuditTrace,
   shouldShowOnboarding,
 } from './onboardingState';
 
@@ -361,7 +359,22 @@ class Discourse extends React.Component {
         !this.state.signedIn ||
         this.state.onboardingSessionId !== sessionId
       ) {
-        const onboarding = await loadOnboardingState();
+        const onboarding = await loadOnboardingState(undefined, sessionId);
+        const onboardingRequired = shouldShowOnboarding(onboarding, sessionId);
+        recordOnboardingAuditTrace([
+          'AUTH_COMPLETE',
+          'ONBOARDING_STATE_READ',
+          `ONBOARDING_STATE_${onboarding.status.toUpperCase()}`,
+          onboardingRequired
+            ? 'ONBOARDING_REQUIRED_TRUE'
+            : 'ONBOARDING_REQUIRED_FALSE',
+          onboardingRequired
+            ? 'ONBOARDING_ROUTE_REQUESTED'
+            : 'FLOOR_ROUTE_REQUESTED',
+          onboardingRequired
+            ? 'FINAL_DESTINATION_ONBOARDING'
+            : 'FINAL_DESTINATION_FLOOR',
+        ]).catch(() => {});
         const currentSite = this._siteManager
           .listSites()
           .find(candidate => candidate.authToken);
@@ -377,10 +390,7 @@ class Discourse extends React.Component {
             onboardingReady: true,
             onboardingStatus: onboarding.status,
             onboardingSessionId: sessionId,
-            onboardingDismissedForSession: !shouldShowOnboarding(
-              onboarding,
-              sessionId,
-            ),
+            onboardingDismissedForSession: !onboardingRequired,
           },
           this._flushPendingPushRoute,
         );

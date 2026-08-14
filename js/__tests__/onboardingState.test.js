@@ -12,9 +12,12 @@ import {
   markOnboardingCompleted,
   markOnboardingSkipped,
   ONBOARDING_KEY,
+  ONBOARDING_AUDIT_KEY,
   ONBOARDING_STATUS,
   onboardingSessionId,
+  recordOnboardingAuditTrace,
   shouldShowOnboarding,
+  V2_ONBOARDING_KEY,
 } from '../onboardingState';
 
 const memoryStorage = initial => {
@@ -45,6 +48,7 @@ describe('persistent onboarding lifecycle', () => {
     const skipped = await markOnboardingSkipped('session-a', storage);
 
     expect(skipped.status).toBe(ONBOARDING_STATUS.INCOMPLETE);
+    expect(skipped.completedAt).toBeNull();
     expect(shouldShowOnboarding(skipped, 'session-a')).toBe(false);
     expect(shouldShowOnboarding(skipped, 'session-b')).toBe(true);
     expect((await loadOnboardingState(storage)).status).toBe(
@@ -56,12 +60,14 @@ describe('persistent onboarding lifecycle', () => {
     const storage = memoryStorage();
     const completed = await markOnboardingCompleted(['Property'], storage);
 
+    expect(completed.schemaVersion).toBe(3);
+    expect(completed.completedAt).toEqual(expect.any(String));
     expect(shouldShowOnboarding(completed, 'session-a')).toBe(false);
     expect(shouldShowOnboarding(completed, 'session-b')).toBe(false);
     expect(await loadOnboardingState(storage)).toEqual(completed);
   });
 
-  test('known legacy completion migrates and remains completed', async () => {
+  test('contaminated legacy completion migrates toward incomplete', async () => {
     const storage = memoryStorage({
       [LEGACY_ONBOARDING_KEY]: JSON.stringify({
         completed: true,
@@ -70,10 +76,39 @@ describe('persistent onboarding lifecycle', () => {
     });
     const state = await loadOnboardingState(storage);
 
-    expect(state.status).toBe(ONBOARDING_STATUS.COMPLETED);
+    expect(state.status).toBe(ONBOARDING_STATUS.INCOMPLETE);
     expect(JSON.parse(storage.value(ONBOARDING_KEY)).status).toBe(
-      ONBOARDING_STATUS.COMPLETED,
+      ONBOARDING_STATUS.INCOMPLETE,
     );
+    expect(shouldShowOnboarding(state, 'new-session')).toBe(true);
+  });
+
+  test('v2 completion without final-action evidence migrates incomplete', async () => {
+    const storage = memoryStorage({
+      [V2_ONBOARDING_KEY]: JSON.stringify({
+        status: ONBOARDING_STATUS.COMPLETED,
+        interests: [],
+        dismissedSessionId: null,
+      }),
+    });
+    const state = await loadOnboardingState(storage);
+
+    expect(state.status).toBe(ONBOARDING_STATUS.INCOMPLETE);
+    expect(state.completedAt).toBeNull();
+    expect(shouldShowOnboarding(state, 'new-session')).toBe(true);
+  });
+
+  test('migration does not interrupt the restored session but reminds next login', async () => {
+    const storage = memoryStorage({
+      [V2_ONBOARDING_KEY]: JSON.stringify({
+        status: ONBOARDING_STATUS.COMPLETED,
+        interests: [],
+      }),
+    });
+    const state = await loadOnboardingState(storage, 'restored-session');
+
+    expect(shouldShowOnboarding(state, 'restored-session')).toBe(false);
+    expect(shouldShowOnboarding(state, 'next-login')).toBe(true);
   });
 
   test('known legacy incomplete state reminds', async () => {
@@ -91,5 +126,44 @@ describe('persistent onboarding lifecycle', () => {
     expect(onboardingSessionId({ createdAt: 1234 })).not.toBe(
       onboardingSessionId({ createdAt: 5678 }),
     );
+  });
+
+  test('repeated login lifecycle reminds until actual completion', async () => {
+    const storage = memoryStorage();
+    const firstLogin = await loadOnboardingState(storage);
+    expect(shouldShowOnboarding(firstLogin, 'login-1')).toBe(true);
+
+    const firstSkip = await markOnboardingSkipped('login-1', storage);
+    expect(shouldShowOnboarding(firstSkip, 'login-1')).toBe(false);
+    expect(
+      shouldShowOnboarding(await loadOnboardingState(storage), 'login-1'),
+    ).toBe(false);
+    expect(
+      shouldShowOnboarding(await loadOnboardingState(storage), 'login-2'),
+    ).toBe(true);
+
+    const secondSkip = await markOnboardingSkipped('login-2', storage);
+    expect(shouldShowOnboarding(secondSkip, 'login-2')).toBe(false);
+    expect(
+      shouldShowOnboarding(await loadOnboardingState(storage), 'login-3'),
+    ).toBe(true);
+
+    const completed = await markOnboardingCompleted([], storage);
+    expect(shouldShowOnboarding(completed, 'login-3')).toBe(false);
+    expect(
+      shouldShowOnboarding(await loadOnboardingState(storage), 'login-4'),
+    ).toBe(false);
+  });
+
+  test('audit trace stores fixed safe lifecycle markers only', async () => {
+    const storage = memoryStorage();
+    await recordOnboardingAuditTrace(
+      ['AUTH_COMPLETE', 'ONBOARDING_STATE_INCOMPLETE', 'raw-secret=value'],
+      storage,
+    );
+    expect(JSON.parse(storage.value(ONBOARDING_AUDIT_KEY))).toEqual([
+      'AUTH_COMPLETE',
+      'ONBOARDING_STATE_INCOMPLETE',
+    ]);
   });
 });
