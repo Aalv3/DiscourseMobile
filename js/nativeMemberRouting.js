@@ -86,6 +86,19 @@ export function classifyFirstPartyMemberRoute(
     ) {
       return { disposition: 'rejected' };
     }
+    if (/^\/search\/?$/i.test(url.pathname)) {
+      return { disposition: 'native', screen: 'Search', params: {} };
+    }
+    const bookmarks = url.pathname.match(
+      /^\/u\/([a-z0-9_.-]+)\/activity\/bookmarks\/?$/i,
+    );
+    if (bookmarks) {
+      return {
+        disposition: 'native',
+        screen: 'Bookmarks',
+        params: { username: bookmarks[1] },
+      };
+    }
     const profile = url.pathname.match(
       /^\/u\/([a-z0-9_.-]+)(?:\/activity(?:\/[^/]+)?)?\/?$/i,
     );

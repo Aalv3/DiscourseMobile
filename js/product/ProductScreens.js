@@ -25,7 +25,12 @@ import {
   StateCard,
   useProductTheme,
 } from './ProductComponents';
-import { activeMemberSite, loadCommunity, topicPath } from './ProductData';
+import {
+  activeMemberSite,
+  askableCategories,
+  loadCommunity,
+  topicPath,
+} from './ProductData';
 import { radius, spacing } from './DesignSystem';
 import { adjusterNetwork } from '../adjusterNetworkConfig';
 import {
@@ -218,13 +223,32 @@ const TopicCard = ({ topic, site, openUrl }) => {
   );
 };
 
-export function FloorScreen({ screenProps }) {
+export function FloorScreen({ navigation, screenProps }) {
   const colors = useProductTheme();
   const site = activeMemberSite(screenProps.siteManager);
   const data = useCommunity(screenProps.siteManager);
   return (
     <Screen>
-      <PageHeader eyebrow="Member briefing" title="The Floor" />
+      <PageHeader
+        eyebrow="Member briefing"
+        title="The Floor"
+        action={
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Search the Network"
+            hitSlop={8}
+            onPress={() => navigation.navigate('Search')}
+            style={[styles.headerAction, { borderColor: colors.border }]}
+          >
+            <FontAwesome5
+              name="search"
+              size={17}
+              color={colors.accent}
+              iconStyle="solid"
+            />
+          </Pressable>
+        }
+      />
       <View style={[styles.hero, { backgroundColor: colors.hero }]}>
         <Text style={styles.heroKicker}>TODAY IN CLAIMS</Text>
         <Text style={styles.heroTitle}>
@@ -378,6 +402,7 @@ export function AskScreen({ screenProps }) {
   const colors = useProductTheme();
   const site = activeMemberSite(screenProps.siteManager);
   const data = useCommunity(screenProps.siteManager);
+  const permittedCategories = askableCategories(data.categories);
   const [category, setCategory] = useState(null);
   const [question, setQuestion] = useState({
     title: '',
@@ -441,7 +466,7 @@ export function AskScreen({ screenProps }) {
         detail="This keeps your question in front of the right members."
       />
       <View style={styles.categoryGrid}>
-        {data.categories.map(item => (
+        {permittedCategories.map(item => (
           <Pressable
             key={item.id}
             accessibilityRole="radio"
@@ -471,11 +496,11 @@ export function AskScreen({ screenProps }) {
           </Pressable>
         ))}
       </View>
-      {!data.loading && !data.categories.length ? (
+      {!data.loading && !permittedCategories.length ? (
         <StateCard
           icon="folder-open"
-          title="No categories available"
-          body="The network has not exposed a category for native posting yet."
+          title="Asking is unavailable"
+          body="Your account is not currently permitted to create a discussion in an available category."
         />
       ) : null}
       <SectionTitle
@@ -625,7 +650,7 @@ export function IntelligenceScreen({ screenProps }) {
   );
 }
 
-export function ProfileScreen({ screenProps }) {
+export function ProfileScreen({ navigation, screenProps }) {
   const colors = useProductTheme();
   const site = activeMemberSite(screenProps.siteManager);
   const username = site?.username || 'Member';
@@ -665,6 +690,16 @@ export function ProfileScreen({ screenProps }) {
         onPress={() =>
           screenProps.openUrl(`${site.url}/u/${username}/preferences/account`)
         }
+      />
+      <ProfileLink
+        icon="bookmark"
+        label="Bookmarks"
+        onPress={() => navigation.navigate('Bookmarks')}
+      />
+      <ProfileLink
+        icon="search"
+        label="Search the Network"
+        onPress={() => navigation.navigate('Search')}
       />
       {site?.isStaff ? (
         <ProfileLink
@@ -907,6 +942,14 @@ export function OnboardingScreen({ onComplete, onSkip, sessionId }) {
 }
 
 const styles = StyleSheet.create({
+  headerAction: {
+    width: 44,
+    height: 44,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   safe: { flex: 1 },
   scroll: {
     width: '100%',

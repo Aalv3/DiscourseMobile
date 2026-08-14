@@ -68,6 +68,14 @@ import {
 } from './product/ProductScreens';
 import { productTheme } from './product/DesignSystem';
 import { NestedHeader } from './product/ProductComponents';
+import {
+  AccountScreen,
+  AppearanceSettingsScreen,
+  NativeBookmarksScreen,
+  NativeSearchScreen,
+  NotificationSettingsScreen,
+  PrivacyAccountScreen,
+} from './product/NativeMemberUtilityScreens';
 import NativeTopicScreen from './product/NativeTopicScreen';
 import NativeCollectionScreen from './product/NativeCollectionScreen';
 import NativeProfileScreen from './product/NativeProfileScreen';
@@ -198,6 +206,7 @@ class Discourse extends React.Component {
       deviceId: DeviceInfo.getDeviceId(),
       largerUI: largerUI,
       theme: colorScheme === 'dark' ? themes.dark : themes.light,
+      themePreference: 'system',
       privacyShield: false,
       signedIn: false,
       onboardingReady: false,
@@ -209,9 +218,22 @@ class Discourse extends React.Component {
     };
 
     this.subscription = Appearance.addChangeListener(() => {
+      if (this.state.themePreference !== 'system') return;
       const newColorScheme = Appearance.getColorScheme();
       this.setState({
         theme: newColorScheme === 'dark' ? themes.dark : themes.light,
+      });
+    });
+
+    AsyncStorage.getItem('@AdjusterNetwork.themePreference').then(value => {
+      const preference = ['system', 'light', 'dark'].includes(value)
+        ? value
+        : 'system';
+      const resolved =
+        preference === 'system' ? Appearance.getColorScheme() : preference;
+      this.setState({
+        themePreference: preference,
+        theme: resolved === 'dark' ? themes.dark : themes.light,
       });
     });
 
@@ -616,8 +638,15 @@ class Discourse extends React.Component {
   }
 
   _toggleTheme(newTheme) {
+    const preference = ['system', 'light', 'dark'].includes(newTheme)
+      ? newTheme
+      : 'system';
+    const resolved =
+      preference === 'system' ? Appearance.getColorScheme() : preference;
+    AsyncStorage.setItem('@AdjusterNetwork.themePreference', preference);
     this.setState({
-      theme: newTheme === 'dark' ? themes.dark : themes.light,
+      themePreference: preference,
+      theme: resolved === 'dark' ? themes.dark : themes.light,
     });
   }
 
@@ -658,6 +687,8 @@ class Discourse extends React.Component {
       deviceId: this.state.deviceId,
       largerUI: this.state.largerUI,
       toggleTheme: this._toggleTheme.bind(this),
+      setThemePreference: this._toggleTheme.bind(this),
+      themePreference: this.state.themePreference,
       pushStatus: this.state.pushStatus,
       enablePush: async () => {
         const site = this._siteManager.activeSite || this._siteManager.sites[0];
@@ -1008,6 +1039,51 @@ class Discourse extends React.Component {
               <Stack.Screen name="MemberProfile">
                 {props => (
                   <NativeProfileScreen
+                    {...props}
+                    screenProps={{ ...screenProps }}
+                  />
+                )}
+              </Stack.Screen>
+              <Stack.Screen name="Account">
+                {props => (
+                  <AccountScreen {...props} screenProps={{ ...screenProps }} />
+                )}
+              </Stack.Screen>
+              <Stack.Screen name="NotificationSettings">
+                {props => (
+                  <NotificationSettingsScreen
+                    {...props}
+                    screenProps={{ ...screenProps }}
+                  />
+                )}
+              </Stack.Screen>
+              <Stack.Screen name="AppearanceSettings">
+                {props => (
+                  <AppearanceSettingsScreen
+                    {...props}
+                    screenProps={{ ...screenProps }}
+                  />
+                )}
+              </Stack.Screen>
+              <Stack.Screen name="PrivacyAccount">
+                {props => (
+                  <PrivacyAccountScreen
+                    {...props}
+                    screenProps={{ ...screenProps }}
+                  />
+                )}
+              </Stack.Screen>
+              <Stack.Screen name="Search">
+                {props => (
+                  <NativeSearchScreen
+                    {...props}
+                    screenProps={{ ...screenProps }}
+                  />
+                )}
+              </Stack.Screen>
+              <Stack.Screen name="Bookmarks">
+                {props => (
+                  <NativeBookmarksScreen
                     {...props}
                     screenProps={{ ...screenProps }}
                   />

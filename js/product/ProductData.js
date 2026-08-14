@@ -17,3 +17,11 @@ export async function loadCommunity(site) {
 }
 
 export const topicPath = topic => `/t/${topic.slug || 'topic'}/${topic.id}`;
+
+// Discourse only assigns the full permission value (1) in site.json when the
+// current Guardian may create topics in that category. Visibility alone is
+// not sufficient: read-only categories remain visible to members.
+export const askableCategories = categories =>
+  (Array.isArray(categories) ? categories : []).filter(
+    category => category?.permission === 1,
+  );

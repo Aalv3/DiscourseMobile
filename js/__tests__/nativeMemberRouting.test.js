@@ -37,10 +37,26 @@ describe('native authenticated member routing', () => {
   });
 
   test.each([
-    ['https://adjusternetwork.org/tag/today-in-claims', 'tag', '/search.json?q=tags%3Atoday-in-claims%20order%3Alatest'],
-    ['https://adjusternetwork.org/tag/claims-weather', 'tag', '/search.json?q=tags%3Aclaims-weather%20order%3Alatest'],
-    ['https://adjusternetwork.org/tag/field-knowledge', 'tag', '/search.json?q=tags%3Afield-knowledge%20order%3Alatest'],
-    ['https://adjusternetwork.org/c/property/7', 'category', '/c/property/7.json'],
+    [
+      'https://adjusternetwork.org/tag/today-in-claims',
+      'tag',
+      '/search.json?q=tags%3Atoday-in-claims%20order%3Alatest',
+    ],
+    [
+      'https://adjusternetwork.org/tag/claims-weather',
+      'tag',
+      '/search.json?q=tags%3Aclaims-weather%20order%3Alatest',
+    ],
+    [
+      'https://adjusternetwork.org/tag/field-knowledge',
+      'tag',
+      '/search.json?q=tags%3Afield-knowledge%20order%3Alatest',
+    ],
+    [
+      'https://adjusternetwork.org/c/property/7',
+      'category',
+      '/c/property/7.json',
+    ],
   ])('routes first-party collection %s natively', (url, kind, endpoint) => {
     expect(nativeCollectionRoute(url, true)).toMatchObject({ kind, endpoint });
   });
@@ -59,6 +75,8 @@ describe('native authenticated member routing', () => {
     ['https://adjusternetwork.org/u/qa_test', 'MemberProfile'],
     ['https://adjusternetwork.org/u/qa_test/activity', 'MemberProfile'],
     ['https://adjusternetwork.org/u/qa_test/preferences/account', 'Settings'],
+    ['https://adjusternetwork.org/search', 'Search'],
+    ['https://adjusternetwork.org/u/qa_test/activity/bookmarks', 'Bookmarks'],
   ])('classifies ordinary member route %s as native %s', (url, screen) => {
     expect(
       classifyFirstPartyMemberRoute(url, { authenticated: true }),
@@ -86,8 +104,8 @@ describe('native authenticated member routing', () => {
     'https://adjusternetwork.org/session/sso',
     'https://adjusternetwork.org/unknown',
   ])('rejects unapproved first-party WebView route %s', url => {
-    expect(
-      classifyFirstPartyMemberRoute(url, { authenticated: true }),
-    ).toEqual({ disposition: 'rejected' });
+    expect(classifyFirstPartyMemberRoute(url, { authenticated: true })).toEqual(
+      { disposition: 'rejected' },
+    );
   });
 });
