@@ -6,12 +6,10 @@ import {
   Pressable,
   Image,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -34,6 +32,8 @@ import {
   markOnboardingCompleted,
   markOnboardingSkipped,
 } from '../onboardingState';
+export { default as LoungeScreen } from './NativeLoungeScreen';
+import EmojiTextInput from './EmojiTextInput';
 
 const interests = ['CAT & Storm', 'Property', 'Auto', 'Field Tools', 'Career'];
 
@@ -374,214 +374,6 @@ export function DiscussionsScreen({ screenProps }) {
   );
 }
 
-export function LoungeScreen({ screenProps }) {
-  const colors = useProductTheme();
-  const site = activeMemberSite(screenProps.siteManager);
-  const data = useCommunity(screenProps.siteManager);
-  const lounge = data.categories.find(
-    category => category.name.toLowerCase() === 'lounge',
-  );
-  const [loungeState, setLoungeState] = useState({
-    loading: false,
-    topics: null,
-    canCreate: false,
-    error: null,
-  });
-  const [composer, setComposer] = useState({
-    visible: false,
-    title: '',
-    raw: '',
-    submitting: false,
-    error: null,
-  });
-
-  const refreshLounge = useCallback(async () => {
-    if (!site?.authToken || !lounge) return;
-    setLoungeState(current => ({ ...current, loading: true, error: null }));
-    try {
-      const payload = await site.jsonApi(
-        `/c/${lounge.slug || lounge.id}/${lounge.id}.json`,
-      );
-      setLoungeState({
-        loading: false,
-        topics: payload?.topic_list?.topics || [],
-        canCreate:
-          payload?.topic_list?.can_create_topic === true ||
-          payload?.can_create_topic === true,
-        error: null,
-      });
-    } catch {
-      setLoungeState({
-        loading: false,
-        topics: null,
-        canCreate: false,
-        error: 'failed',
-      });
-    }
-  }, [lounge, site]);
-
-  useEffect(() => {
-    refreshLounge();
-  }, [refreshLounge]);
-
-  const fallbackTopics = lounge
-    ? data.topics.filter(topic => topic.category_id === lounge.id)
-    : [];
-  const topics = loungeState.topics || fallbackTopics;
-  const startConversation = () =>
-    setComposer({
-      visible: true,
-      title: '',
-      raw: '',
-      submitting: false,
-      error: null,
-    });
-  const closeComposer = () => {
-    if (!composer.submitting) {
-      setComposer(current => ({ ...current, visible: false, error: null }));
-    }
-  };
-  const submitConversation = async () => {
-    const title = composer.title.trim();
-    const raw = composer.raw.trim();
-    if (!title || !raw || !lounge || !site?.authToken) return;
-    setComposer(current => ({ ...current, submitting: true, error: null }));
-    try {
-      const created = await site.jsonApi('/posts.json', 'POST', {
-        title,
-        raw,
-        category: lounge.id,
-      });
-      setComposer(current => ({ ...current, visible: false, submitting: false }));
-      await refreshLounge();
-      data.refresh();
-      if (created?.topic_id) {
-        screenProps.openUrl(
-          `${site.url}/t/${created.topic_slug || 'topic'}/${created.topic_id}`,
-        );
-      }
-    } catch {
-      setComposer(current => ({
-        ...current,
-        submitting: false,
-        error:
-          'Conversation could not be started. Check your permissions or connection and try again.',
-      }));
-    }
-  };
-
-  return (
-    <Screen>
-      <PageHeader eyebrow="Ordinary members" title="Lounge" />
-      <SectionTitle
-        title="Stay connected"
-        detail="Casual member conversation, CAT-life, travel, networking, and the moments between claims."
-      />
-      {data.loading || loungeState.loading ? (
-        <StateCard
-          loading
-          title="Loading the Lounge"
-          body="Checking for private member conversation."
-        />
-      ) : data.error || loungeState.error ? (
-        <StateCard
-          icon="triangle-exclamation"
-          title="Lounge unavailable"
-          body="We couldn’t reach the private network. Nothing cached is being presented as current."
-          action={<Action label="Try again" onPress={refreshLounge} secondary />}
-        />
-      ) : !lounge ? (
-        <StateCard
-          icon="lock"
-          title="Lounge unavailable"
-          body="A Lounge space has not been configured for member conversation."
-        />
-      ) : topics.length ? (
-        <>
-          {loungeState.canCreate ? (
-            <View style={styles.loungeAction}>
-              <Action label="Start a conversation" icon="comment-medical" onPress={startConversation} />
-            </View>
-          ) : (
-            <Text style={[styles.permissionNote, { color: colors.muted }]}>Your account can join existing Lounge conversations but cannot start a new one.</Text>
-          )}
-          {topics.map(topic => (
-            <TopicCard
-              key={topic.id}
-              topic={topic}
-              site={site}
-              openUrl={screenProps.openUrl}
-            />
-          ))}
-        </>
-      ) : (
-        <StateCard
-          icon="comment"
-          title="The Lounge is quiet"
-          body={
-            loungeState.canCreate
-              ? 'Start a casual conversation with other adjusters—travel, CAT life, networking, or anything useful between claims.'
-              : 'There are no Lounge conversations yet, and your account cannot start one.'
-          }
-          action={
-            loungeState.canCreate ? (
-              <Action label="Start a conversation" onPress={startConversation} />
-            ) : null
-          }
-        />
-      )}
-      <Modal
-        animationType="slide"
-        onRequestClose={closeComposer}
-        presentationStyle="pageSheet"
-        visible={composer.visible}
-      >
-        <SafeAreaView style={[styles.composerSafe, { backgroundColor: colors.canvas }]}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.safe}
-          >
-            <ScrollView contentContainerStyle={styles.loungeComposer} keyboardShouldPersistTaps="handled">
-              <Text accessibilityRole="header" style={[styles.composerHeading, { color: colors.text }]}>Start a Lounge conversation</Text>
-              <Text style={[styles.composerGuidance, { color: colors.warning }]}>Keep claim data out. Lounge is private member conversation, but names, addresses, policy or claim numbers, documents, photos, and identifying facts do not belong here.</Text>
-              <TextInput
-                accessibilityLabel="Conversation title"
-                editable={!composer.submitting}
-                maxLength={255}
-                onChangeText={title => setComposer(current => ({ ...current, title, error: null }))}
-                placeholder="Conversation title"
-                placeholderTextColor={colors.muted}
-                style={[styles.composerTitleInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
-                value={composer.title}
-              />
-              <TextInput
-                accessibilityLabel="Conversation text"
-                editable={!composer.submitting}
-                multiline
-                onChangeText={raw => setComposer(current => ({ ...current, raw, error: null }))}
-                placeholder="What would you like to talk about?"
-                placeholderTextColor={colors.muted}
-                style={[styles.composerBodyInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
-                textAlignVertical="top"
-                value={composer.raw}
-              />
-              {composer.error ? <Text accessibilityRole="alert" style={[styles.composerError, { color: colors.danger }]}>{composer.error}</Text> : null}
-              <View style={styles.composerButtons}>
-                <Action label="Cancel" secondary disabled={composer.submitting} onPress={closeComposer} />
-                <Action
-                  label={composer.submitting ? 'Starting…' : 'Start conversation'}
-                  disabled={composer.submitting || !composer.title.trim() || !composer.raw.trim()}
-                  onPress={submitConversation}
-                />
-              </View>
-            </ScrollView>
-          </KeyboardAvoidingView>
-        </SafeAreaView>
-      </Modal>
-    </Screen>
-  );
-}
-
 export function AskScreen({ screenProps }) {
   const colors = useProductTheme();
   const site = activeMemberSite(screenProps.siteManager);
@@ -690,7 +482,7 @@ export function AskScreen({ screenProps }) {
         title="Your question"
         detail="Give members enough professional context to help without including claim-identifying information."
       />
-      <TextInput
+      <EmojiTextInput
         accessibilityLabel="Question title"
         editable={!question.submitting}
         maxLength={255}
@@ -709,7 +501,7 @@ export function AskScreen({ screenProps }) {
         ]}
         value={question.title}
       />
-      <TextInput
+      <EmojiTextInput
         accessibilityLabel="Question details"
         editable={!question.submitting}
         multiline

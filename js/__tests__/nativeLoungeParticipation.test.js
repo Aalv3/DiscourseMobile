@@ -1,31 +1,93 @@
 /* @flow */
 'use strict';
 
+import {
+  canSendToLounge,
+  findLoungeChannel,
+  loungeMessagesPath,
+  loungeSendDisabledReason,
+  mergeChatMessages,
+  normalizeChatMessages,
+} from '../product/LoungeChat';
 import fs from 'fs';
 import path from 'path';
 
-const source = fs.readFileSync(
-  path.join(__dirname, '../product/ProductScreens.js'),
+const screenSource = fs.readFileSync(
+  path.join(__dirname, '../product/NativeLoungeScreen.js'),
+  'utf8',
+);
+const emojiSource = fs.readFileSync(
+  path.join(__dirname, '../product/EmojiTextInput.js'),
   'utf8',
 );
 
-describe('native Lounge participation', () => {
-  test('loads the dedicated Lounge category and honors create permission', () => {
-    expect(source).toContain("category.name.toLowerCase() === 'lounge'");
-    expect(source).toContain('payload?.topic_list?.can_create_topic === true');
-    expect(source).toContain('Your account can join existing Lounge conversations');
+describe('native Lounge Chat participation', () => {
+  test('discovers the existing Lounge chat channel', () => {
+    expect(
+      findLoungeChannel([
+        { public_channels: [{ id: 1, title: 'General' }] },
+        { channels: [{ id: 7, title: 'Lounge', slug: 'lounge' }] },
+      ]),
+    ).toMatchObject({ id: 7, slug: 'lounge' });
   });
 
-  test('creates a Lounge topic through the authenticated native API', () => {
-    expect(source).toContain("site.jsonApi('/posts.json', 'POST'");
-    expect(source).toContain('category: lounge.id');
-    expect(source).toContain('label="Start a conversation"');
-    expect(source).toContain('await refreshLounge();');
+  test('uses bounded Chat history pagination', () => {
+    expect(loungeMessagesPath(7)).toBe(
+      '/chat/api/channels/7/messages.json?page_size=50&direction=past',
+    );
+    expect(loungeMessagesPath(7, 100)).toContain('target_message_id=100');
   });
 
-  test('keeps the primary empty state actionable and safety-aware', () => {
-    expect(source).toContain('The Lounge is quiet');
-    expect(source).toContain('Keep claim data out.');
-    expect(source).toContain('accessibilityLabel="Conversation text"');
+  test('sorts, merges, and hides deleted Chat messages', () => {
+    const initial = normalizeChatMessages({
+      messages: [
+        { id: 3, message: 'new' },
+        { id: 1, message: 'old' },
+        { id: 2, deleted_at: 'now' },
+      ],
+    });
+    expect(initial.map(message => message.id)).toEqual([1, 3]);
+    expect(
+      mergeChatMessages(initial, [
+        { id: 3, message: 'updated' },
+        { id: 4, message: 'latest' },
+      ]),
+    ).toEqual([
+      { id: 1, message: 'old' },
+      { id: 3, message: 'updated' },
+      { id: 4, message: 'latest' },
+    ]);
+  });
+
+  test('respects channel, membership, and silencing permissions', () => {
+    expect(
+      canSendToLounge({
+        status: 'open',
+        current_user_membership: { id: 1 },
+        meta: { user_silenced: false },
+      }),
+    ).toBe(true);
+    expect(
+      canSendToLounge({
+        status: 'open',
+        meta: { can_join_chat_channel: true, user_silenced: false },
+      }),
+    ).toBe(true);
+    expect(
+      canSendToLounge({ status: 'open', meta: { user_silenced: true } }),
+    ).toBe(false);
+    expect(loungeSendDisabledReason({ status: 'closed', meta: {} })).toBe(
+      'The Lounge is currently read-only.',
+    );
+  });
+
+  test('keeps an accessible emoji option in the anchored composer', () => {
+    expect(screenSource).toContain('<EmojiTextInput');
+    expect(emojiSource).toContain("'Add emoji'");
+    expect(emojiSource).toContain('accessibilityLabel="Emoji choices"');
+    expect(emojiSource).toContain("'👍'");
+    expect(emojiSource).toContain("'🎉'");
+    expect(emojiSource).toContain("'🌪️'");
+    expect(emojiSource).toContain('horizontal');
   });
 });

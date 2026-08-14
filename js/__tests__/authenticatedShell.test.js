@@ -9,11 +9,14 @@ const read = relativePath =>
 
 describe('authenticated member shell', () => {
   test('all six primary destinations use the shared branded page header', () => {
-    const source = read('product/ProductScreens.js');
+    const source = [
+      read('product/ProductScreens.js'),
+      read('product/NativeLoungeScreen.js'),
+    ].join('\n');
     const titles = [
       'The Floor',
       'Discussions',
-      'Lounge',
+      'The Lounge',
       'Ask the Network',
       'Intelligence',
       'You',
