@@ -7,6 +7,7 @@ import {
   AppState,
   FlatList,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -49,6 +50,20 @@ export default function NativeLoungeScreen({ screenProps }) {
     submitting: false,
     error: null,
   });
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardWillShow', () =>
+      setKeyboardVisible(true),
+    );
+    const hide = Keyboard.addListener('keyboardWillHide', () =>
+      setKeyboardVisible(false),
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   const discoverChannel = useCallback(async () => {
     if (!site?.authToken) return null;
@@ -228,73 +243,72 @@ export default function NativeLoungeScreen({ screenProps }) {
       <Text style={[styles.subtitle, { color: colors.muted }]}>
         Open conversation for Network members.
       </Text>
-      {chat.loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator color={colors.accent} />
-          <Text style={[styles.statusText, { color: colors.muted }]}>
-            Loading the Lounge…
-          </Text>
-        </View>
-      ) : chat.error ? (
-        <View style={styles.centered}>
-          <Text style={[styles.statusTitle, { color: colors.text }]}>
-            Lounge unavailable
-          </Text>
-          <Text style={[styles.statusText, { color: colors.muted }]}>
-            {chat.error === 'channel_missing'
-              ? 'The shared Lounge chat channel could not be found.'
-              : 'The member chat could not be loaded.'}
-          </Text>
-          <Action label="Try again" onPress={loadLounge} secondary />
-        </View>
-      ) : (
-        <FlatList
-          ref={listRef}
-          style={styles.feedList}
-          contentContainerStyle={[
-            styles.feed,
-            !chat.messages.length && styles.feedEmpty,
-          ]}
-          data={chat.messages}
-          keyExtractor={item => String(item.id)}
-          keyboardDismissMode="interactive"
-          keyboardShouldPersistTaps="handled"
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <FontAwesome5
-                name="comment"
-                size={24}
-                color={colors.accent}
-                iconStyle="solid"
-              />
-              <Text style={[styles.statusTitle, { color: colors.text }]}>
-                The Lounge is quiet
-              </Text>
-              <Text style={[styles.statusText, { color: colors.muted }]}>
-                Say hello to the Network.
-              </Text>
-            </View>
-          }
-          maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
-          onContentSizeChange={() => {
-            if (!didInitialScroll.current && chat.messages.length) {
-              didInitialScroll.current = true;
-              listRef.current?.scrollToEnd({ animated: false });
-            }
-          }}
-          onRefresh={refreshMessages}
-          onScroll={event => {
-            if (event.nativeEvent.contentOffset.y < 32) loadOlderMessages();
-          }}
-          refreshing={false}
-          renderItem={renderMessage}
-        />
-      )}
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'position' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? tabBarHeight : 0}
-        style={[styles.composerAvoider, { bottom: tabBarHeight }]}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.chatArea}
       >
+        {chat.loading ? (
+          <View style={styles.centered}>
+            <ActivityIndicator color={colors.accent} />
+            <Text style={[styles.statusText, { color: colors.muted }]}>
+              Loading the Lounge…
+            </Text>
+          </View>
+        ) : chat.error ? (
+          <View style={styles.centered}>
+            <Text style={[styles.statusTitle, { color: colors.text }]}>
+              Lounge unavailable
+            </Text>
+            <Text style={[styles.statusText, { color: colors.muted }]}>
+              {chat.error === 'channel_missing'
+                ? 'The shared Lounge chat channel could not be found.'
+                : 'The member chat could not be loaded.'}
+            </Text>
+            <Action label="Try again" onPress={loadLounge} secondary />
+          </View>
+        ) : (
+          <FlatList
+            ref={listRef}
+            style={styles.feedList}
+            contentContainerStyle={[
+              styles.feed,
+              !chat.messages.length && styles.feedEmpty,
+            ]}
+            data={chat.messages}
+            keyExtractor={item => String(item.id)}
+            keyboardDismissMode="interactive"
+            keyboardShouldPersistTaps="handled"
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <FontAwesome5
+                  name="comment"
+                  size={24}
+                  color={colors.accent}
+                  iconStyle="solid"
+                />
+                <Text style={[styles.statusTitle, { color: colors.text }]}>
+                  The Lounge is quiet
+                </Text>
+                <Text style={[styles.statusText, { color: colors.muted }]}>
+                  Say hello to the Network.
+                </Text>
+              </View>
+            }
+            maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+            onContentSizeChange={() => {
+              if (!didInitialScroll.current && chat.messages.length) {
+                didInitialScroll.current = true;
+                listRef.current?.scrollToEnd({ animated: false });
+              }
+            }}
+            onRefresh={refreshMessages}
+            onScroll={event => {
+              if (event.nativeEvent.contentOffset.y < 32) loadOlderMessages();
+            }}
+            refreshing={false}
+            renderItem={renderMessage}
+          />
+        )}
         <View
           style={[
             styles.composer,
@@ -367,6 +381,7 @@ export default function NativeLoungeScreen({ screenProps }) {
             {composer.error || disabledReason}
           </Text>
         ) : null}
+        <View style={{ height: keyboardVisible ? 0 : tabBarHeight }} />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -374,6 +389,7 @@ export default function NativeLoungeScreen({ screenProps }) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  chatArea: { flex: 1 },
   feedList: { flex: 1 },
   subtitle: {
     fontSize: 14,
@@ -388,7 +404,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
-    paddingBottom: 160,
+    paddingBottom: spacing.md,
   },
   feedEmpty: { flexGrow: 1, justifyContent: 'center' },
   empty: { alignItems: 'center', gap: spacing.sm, padding: spacing.xl },
@@ -427,7 +443,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   emojiInput: { flex: 1 },
-  composerAvoider: { position: 'absolute', left: 0, right: 0 },
   input: {
     flex: 1,
     minHeight: 42,

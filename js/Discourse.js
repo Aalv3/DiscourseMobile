@@ -788,6 +788,7 @@ class Discourse extends React.Component {
                   <Tab.Navigator
                     screenOptions={{
                       headerShown: false,
+                      tabBarHideOnKeyboard: true,
 
                       tabBarStyle: {
                         position: 'absolute',

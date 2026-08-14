@@ -60,5 +60,6 @@ describe('authenticated member shell', () => {
     expect(source).toContain('backgroundColor: shellColors.canvas');
     expect(source).toContain('theme={navigationTheme}');
     expect(source).toContain('translucent={false}');
+    expect(source).toContain('tabBarHideOnKeyboard: true');
   });
 });

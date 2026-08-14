@@ -90,4 +90,16 @@ describe('native Lounge Chat participation', () => {
     expect(emojiSource).toContain("'🌪️'");
     expect(emojiSource).toContain('horizontal');
   });
+
+  test('uses one in-flow keyboard-aware chat viewport', () => {
+    expect(screenSource).toContain(
+      "behavior={Platform.OS === 'ios' ? 'padding'",
+    );
+    expect(screenSource).toContain('style={styles.chatArea}');
+    expect(screenSource).toContain('keyboardWillShow');
+    expect(screenSource).not.toContain("position: 'absolute'");
+    expect(screenSource).not.toContain(
+      "behavior={Platform.OS === 'ios' ? 'position'",
+    );
+  });
 });
