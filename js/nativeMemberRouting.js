@@ -64,3 +64,51 @@ export function nativeCollectionRoute(value, authenticated) {
     return null;
   }
 }
+
+export function classifyFirstPartyMemberRoute(
+  value,
+  { authenticated = false, isStaff = false } = {},
+) {
+  if (!authenticated || typeof value !== 'string' || value.length > 4096) {
+    return { disposition: 'rejected' };
+  }
+  const topic = nativeTopicRoute(value, true);
+  if (topic) return { disposition: 'native', screen: 'Topic', params: topic };
+  const collection = nativeCollectionRoute(value, true);
+  if (collection) {
+    return { disposition: 'native', screen: 'Collection', params: collection };
+  }
+  try {
+    const url = new URL(value);
+    if (
+      url.protocol !== 'https:' ||
+      url.origin !== adjusterNetwork.canonicalOrigin
+    ) {
+      return { disposition: 'rejected' };
+    }
+    const profile = url.pathname.match(
+      /^\/u\/([a-z0-9_.-]+)(?:\/activity(?:\/[^/]+)?)?\/?$/i,
+    );
+    if (profile) {
+      return {
+        disposition: 'native',
+        screen: 'MemberProfile',
+        params: { username: profile[1] },
+      };
+    }
+    if (/^\/u\/[a-z0-9_.-]+\/preferences(?:\/[^/]+)?\/?$/i.test(url.pathname)) {
+      return { disposition: 'native', screen: 'Settings', params: {} };
+    }
+    if (/^\/new-topic\/?$/i.test(url.pathname)) {
+      return { disposition: 'native', screen: 'Ask', params: {} };
+    }
+    if (/^\/admin(?:\/.*)?$/i.test(url.pathname)) {
+      return isStaff
+        ? { disposition: 'privileged_external', url: url.toString() }
+        : { disposition: 'rejected' };
+    }
+    return { disposition: 'rejected' };
+  } catch {
+    return { disposition: 'rejected' };
+  }
+}

@@ -2,6 +2,7 @@
 'use strict';
 
 import {
+  classifyFirstPartyMemberRoute,
   nativeCollectionRoute,
   nativeTopicRoute,
 } from '../nativeMemberRouting';
@@ -51,5 +52,42 @@ describe('native authenticated member routing', () => {
     'https://adjusternetwork.org/tag/../../admin',
   ])('rejects unsafe or unsupported collection route %s', url => {
     expect(nativeCollectionRoute(url, true)).toBeNull();
+  });
+
+  test.each([
+    ['https://adjusternetwork.org/new-topic', 'Ask'],
+    ['https://adjusternetwork.org/u/qa_test', 'MemberProfile'],
+    ['https://adjusternetwork.org/u/qa_test/activity', 'MemberProfile'],
+    ['https://adjusternetwork.org/u/qa_test/preferences/account', 'Settings'],
+  ])('classifies ordinary member route %s as native %s', (url, screen) => {
+    expect(
+      classifyFirstPartyMemberRoute(url, { authenticated: true }),
+    ).toMatchObject({ disposition: 'native', screen });
+  });
+
+  test('keeps admin fail-closed for members and explicit for staff', () => {
+    expect(
+      classifyFirstPartyMemberRoute('https://adjusternetwork.org/admin', {
+        authenticated: true,
+        isStaff: false,
+      }),
+    ).toEqual({ disposition: 'rejected' });
+    expect(
+      classifyFirstPartyMemberRoute('https://adjusternetwork.org/admin', {
+        authenticated: true,
+        isStaff: true,
+      }),
+    ).toMatchObject({ disposition: 'privileged_external' });
+  });
+
+  test.each([
+    'https://adjusternetwork.org/login',
+    'https://adjusternetwork.org/auth/provider',
+    'https://adjusternetwork.org/session/sso',
+    'https://adjusternetwork.org/unknown',
+  ])('rejects unapproved first-party WebView route %s', url => {
+    expect(
+      classifyFirstPartyMemberRoute(url, { authenticated: true }),
+    ).toEqual({ disposition: 'rejected' });
   });
 });

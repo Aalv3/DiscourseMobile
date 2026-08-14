@@ -44,7 +44,17 @@ const Screen = ({ children }) => {
       style={[styles.safe, { backgroundColor: colors.canvas }]}
       edges={['top', 'left', 'right']}
     >
-      <ScrollView contentContainerStyle={styles.scroll}>{children}</ScrollView>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.safe}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+        >
+          {children}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -577,12 +587,40 @@ export function AskScreen({ screenProps }) {
   const site = activeMemberSite(screenProps.siteManager);
   const data = useCommunity(screenProps.siteManager);
   const [category, setCategory] = useState(null);
-  const compose = () =>
-    screenProps.openUrl(
-      `${site.url}/new-topic${
-        category ? `?category=${category.slug || category.id}` : ''
-      }`,
-    );
+  const [question, setQuestion] = useState({
+    title: '',
+    raw: '',
+    submitting: false,
+    error: null,
+  });
+  const submitQuestion = async () => {
+    if (!site?.authToken || !category) return;
+    setQuestion(current => ({ ...current, submitting: true, error: null }));
+    try {
+      const created = await site.jsonApi('/posts.json', 'POST', {
+        title: question.title.trim(),
+        raw: question.raw.trim(),
+        category: category.id,
+      });
+      setQuestion({ title: '', raw: '', submitting: false, error: null });
+      data.refresh();
+      if (created?.topic_id) {
+        screenProps.openUrl(
+          `${site.url}/t/${created.topic_slug || 'topic'}/${created.topic_id}`,
+        );
+      }
+    } catch (error) {
+      setQuestion(current => ({
+        ...current,
+        submitting: false,
+        error:
+          error?.userMessages?.join(' ') ||
+          (error?.status === 403
+            ? 'Your account is not permitted to ask in this category.'
+            : 'Your question could not be posted. Please try again.'),
+      }));
+    }
+  };
   return (
     <Screen>
       <PageHeader
@@ -645,13 +683,70 @@ export function AskScreen({ screenProps }) {
         <StateCard
           icon="folder-open"
           title="No categories available"
-          body="The network has not exposed a category for native posting yet. You can still open the members-only composer and choose there."
+          body="The network has not exposed a category for native posting yet."
         />
       ) : null}
+      <SectionTitle
+        title="Your question"
+        detail="Give members enough professional context to help without including claim-identifying information."
+      />
+      <TextInput
+        accessibilityLabel="Question title"
+        editable={!question.submitting}
+        maxLength={255}
+        onChangeText={title =>
+          setQuestion(current => ({ ...current, title, error: null }))
+        }
+        placeholder="What would you like help with?"
+        placeholderTextColor={colors.muted}
+        style={[
+          styles.composerTitleInput,
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            color: colors.text,
+          },
+        ]}
+        value={question.title}
+      />
+      <TextInput
+        accessibilityLabel="Question details"
+        editable={!question.submitting}
+        multiline
+        onChangeText={raw =>
+          setQuestion(current => ({ ...current, raw, error: null }))
+        }
+        placeholder="Add useful context for other adjusters…"
+        placeholderTextColor={colors.muted}
+        style={[
+          styles.composerBodyInput,
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            color: colors.text,
+          },
+        ]}
+        textAlignVertical="top"
+        value={question.raw}
+      />
+      {question.error ? (
+        <Text
+          accessibilityRole="alert"
+          style={[styles.composerError, { color: colors.danger }]}
+        >
+          {question.error}
+        </Text>
+      ) : null}
       <Action
-        label="Continue to private composer"
+        label={question.submitting ? 'Posting…' : 'Ask the Network'}
         icon="pen"
-        onPress={compose}
+        disabled={
+          question.submitting ||
+          !category ||
+          !question.title.trim() ||
+          !question.raw.trim()
+        }
+        onPress={submitQuestion}
       />
       <Text style={[styles.finePrint, { color: colors.muted }]}>
         Your post is members-only under the network’s current access rules.

@@ -2,108 +2,67 @@
 'use strict';
 
 import React from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform, StyleSheet, Switch, Text, View } from 'react-native';
-
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import FontAwesome5 from '@react-native-vector-icons/fontawesome5';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ThemeContext } from '../ThemeContext';
-import i18n from 'i18n-js';
+import { activeMemberSite } from '../product/ProductData';
+import { useProductTheme } from '../product/ProductComponents';
+import { radius, spacing } from '../product/DesignSystem';
 
-const SettingsScreen = props => {
-  const [androidCustomTabs, setAndroidCustomTabs] = React.useState(false);
-  const theme = React.useContext(ThemeContext);
-
-  React.useEffect(() => {
-    AsyncStorage.getItem('@Discourse.androidCustomTabs').then(val => {
-      setAndroidCustomTabs(val ? true : false);
-    });
-  }, []);
-
-  const toggleAndroidCustomTabs = () => {
-    AsyncStorage.getItem('@Discourse.androidCustomTabs').then(val => {
-      if (!val) {
-        AsyncStorage.setItem('@Discourse.androidCustomTabs', 'true');
-        setAndroidCustomTabs(true);
-      } else {
-        AsyncStorage.removeItem('@Discourse.androidCustomTabs');
-        setAndroidCustomTabs(false);
-      }
-    });
-  };
-
-  // TODO: Remove this, it is a feature for Android version < 29
-  const toggleDarkMode = () => {
-    const newTheme = theme.background === '#FFFFFF' ? 'dark' : 'light';
-
-    AsyncStorage.setItem('@Discourse.androidLegacyTheme', newTheme).then(() => {
-      props.screenProps.toggleTheme(newTheme);
-    });
-  };
-
-  const isDark = !!(theme.background !== '#FFFFFF');
-
+const Row = ({ icon, title, detail, onPress, disabled = false }) => {
+  const colors = useProductTheme();
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-      <View
-        style={{ ...styles.container, backgroundColor: theme.grayBackground }}
-      >
-        {Platform.OS === 'android' && (
-          <View style={styles.settingItem}>
-            <Text style={{ ...styles.text, color: theme.grayTitle }}>
-              {i18n.t('browser_toggle_label')}
-            </Text>
-            <Switch
-              onValueChange={toggleAndroidCustomTabs}
-              value={androidCustomTabs}
-            />
-          </View>
-        )}
-        {Platform.OS === 'android' && Platform.Version < 29 && (
-          <View style={styles.settingItem}>
-            <Text style={{ ...styles.text, color: theme.grayTitle }}>
-              {i18n.t('switch_dark')}
-            </Text>
-            <Switch onValueChange={toggleDarkMode} value={isDark} />
-          </View>
-        )}
+    <Pressable
+      accessibilityRole={onPress ? 'button' : 'text'}
+      accessibilityLabel={title}
+      disabled={!onPress || disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.row,
+        {
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+          opacity: disabled ? 0.6 : pressed ? 0.75 : 1,
+        },
+      ]}
+    >
+      <FontAwesome5 name={icon} iconStyle="solid" size={17} color={colors.accent} />
+      <View style={styles.copy}>
+        <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+        {detail ? <Text style={[styles.detail, { color: colors.muted }]}>{detail}</Text> : null}
       </View>
+      {onPress ? <FontAwesome5 name="chevron-right" iconStyle="solid" size={13} color={colors.muted} /> : null}
+    </Pressable>
+  );
+};
+
+const SettingsScreen = ({ screenProps }) => {
+  const colors = useProductTheme();
+  const site = activeMemberSite(screenProps.siteManager);
+  const username = site?.username;
+  return (
+    <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.safe, { backgroundColor: colors.canvas }]}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text style={[styles.intro, { color: colors.muted }]}>Member controls stay inside Adjuster Network. Advanced Discourse administration is deferred for Build 1.</Text>
+        <Row icon="user-circle" title="Account" detail={username ? `Signed in as @${username}` : 'Authenticated member account'} />
+        <Row icon="address-card" title="Profile" detail="View contributions or edit permitted profile fields" onPress={() => screenProps.openUrl(`${site.url}/u/${username}`)} />
+        <Row icon="bell" title="Notifications" detail="Manage device notification permission" onPress={screenProps.enablePush} />
+        <Row icon="adjust" title="Appearance" detail="Follows the device light or dark appearance" />
+        <Row icon="shield-alt" title="Privacy & Account" detail="Credentials remain in secure native storage; claim data does not belong in posts" />
+        <Row icon="sliders" title="Advanced Settings" detail="Deferred for Build 1—no unauthenticated web fallback" disabled />
+      </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-  },
-  settingItem: {
-    alignItems: 'center',
-    backgroundColor: 'white',
-    justifyContent: 'space-between',
-    flexDirection: 'row',
-    margin: 10,
-    padding: 10,
-    borderRadius: 10,
-    width: '95%',
-  },
-  text: {
-    fontSize: 18,
-    padding: 12,
-    textAlign: 'center',
-  },
-  settingHeading: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    padding: 12,
-    paddingTop: 24,
-    textAlign: 'center',
-  },
-  desc: {
-    fontSize: 15,
-    padding: 10,
-    paddingTop: 4,
-  },
+  safe: { flex: 1 },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center', padding: spacing.md, paddingBottom: spacing.xl },
+  intro: { fontSize: 15, lineHeight: 22, marginBottom: spacing.md },
+  row: { minHeight: 70, borderWidth: StyleSheet.hairlineWidth, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  copy: { flex: 1 },
+  title: { fontSize: 16, fontWeight: '700' },
+  detail: { fontSize: 13, lineHeight: 19, marginTop: 3 },
 });
 
 export default SettingsScreen;

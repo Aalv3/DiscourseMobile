@@ -17,7 +17,10 @@ import {
   View,
 } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import {
+  SafeAreaProvider,
+  SafeAreaView,
+} from 'react-native-safe-area-context';
 import {
   createStackNavigator,
   TransitionPresets,
@@ -30,7 +33,6 @@ import SiteManager from './site_manager';
 import SafariView from 'react-native-safari-view';
 import DeviceInfo from 'react-native-device-info';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { CustomTabs } from 'react-native-custom-tabs';
 import i18n from 'i18n-js';
 import * as RNLocalize from 'react-native-localize';
 import { addShortcutListener } from 'react-native-siri-shortcut';
@@ -71,10 +73,8 @@ import { productTheme } from './product/DesignSystem';
 import { NestedHeader } from './product/ProductComponents';
 import NativeTopicScreen from './product/NativeTopicScreen';
 import NativeCollectionScreen from './product/NativeCollectionScreen';
-import {
-  nativeCollectionRoute,
-  nativeTopicRoute,
-} from './nativeMemberRouting';
+import NativeProfileScreen from './product/NativeProfileScreen';
+import { classifyFirstPartyMemberRoute } from './nativeMemberRouting';
 import {
   loadOnboardingState,
   onboardingSessionId,
@@ -549,35 +549,21 @@ class Discourse extends React.Component {
     const site = this._siteManager
       .listSites()
       .find(item => item.authToken && isCanonicalUrl(item.url));
-    const topicRoute = nativeTopicRoute(url, Boolean(site));
-    if (topicRoute) {
+    const route = classifyFirstPartyMemberRoute(url, {
+      authenticated: Boolean(site),
+      isStaff: Boolean(site?.isStaff),
+    });
+    if (route.disposition === 'native') {
       this._siteManager.setActiveSite(site);
-      this._navigation.navigate('Topic', topicRoute);
+      if (route.screen === 'Ask') {
+        this._navigation.navigate('HomeWrapper', { screen: 'Ask' });
+      } else {
+        this._navigation.navigate(route.screen, route.params);
+      }
       return;
     }
-    const collectionRoute = nativeCollectionRoute(url, Boolean(site));
-    if (collectionRoute) {
-      this._siteManager.setActiveSite(site);
-      this._navigation.navigate('Collection', collectionRoute);
-      return;
-    }
-    if (Platform.OS === 'ios') {
-      this._navigation.navigate('WebView', {
-        url: url,
-      });
-    }
-
-    if (Platform.OS === 'android') {
-      AsyncStorage.getItem('@Discourse.androidCustomTabs').then(value => {
-        if (value === 'true') {
-          CustomTabs.openURL(url, {
-            enableUrlBarHiding: true,
-            showPageTitle: false,
-          }).catch(() => {});
-        } else {
-          Linking.openURL(url);
-        }
-      });
+    if (route.disposition === 'privileged_external') {
+      Linking.openURL(route.url).catch(() => {});
     }
   }
 
@@ -945,10 +931,12 @@ class Discourse extends React.Component {
                   title: i18n.t('settings'),
                   headerShown: true,
                   header: () => (
-                    <NestedHeader
-                      title={i18n.t('settings')}
-                      onBack={() => navigation.goBack()}
-                    />
+                    <SafeAreaView edges={['top']}>
+                      <NestedHeader
+                        title={i18n.t('settings')}
+                        onBack={() => navigation.goBack()}
+                      />
+                    </SafeAreaView>
                   ),
                 })}
               >
@@ -965,10 +953,12 @@ class Discourse extends React.Component {
                   title: i18n.t('add_single_site'),
                   headerShown: true,
                   header: () => (
-                    <NestedHeader
-                      title={i18n.t('add_single_site')}
-                      onBack={() => navigation.goBack()}
-                    />
+                    <SafeAreaView edges={['top']}>
+                      <NestedHeader
+                        title={i18n.t('add_single_site')}
+                        onBack={() => navigation.goBack()}
+                      />
+                    </SafeAreaView>
                   ),
                 })}
               >
@@ -999,6 +989,14 @@ class Discourse extends React.Component {
               <Stack.Screen name="Collection">
                 {props => (
                   <NativeCollectionScreen
+                    {...props}
+                    screenProps={{ ...screenProps }}
+                  />
+                )}
+              </Stack.Screen>
+              <Stack.Screen name="MemberProfile">
+                {props => (
+                  <NativeProfileScreen
                     {...props}
                     screenProps={{ ...screenProps }}
                   />

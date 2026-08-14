@@ -47,6 +47,7 @@ describe('authenticated member shell', () => {
     expect(source).toContain('accessibilityHint=');
     expect(topic).toContain('<NestedHeader');
     expect(webView).toContain('<NestedHeader');
+    expect(read('Discourse.js')).toContain("<SafeAreaView edges={['top']}>");
   });
 
   test('root owns a themed safe-area and navigation surface', () => {

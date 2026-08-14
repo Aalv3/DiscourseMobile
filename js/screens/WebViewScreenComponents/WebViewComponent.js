@@ -26,10 +26,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from '@react-native-community/blur';
 import { classifyNavigation } from '../../adjusterNetworkSecurity';
 import { NestedHeader } from '../../product/ProductComponents';
-import {
-  nativeCollectionRoute,
-  nativeTopicRoute,
-} from '../../nativeMemberRouting';
+import { classifyFirstPartyMemberRoute } from '../../nativeMemberRouting';
 
 export const withInsets = Component => {
   return props => {
@@ -282,14 +279,20 @@ class WebViewComponent extends React.Component {
                 const authenticated = this.siteManager
                   .listSites()
                   .some(site => site.authToken);
-                if (
-                  nativeTopicRoute(request.url, authenticated) ||
-                  nativeCollectionRoute(request.url, authenticated)
-                ) {
+                const activeSite = this.siteManager
+                  .listSites()
+                  .find(site => site.authToken);
+                const memberRoute = classifyFirstPartyMemberRoute(request.url, {
+                  authenticated,
+                  isStaff: Boolean(activeSite?.isStaff),
+                });
+                if (memberRoute.disposition === 'native') {
                   this.props.screenProps.openUrl(request.url);
                   return false;
                 }
-                return true;
+                // Canonical pages without an explicit native route must not
+                // fall through to an unauthenticated Discourse/PWA session.
+                return false;
               }
 
               if (classifyNavigation(request.url) === 'callback') {
