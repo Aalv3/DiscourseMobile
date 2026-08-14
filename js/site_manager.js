@@ -483,7 +483,12 @@ class SiteManager {
           return this.generateNonce(site);
         })
         .then(nonce => {
-          let scopes = 'read,notifications,session_info,one_time_password';
+          // Native member participation uses the supported Discourse
+          // POST /posts.json contract. Keep write narrowly scoped within the
+          // same User API Key authorization rather than falling back to web
+          // cookies or a PWA session.
+          let scopes =
+            'read,write,notifications,session_info,one_time_password';
 
           let params = {
             scopes: scopes,

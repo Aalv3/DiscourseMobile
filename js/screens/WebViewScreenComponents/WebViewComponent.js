@@ -25,6 +25,7 @@ import { ThemeContext } from '../../ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from '@react-native-community/blur';
 import { classifyNavigation } from '../../adjusterNetworkSecurity';
+import { NestedHeader } from '../../product/ProductComponents';
 
 export const withInsets = Component => {
   return props => {
@@ -173,6 +174,7 @@ class WebViewComponent extends React.Component {
         }}
       >
         <StatusBar barStyle={this.state.barStyle} />
+        <NestedHeader title="Member page" onBack={() => this._onClose()} />
         {this.state.layoutCalculated && this.state.authProcessActive && (
           <View
             style={{

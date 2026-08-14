@@ -66,11 +66,17 @@ import {
   OnboardingScreen,
   ProfileScreen,
   WelcomeScreen,
-  onboardingComplete,
 } from './product/ProductScreens';
 import { productTheme } from './product/DesignSystem';
+import { NestedHeader } from './product/ProductComponents';
 import NativeTopicScreen from './product/NativeTopicScreen';
 import { nativeTopicRoute } from './nativeMemberRouting';
+import {
+  loadOnboardingState,
+  onboardingSessionId,
+  ONBOARDING_STATUS,
+  shouldShowOnboarding,
+} from './onboardingState';
 
 const { DiscourseKeyboardShortcuts } = NativeModules;
 
@@ -114,6 +120,8 @@ const Tab = createBottomTabNavigator();
 
 class Discourse extends React.Component {
   refreshTimerId = null;
+
+  _onboardingLoadGeneration = 0;
 
   constructor(props) {
     super(props);
@@ -191,7 +199,9 @@ class Discourse extends React.Component {
       privacyShield: false,
       signedIn: false,
       onboardingReady: false,
-      onboardingDone: false,
+      onboardingStatus: ONBOARDING_STATUS.NOT_STARTED,
+      onboardingSessionId: null,
+      onboardingDismissedForSession: false,
       connecting: false,
       pushStatus: 'unknown',
     };
@@ -235,7 +245,8 @@ class Discourse extends React.Component {
     const navigationReady = Boolean(
       this.state.signedIn &&
         this.state.onboardingReady &&
-        this.state.onboardingDone &&
+        (this.state.onboardingStatus === ONBOARDING_STATUS.COMPLETED ||
+          this.state.onboardingDismissedForSession) &&
         this._navigation,
     );
     const routed = this._pushRoute.flush({
@@ -330,20 +341,52 @@ class Discourse extends React.Component {
   }
 
   componentDidMount() {
-    this._productSiteSubscription = () => {
-      this.setState(
-        { signedIn: this._siteManager.connectedSitesCount() > 0 },
-        this._flushPendingPushRoute,
-      );
+    this._productSiteSubscription = async () => {
+      const loadGeneration = ++this._onboardingLoadGeneration;
+      const site = this._siteManager
+        .listSites()
+        .find(candidate => candidate.authToken);
+      const signedIn = Boolean(site);
+      if (!signedIn) {
+        this.setState({ signedIn: false }, this._flushPendingPushRoute);
+        return;
+      }
+
+      const sessionId = onboardingSessionId(site);
+      if (
+        !this.state.signedIn ||
+        this.state.onboardingSessionId !== sessionId
+      ) {
+        const onboarding = await loadOnboardingState();
+        const currentSite = this._siteManager
+          .listSites()
+          .find(candidate => candidate.authToken);
+        if (
+          loadGeneration !== this._onboardingLoadGeneration ||
+          onboardingSessionId(currentSite) !== sessionId
+        ) {
+          return;
+        }
+        this.setState(
+          {
+            signedIn: true,
+            onboardingReady: true,
+            onboardingStatus: onboarding.status,
+            onboardingSessionId: sessionId,
+            onboardingDismissedForSession: !shouldShowOnboarding(
+              onboarding,
+              sessionId,
+            ),
+          },
+          this._flushPendingPushRoute,
+        );
+        return;
+      }
+
+      this.setState({ signedIn: true }, this._flushPendingPushRoute);
     };
     this._siteManager.subscribe(this._productSiteSubscription);
     this._productSiteSubscription();
-    onboardingComplete().then(done =>
-      this.setState(
-        { onboardingReady: true, onboardingDone: done },
-        this._flushPendingPushRoute,
-      ),
-    );
     this._appStateSubscription = AppState.addEventListener(
       'change',
       this._handleAppStateChange,
@@ -672,7 +715,11 @@ class Discourse extends React.Component {
       );
     }
 
-    if (this.state.onboardingReady && !this.state.onboardingDone) {
+    if (
+      this.state.onboardingReady &&
+      this.state.onboardingStatus !== ONBOARDING_STATUS.COMPLETED &&
+      !this.state.onboardingDismissedForSession
+    ) {
       return (
         <SafeAreaProvider
           style={{ flex: 1, backgroundColor: shellColors.canvas }}
@@ -680,9 +727,22 @@ class Discourse extends React.Component {
           <ThemeContext.Provider value={theme}>
             <StatusBar barStyle={theme.barStyle} translucent={false} />
             <OnboardingScreen
-              onFinish={() =>
+              sessionId={this.state.onboardingSessionId}
+              onSkip={state =>
                 this.setState(
-                  { onboardingDone: true },
+                  {
+                    onboardingStatus: state.status,
+                    onboardingDismissedForSession: true,
+                  },
+                  this._flushPendingPushRoute,
+                )
+              }
+              onComplete={state =>
+                this.setState(
+                  {
+                    onboardingStatus: state.status,
+                    onboardingDismissedForSession: true,
+                  },
                   this._flushPendingPushRoute,
                 )
               }
@@ -871,20 +931,16 @@ class Discourse extends React.Component {
               </Stack.Screen>
               <Stack.Screen
                 name={'Settings'}
-                options={{
+                options={({ navigation }) => ({
                   title: i18n.t('settings'),
                   headerShown: true,
-                  headerStyle: {
-                    backgroundColor: theme.background,
-                  },
-                  headerTitleStyle: {
-                    color: theme.grayTitle,
-                  },
-                  headerTintColor: theme.grayUI,
-                  headerMode: 'screen',
-                  headerBackTitle: i18n.t('back'),
-                  headerShadowVisible: false,
-                }}
+                  header: () => (
+                    <NestedHeader
+                      title={i18n.t('settings')}
+                      onBack={() => navigation.goBack()}
+                    />
+                  ),
+                })}
               >
                 {props => (
                   <Screens.Settings
@@ -895,20 +951,16 @@ class Discourse extends React.Component {
               </Stack.Screen>
               <Stack.Screen
                 name={'AddSite'}
-                options={{
+                options={({ navigation }) => ({
                   title: i18n.t('add_single_site'),
                   headerShown: true,
-                  headerStyle: {
-                    backgroundColor: theme.background,
-                  },
-                  headerTintColor: theme.grayUI,
-                  headerTitleStyle: {
-                    color: theme.grayTitle,
-                  },
-                  headerMode: 'screen',
-                  headerBackTitle: i18n.t('back'),
-                  headerShadowVisible: false,
-                }}
+                  header: () => (
+                    <NestedHeader
+                      title={i18n.t('add_single_site')}
+                      onBack={() => navigation.goBack()}
+                    />
+                  ),
+                })}
               >
                 {props => (
                   <Screens.AddSite

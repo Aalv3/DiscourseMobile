@@ -159,25 +159,34 @@ class Site {
       });
       this._currentFetch = fetch(req);
       this._currentFetch
-        .then(r1 => {
+        .then(async r1 => {
           if (r1.status === 200) {
             return r1.json();
           } else if (classifyAuthResponse(r1.status) === 'revoked') {
             this.logoff();
             credentialStore.removeSiteToken(this.url).catch(() => {});
-            throw 'auth_revoked';
+            const error = new Error('auth_revoked');
+            error.status = r1.status;
+            throw error;
           } else if (classifyAuthResponse(r1.status) === 'forbidden') {
             // A valid, narrowly scoped user API key can be forbidden from an
             // endpoint without being revoked. Preserve the session and let the
             // caller render an unavailable state.
-            throw 'auth_forbidden';
+            const error = new Error('auth_forbidden');
+            error.status = r1.status;
+            throw error;
           } else {
-            // if (r1.status === 403) {
-            //   this.logoff();
-            //   throw 'User was logged off!';
-            // } else {
-            throw 'Error during fetch status code:' + r1.status;
-            // }
+            const error = new Error('api_request_failed');
+            error.status = r1.status;
+            try {
+              const payload = await r1.json();
+              error.userMessages = Array.isArray(payload?.errors)
+                ? payload.errors.filter(message => typeof message === 'string')
+                : [];
+            } catch {
+              error.userMessages = [];
+            }
+            throw error;
           }
         })
         .then(result => {

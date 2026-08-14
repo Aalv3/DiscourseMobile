@@ -1,20 +1,23 @@
 /* @flow */
 'use strict';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import FontAwesome5 from '@react-native-vector-icons/fontawesome5';
 import { decode } from 'html-entities';
 import { activeMemberSite } from './ProductData';
-import { useProductTheme } from './ProductComponents';
+import { Action, NestedHeader, useProductTheme } from './ProductComponents';
 import { radius, spacing } from './DesignSystem';
 
 function readablePost(cooked) {
@@ -30,6 +33,31 @@ function readablePost(cooked) {
   );
 }
 
+export function replyAvailability(topic) {
+  if (topic?.archived) return { allowed: false, reason: 'This topic is archived.' };
+  if (topic?.closed) return { allowed: false, reason: 'This topic is closed.' };
+  if (topic?.details?.can_create_post !== true) {
+    return {
+      allowed: false,
+      reason: 'Your account does not currently have permission to reply to this topic.',
+    };
+  }
+  return { allowed: true, reason: null };
+}
+
+export function replyErrorMessage(error) {
+  if (error?.status === 403) {
+    return 'Your account is not permitted to reply to this topic.';
+  }
+  if (error?.status === 422 && error?.userMessages?.length) {
+    return error.userMessages.join(' ');
+  }
+  if (error?.status === 429) {
+    return 'Replies are temporarily rate-limited. Please wait and try again.';
+  }
+  return 'Reply could not be posted. Check your connection and try again.';
+}
+
 export default function NativeTopicScreen({ navigation, route, screenProps }) {
   const colors = useProductTheme();
   const site = activeMemberSite(screenProps.siteManager);
@@ -38,14 +66,32 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
     topic: null,
     error: null,
   });
+  const [composer, setComposer] = useState({
+    visible: false,
+    raw: '',
+    replyToPostNumber: null,
+    submitting: false,
+    error: null,
+  });
+
+  const loadTopic = useCallback(async () => {
+    if (!site?.authToken) {
+      setState({ loading: false, topic: null, error: 'signed_out' });
+      return;
+    }
+    setState(current => ({ ...current, loading: true, error: null }));
+    try {
+      const topic = await site.jsonApi(`/t/${route.params.topicId}.json`);
+      setState({ loading: false, topic, error: null });
+    } catch {
+      setState({ loading: false, topic: null, error: 'failed' });
+    }
+  }, [route.params.topicId, site]);
 
   useEffect(() => {
     let mounted = true;
-    if (!site?.authToken) {
-      setState({ loading: false, topic: null, error: 'signed_out' });
-      return () => {};
-    }
-    site
+    if (site?.authToken) {
+      site
       .jsonApi(`/t/${route.params.topicId}.json`)
       .then(topic => {
         if (mounted) setState({ loading: false, topic, error: null });
@@ -53,28 +99,57 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
       .catch(() => {
         if (mounted) setState({ loading: false, topic: null, error: 'failed' });
       });
+    } else {
+      setState({ loading: false, topic: null, error: 'signed_out' });
+    }
     return () => {
       mounted = false;
     };
   }, [route.params.topicId, site]);
 
+  const openComposer = replyToPostNumber =>
+    setComposer({
+      visible: true,
+      raw: '',
+      replyToPostNumber,
+      submitting: false,
+      error: null,
+    });
+
+  const closeComposer = () => {
+    if (!composer.submitting) {
+      setComposer(current => ({ ...current, visible: false, error: null }));
+    }
+  };
+
+  const submitReply = async () => {
+    const raw = composer.raw.trim();
+    if (!raw || !state.topic?.id || !site?.authToken) return;
+    setComposer(current => ({ ...current, submitting: true, error: null }));
+    try {
+      await site.jsonApi('/posts.json', 'POST', {
+        topic_id: state.topic.id,
+        raw,
+        ...(composer.replyToPostNumber
+          ? { reply_to_post_number: composer.replyToPostNumber }
+          : {}),
+      });
+      setComposer(current => ({ ...current, visible: false, submitting: false }));
+      await loadTopic();
+    } catch (error) {
+      setComposer(current => ({
+        ...current,
+        submitting: false,
+        error: replyErrorMessage(error),
+      }));
+    }
+  };
+
+  const availability = replyAvailability(state.topic);
+
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.canvas }]}>
-      <View style={[styles.navigation, { borderBottomColor: colors.border }]}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Back to member discussions"
-          hitSlop={10}
-          onPress={() => navigation.goBack()}
-          style={styles.back}
-        >
-          <FontAwesome5 name="chevron-left" size={16} color={colors.accent} />
-          <Text style={[styles.backText, { color: colors.accent }]}>Back</Text>
-        </Pressable>
-        <Text style={[styles.brand, { color: colors.accent }]}>
-          ADJUSTER NETWORK
-        </Text>
-      </View>
+      <NestedHeader title="Topic" onBack={() => navigation.goBack()} />
       {state.loading ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.accent} />
@@ -95,13 +170,29 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
           </Text>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+        >
           <Text
             accessibilityRole="header"
             style={[styles.title, { color: colors.text }]}
           >
             {state.topic?.title}
           </Text>
+          {availability.allowed ? (
+            <View style={styles.primaryReply}>
+              <Action
+                label="Join discussion"
+                icon="reply"
+                onPress={() => openComposer(null)}
+              />
+            </View>
+          ) : (
+            <Text style={[styles.unavailable, { color: colors.muted }]}>
+              {availability.reason}
+            </Text>
+          )}
           {(state.topic?.post_stream?.posts || []).map(post => (
             <View
               key={post.id}
@@ -116,27 +207,78 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
               <Text selectable style={[styles.body, { color: colors.text }]}>
                 {readablePost(post.cooked)}
               </Text>
+              {availability.allowed ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Reply to ${post.name || post.username || 'member'}`}
+                  onPress={() => openComposer(post.post_number)}
+                  style={styles.postReply}
+                >
+                  <Text style={[styles.postReplyText, { color: colors.accent }]}>Reply</Text>
+                </Pressable>
+              ) : null}
             </View>
           ))}
         </ScrollView>
       )}
+      <Modal
+        animationType="slide"
+        onRequestClose={closeComposer}
+        presentationStyle="pageSheet"
+        visible={composer.visible}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={[styles.composer, { backgroundColor: colors.canvas }]}
+        >
+          <NestedHeader title="Reply" onBack={closeComposer} />
+          <ScrollView
+            contentContainerStyle={styles.composerContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Text accessibilityRole="header" style={[styles.composerTitle, { color: colors.text }]}>
+              {composer.replyToPostNumber ? 'Reply to this post' : 'Join the discussion'}
+            </Text>
+            <Text style={[styles.guidance, { color: colors.warning }]}>
+              Keep claim data out. Do not include names, addresses, policy or claim numbers, photos, documents, or identifying facts.
+            </Text>
+            <TextInput
+              accessibilityLabel="Reply text"
+              autoFocus
+              editable={!composer.submitting}
+              multiline
+              onChangeText={raw => setComposer(current => ({ ...current, raw, error: null }))}
+              placeholder="Write a helpful reply…"
+              placeholderTextColor={colors.muted}
+              style={[
+                styles.input,
+                { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text },
+              ]}
+              textAlignVertical="top"
+              value={composer.raw}
+            />
+            {composer.error ? (
+              <Text accessibilityRole="alert" style={[styles.submitError, { color: colors.danger }]}>
+                {composer.error}
+              </Text>
+            ) : null}
+            <View style={styles.composerActions}>
+              <Action label="Cancel" secondary disabled={composer.submitting} onPress={closeComposer} />
+              <Action
+                label={composer.submitting ? 'Posting…' : 'Post reply'}
+                disabled={composer.submitting || !composer.raw.trim()}
+                onPress={submitReply}
+              />
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  navigation: {
-    minHeight: 46,
-    paddingHorizontal: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  back: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 7 },
-  backText: { fontSize: 16, fontWeight: '650' },
-  brand: { fontSize: 11, fontWeight: '850', letterSpacing: 0.8 },
   center: {
     flex: 1,
     alignItems: 'center',
@@ -171,4 +313,33 @@ const styles = StyleSheet.create({
   },
   author: { fontSize: 13, fontWeight: '800', marginBottom: spacing.sm },
   body: { fontSize: 16, lineHeight: 24 },
+  primaryReply: { alignItems: 'flex-start', marginBottom: spacing.md },
+  unavailable: { fontSize: 14, lineHeight: 20, marginBottom: spacing.md },
+  postReply: {
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    justifyContent: 'center',
+    marginTop: spacing.sm,
+  },
+  postReplyText: { fontSize: 15, fontWeight: '700' },
+  composer: { flex: 1 },
+  composerContent: { padding: spacing.md, paddingBottom: spacing.xl },
+  composerTitle: { fontSize: 24, lineHeight: 31, fontWeight: '800', marginBottom: spacing.sm },
+  guidance: { fontSize: 14, lineHeight: 20, fontWeight: '600', marginBottom: spacing.md },
+  input: {
+    minHeight: 180,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    fontSize: 17,
+    lineHeight: 24,
+  },
+  submitError: { fontSize: 14, lineHeight: 20, marginTop: spacing.sm },
+  composerActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
 });

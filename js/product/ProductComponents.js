@@ -17,30 +17,66 @@ import { productTheme, radius, spacing } from './DesignSystem';
 export const useProductTheme = () =>
   productTheme(useContext(ThemeContext).name);
 
+export const BrandMark = () => (
+  <View
+    accessible
+    accessibilityRole="image"
+    accessibilityLabel="Adjuster Network"
+    style={styles.brandMarkViewport}
+  >
+    <Image
+      source={require('../../img/adjuster-network-logo.png')}
+      resizeMode="contain"
+      style={styles.brandMark}
+    />
+  </View>
+);
+
+export const NestedHeader = ({ onBack, title = 'Member page' }) => {
+  const colors = useProductTheme();
+  return (
+    <View
+      style={[
+        styles.nestedHeader,
+        { backgroundColor: colors.canvas, borderBottomColor: colors.border },
+      ]}
+    >
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Back"
+        accessibilityHint="Returns to the previous Adjuster Network screen"
+        hitSlop={8}
+        onPress={onBack}
+        style={styles.backButton}
+      >
+        <FontAwesome5
+          name="chevron-left"
+          size={15}
+          color={colors.accent}
+          iconStyle="solid"
+        />
+        <Text style={[styles.backLabel, { color: colors.accent }]}>Back</Text>
+      </Pressable>
+      <Text
+        accessibilityRole="header"
+        maxFontSizeMultiplier={1.5}
+        numberOfLines={1}
+        style={[styles.nestedTitle, { color: colors.text }]}
+      >
+        {title}
+      </Text>
+      <BrandMark />
+    </View>
+  );
+};
+
 export const PageHeader = ({ eyebrow, title, action }) => {
   const colors = useProductTheme();
   return (
     <View style={styles.header}>
       <View style={styles.headerCopy}>
         <View style={styles.brandRow}>
-          <View
-            accessible
-            accessibilityRole="image"
-            accessibilityLabel="Adjuster Network"
-            style={styles.brandMarkViewport}
-          >
-            <Image
-              source={require('../../img/adjuster-network-logo.png')}
-              resizeMode="contain"
-              style={styles.brandMark}
-            />
-          </View>
-          <Text
-            maxFontSizeMultiplier={1.2}
-            style={[styles.brandName, { color: colors.accent }]}
-          >
-            ADJUSTER NETWORK
-          </Text>
+          <BrandMark />
           {eyebrow ? (
             <Text
               maxFontSizeMultiplier={1.35}
@@ -212,23 +248,17 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   brandMarkViewport: {
-    width: 32,
-    height: 25,
+    width: 42,
+    height: 30,
     overflow: 'hidden',
-    marginRight: 7,
+    flexShrink: 0,
   },
   brandMark: {
     position: 'absolute',
-    width: 52,
-    height: 37,
-    left: -10,
-    top: -4,
-  },
-  brandName: {
-    fontSize: 11,
-    fontWeight: '850',
-    letterSpacing: 0.8,
-    flexShrink: 0,
+    width: 68,
+    height: 49,
+    left: -13,
+    top: -6,
   },
   eyebrow: {
     flex: 1,
@@ -236,6 +266,28 @@ const styles = StyleSheet.create({
     fontWeight: '650',
     textAlign: 'right',
     marginLeft: spacing.sm,
+  },
+  nestedHeader: {
+    minHeight: 50,
+    paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  backButton: {
+    minWidth: 76,
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  backLabel: { fontSize: 16, fontWeight: '650' },
+  nestedTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '750',
+    textAlign: 'center',
+    marginHorizontal: spacing.sm,
   },
   pageTitle: { fontSize: 28, lineHeight: 34, fontWeight: '800' },
   card: {

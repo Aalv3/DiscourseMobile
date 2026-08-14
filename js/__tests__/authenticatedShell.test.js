@@ -30,8 +30,23 @@ describe('authenticated member shell', () => {
 
     expect(source).toContain('adjuster-network-logo.png');
     expect(source).toContain('accessibilityLabel="Adjuster Network"');
-    expect(source).toContain('maxFontSizeMultiplier={1.2}');
     expect(source).toContain('maxFontSizeMultiplier={1.35}');
+    expect(source).not.toContain(
+      '>\n            ADJUSTER NETWORK\n          </Text>',
+    );
+  });
+
+  test('nested pages share an accessible solid-chevron back header', () => {
+    const source = read('product/ProductComponents.js');
+    const topic = read('product/NativeTopicScreen.js');
+    const webView = read('screens/WebViewScreenComponents/WebViewComponent.js');
+
+    expect(source).toContain('export const NestedHeader');
+    expect(source).toContain('name="chevron-left"');
+    expect(source).toContain('iconStyle="solid"');
+    expect(source).toContain('accessibilityHint=');
+    expect(topic).toContain('<NestedHeader');
+    expect(webView).toContain('<NestedHeader');
   });
 
   test('root owns a themed safe-area and navigation surface', () => {
