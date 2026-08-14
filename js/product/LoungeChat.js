@@ -43,6 +43,12 @@ export function mergeChatMessages(current, incoming) {
   return [...byId.values()].sort((a, b) => a.id - b.id);
 }
 
+export function canDeleteOwnLoungeMessage(message, username) {
+  if (!message?.id || message.deleted_at || !username) return false;
+  if (message.can_delete === false) return false;
+  return message.user?.username === username;
+}
+
 export function canSendToLounge(channel) {
   if (
     !channel ||

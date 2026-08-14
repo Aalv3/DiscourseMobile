@@ -19,6 +19,7 @@ import { useAssets } from 'expo-asset';
 import {
   Action,
   Card,
+  NotificationBell,
   PageHeader,
   Pill,
   SectionTitle,
@@ -61,6 +62,34 @@ const Screen = ({ children }) => {
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
+  );
+};
+
+const HeaderActions = ({ navigation, screenProps, search = false }) => {
+  const colors = useProductTheme();
+  return (
+    <View style={styles.headerActions}>
+      {search ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Search the Network"
+          hitSlop={8}
+          onPress={() => navigation.navigate('Search')}
+          style={[styles.headerAction, { borderColor: colors.border }]}
+        >
+          <FontAwesome5
+            name="search"
+            size={17}
+            color={colors.accent}
+            iconStyle="solid"
+          />
+        </Pressable>
+      ) : null}
+      <NotificationBell
+        count={screenProps.siteManager.totalUnread()}
+        onPress={() => navigation.navigate('NotificationCenter')}
+      />
+    </View>
   );
 };
 
@@ -236,20 +265,11 @@ export function FloorScreen({ navigation, screenProps }) {
         eyebrow="Member briefing"
         title="The Floor"
         action={
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Search the Network"
-            hitSlop={8}
-            onPress={() => navigation.navigate('Search')}
-            style={[styles.headerAction, { borderColor: colors.border }]}
-          >
-            <FontAwesome5
-              name="search"
-              size={17}
-              color={colors.accent}
-              iconStyle="solid"
-            />
-          </Pressable>
+          <HeaderActions
+            navigation={navigation}
+            screenProps={screenProps}
+            search
+          />
         }
       />
       <View style={[styles.hero, { backgroundColor: colors.hero }]}>
@@ -326,7 +346,7 @@ export function FloorScreen({ navigation, screenProps }) {
   );
 }
 
-export function DiscussionsScreen({ screenProps }) {
+export function DiscussionsScreen({ navigation, screenProps }) {
   const site = activeMemberSite(screenProps.siteManager);
   const data = useCommunity(
     screenProps.siteManager,
@@ -352,7 +372,13 @@ export function DiscussionsScreen({ screenProps }) {
   );
   return (
     <Screen>
-      <PageHeader eyebrow="Members only" title="Discussions" />
+      <PageHeader
+        eyebrow="Members only"
+        title="Discussions"
+        action={
+          <HeaderActions navigation={navigation} screenProps={screenProps} />
+        }
+      />
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -404,7 +430,7 @@ export function DiscussionsScreen({ screenProps }) {
   );
 }
 
-export function AskScreen({ screenProps }) {
+export function AskScreen({ navigation, screenProps }) {
   const colors = useProductTheme();
   const site = activeMemberSite(screenProps.siteManager);
   const data = useCommunity(
@@ -452,6 +478,9 @@ export function AskScreen({ screenProps }) {
       <PageHeader
         eyebrow="A better question gets a better answer"
         title="Ask the Network"
+        action={
+          <HeaderActions navigation={navigation} screenProps={screenProps} />
+        }
       />
       <Card style={[styles.safety, { backgroundColor: colors.accentSoft }]}>
         <FontAwesome5
@@ -582,7 +611,7 @@ export function AskScreen({ screenProps }) {
   );
 }
 
-export function IntelligenceScreen({ screenProps }) {
+export function IntelligenceScreen({ navigation, screenProps }) {
   const colors = useProductTheme();
   const site = activeMemberSite(screenProps.siteManager);
   const rows = [
@@ -607,7 +636,13 @@ export function IntelligenceScreen({ screenProps }) {
   ];
   return (
     <Screen>
-      <PageHeader eyebrow="Signal, not noise" title="Intelligence" />
+      <PageHeader
+        eyebrow="Signal, not noise"
+        title="Intelligence"
+        action={
+          <HeaderActions navigation={navigation} screenProps={screenProps} />
+        }
+      />
       <Text style={[styles.intro, { color: colors.muted }]}>
         Native-friendly briefings and field knowledge. Detailed map work stays
         on the web where it fits.
@@ -665,7 +700,13 @@ export function ProfileScreen({ navigation, screenProps }) {
   const username = site?.username || 'Member';
   return (
     <Screen>
-      <PageHeader eyebrow="Private member account" title="You" />
+      <PageHeader
+        eyebrow="Private member account"
+        title="You"
+        action={
+          <HeaderActions navigation={navigation} screenProps={screenProps} />
+        }
+      />
       <Card style={styles.identity}>
         <View style={[styles.avatar, { backgroundColor: colors.accent }]}>
           <Text style={styles.avatarText}>
@@ -951,6 +992,11 @@ export function OnboardingScreen({ onComplete, onSkip, sessionId }) {
 }
 
 const styles = StyleSheet.create({
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   headerAction: {
     width: 44,
     height: 44,

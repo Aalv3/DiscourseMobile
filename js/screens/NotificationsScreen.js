@@ -73,11 +73,17 @@ class NotificationsScreen extends React.Component {
 
   render() {
     const theme = this.context;
+    const memberShell = this.props.nativeMemberShell === true;
 
     if (this.state.renderPlaceholderOnly) {
       return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-          <Components.NavigationBar onDidPressRightButton={() => {}} />
+        <SafeAreaView
+          edges={memberShell ? ['left', 'right', 'bottom'] : undefined}
+          style={{ flex: 1, backgroundColor: theme.background }}
+        >
+          {!memberShell ? (
+            <Components.NavigationBar onDidPressRightButton={() => {}} />
+          ) : null}
           <View style={{ height: 50, marginTop: 0, paddingTop: 0 }}>
             {this._renderListHeader()}
           </View>
@@ -86,8 +92,13 @@ class NotificationsScreen extends React.Component {
     }
 
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-        <Components.NavigationBar progress={this.state.progress} />
+      <SafeAreaView
+        edges={memberShell ? ['left', 'right', 'bottom'] : undefined}
+        style={{ flex: 1, backgroundColor: theme.background }}
+      >
+        {!memberShell ? (
+          <Components.NavigationBar progress={this.state.progress} />
+        ) : null}
 
         {this._renderListHeader()}
 

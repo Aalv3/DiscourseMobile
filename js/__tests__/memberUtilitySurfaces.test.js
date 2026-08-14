@@ -28,6 +28,12 @@ describe('native member utility surfaces', () => {
     expect(screens).toContain('accessibilityState=');
   });
 
+  test('notifications default to Always when no server preference exists', () => {
+    const source = read('product/NativeMemberUtilityScreens.js');
+    expect(source).toContain('user_option?.email_level ?? 0');
+    expect(source).toContain("['Always', 0]");
+  });
+
   test('search and bookmarks use authenticated APIs and native topic routing', () => {
     const source = read('product/NativeMemberUtilityScreens.js');
     expect(source).toContain('`/search.json?q=${encodeURIComponent(term)}`');

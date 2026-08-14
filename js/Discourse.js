@@ -1095,6 +1095,28 @@ class Discourse extends React.Component {
                   />
                 )}
               </Stack.Screen>
+              <Stack.Screen
+                name="NotificationCenter"
+                options={({ navigation }) => ({
+                  headerShown: true,
+                  header: () => (
+                    <SafeAreaView edges={['top']}>
+                      <NestedHeader
+                        title="Notifications"
+                        onBack={() => navigation.goBack()}
+                      />
+                    </SafeAreaView>
+                  ),
+                })}
+              >
+                {props => (
+                  <Screens.Notifications
+                    {...props}
+                    nativeMemberShell
+                    screenProps={{ ...screenProps }}
+                  />
+                )}
+              </Stack.Screen>
             </Stack.Navigator>
             {this.state.privacyShield && (
               <View

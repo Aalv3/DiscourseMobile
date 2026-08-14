@@ -3,6 +3,7 @@
 
 import {
   canSendToLounge,
+  canDeleteOwnLoungeMessage,
   findLoungeChannel,
   loungeMessagesPath,
   loungeSendDisabledReason,
@@ -79,6 +80,22 @@ describe('native Lounge Chat participation', () => {
     expect(loungeSendDisabledReason({ status: 'closed', meta: {} })).toBe(
       'The Lounge is currently read-only.',
     );
+  });
+
+  test('only offers message deletion to its authenticated author', () => {
+    const own = { id: 10, user: { username: 'qa_test' } };
+    expect(canDeleteOwnLoungeMessage(own, 'qa_test')).toBe(true);
+    expect(canDeleteOwnLoungeMessage(own, 'another_member')).toBe(false);
+    expect(
+      canDeleteOwnLoungeMessage({ ...own, can_delete: false }, 'qa_test'),
+    ).toBe(false);
+    expect(
+      canDeleteOwnLoungeMessage({ ...own, deleted_at: 'now' }, 'qa_test'),
+    ).toBe(false);
+    expect(screenSource).toContain(
+      '/chat/api/channels/${chat.channel.id}/messages/${item.id}.json',
+    );
+    expect(screenSource).toContain("'DELETE'");
   });
 
   test('keeps an accessible emoji option in the anchored composer', () => {

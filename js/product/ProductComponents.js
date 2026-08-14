@@ -99,6 +99,37 @@ export const PageHeader = ({ eyebrow, title, action }) => {
   );
 };
 
+export const NotificationBell = ({ count = 0, onPress }) => {
+  const colors = useProductTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={
+        count > 0 ? `Notifications, ${count} unread` : 'Notifications'
+      }
+      hitSlop={8}
+      onPress={onPress}
+      style={[styles.notificationBell, { borderColor: colors.border }]}
+    >
+      <FontAwesome5
+        name="bell"
+        size={17}
+        color={colors.accent}
+        iconStyle="solid"
+      />
+      {count > 0 ? (
+        <View
+          style={[styles.notificationBadge, { backgroundColor: colors.danger }]}
+        >
+          <Text style={styles.notificationBadgeText}>
+            {count > 99 ? '99+' : count}
+          </Text>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+};
+
 export const Card = ({ children, style, accessibilityLabel }) => {
   const colors = useProductTheme();
   return (
@@ -231,6 +262,26 @@ export const Pill = ({ label, selected, onPress }) => {
 };
 
 const styles = StyleSheet.create({
+  notificationBell: {
+    width: 44,
+    height: 44,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -5,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notificationBadgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

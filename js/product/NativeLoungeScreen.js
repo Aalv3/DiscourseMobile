@@ -4,6 +4,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   AppState,
   FlatList,
   Image,
@@ -18,12 +19,18 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import FontAwesome5 from '@react-native-vector-icons/fontawesome5';
-import { Action, PageHeader, useProductTheme } from './ProductComponents';
+import {
+  Action,
+  NotificationBell,
+  PageHeader,
+  useProductTheme,
+} from './ProductComponents';
 import { activeMemberSite } from './ProductData';
 import { spacing } from './DesignSystem';
 import EmojiTextInput from './EmojiTextInput';
 import {
   canSendToLounge,
+  canDeleteOwnLoungeMessage,
   findLoungeChannel,
   loungeMessagesPath,
   loungeSendDisabledReason,
@@ -31,7 +38,7 @@ import {
   normalizeChatMessages,
 } from './LoungeChat';
 
-export default function NativeLoungeScreen({ screenProps }) {
+export default function NativeLoungeScreen({ navigation, screenProps }) {
   const colors = useProductTheme();
   const tabBarHeight = useBottomTabBarHeight();
   const site = activeMemberSite(screenProps.siteManager);
@@ -186,6 +193,42 @@ export default function NativeLoungeScreen({ screenProps }) {
     }
   };
 
+  const deleteMessage = item => {
+    Alert.alert(
+      'Delete Lounge message?',
+      'This removes your message from the Lounge.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await site.jsonApi(
+                `/chat/api/channels/${chat.channel.id}/messages/${item.id}.json`,
+                'DELETE',
+              );
+              setChat(current => ({
+                ...current,
+                messages: current.messages.filter(
+                  message => message.id !== item.id,
+                ),
+              }));
+              await refreshMessages();
+            } catch (error) {
+              Alert.alert(
+                'Message not deleted',
+                error?.status === 403
+                  ? 'Your account cannot delete this Lounge message.'
+                  : 'The message could not be deleted. Check your connection and try again.',
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const renderMessage = ({ item }) => {
     const user = item.user || {};
     const avatarUri = user.avatar_template
@@ -226,6 +269,19 @@ export default function NativeLoungeScreen({ screenProps }) {
           <Text selectable style={[styles.body, { color: colors.text }]}>
             {body}
           </Text>
+          {canDeleteOwnLoungeMessage(item, site.username) ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Delete your Lounge message"
+              hitSlop={8}
+              onPress={() => deleteMessage(item)}
+              style={styles.messageAction}
+            >
+              <Text style={[styles.messageActionText, { color: colors.muted }]}>
+                Delete
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
     );
@@ -239,7 +295,16 @@ export default function NativeLoungeScreen({ screenProps }) {
       edges={['top', 'left', 'right']}
       style={[styles.safe, { backgroundColor: colors.canvas }]}
     >
-      <PageHeader eyebrow="Members" title="The Lounge" />
+      <PageHeader
+        eyebrow="Members"
+        title="The Lounge"
+        action={
+          <NotificationBell
+            count={screenProps.siteManager.totalUnread()}
+            onPress={() => navigation.navigate('NotificationCenter')}
+          />
+        }
+      />
       <Text style={[styles.subtitle, { color: colors.muted }]}>
         Open conversation for Network members.
       </Text>
@@ -434,6 +499,12 @@ const styles = StyleSheet.create({
   author: { fontSize: 14, lineHeight: 19, fontWeight: '750', flexShrink: 1 },
   timestamp: { fontSize: 11, lineHeight: 16 },
   body: { fontSize: 15, lineHeight: 21, marginTop: 1 },
+  messageAction: {
+    alignSelf: 'flex-start',
+    minHeight: 32,
+    justifyContent: 'center',
+  },
+  messageActionText: { fontSize: 12, lineHeight: 17, fontWeight: '650' },
   composer: {
     borderTopWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',

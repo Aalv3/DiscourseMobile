@@ -5,6 +5,7 @@ import _ from 'lodash';
 import { Alert, NativeModules, Platform } from 'react-native';
 import PushNotificationIOS from '@react-native-community/push-notification-ios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { availableNotificationRows } from './memberContentAvailability';
 import Site from './site';
 import RNKeyPair from 'react-native-key-pair';
 import DeviceInfo from 'react-native-device-info';
@@ -592,24 +593,23 @@ class SiteManager {
         promises.push(promise);
       });
 
-      Promise.all(promises).then(results => {
-        resolve(
-          _.chain(results)
-            .flatten()
-            .orderBy(
-              [
-                o => {
-                  return !o.notification.read &&
-                    o.notification.notification_type === 6
-                    ? 0
-                    : 1;
-                },
-                'notification.created_at',
-              ],
-              ['asc', 'desc'],
-            )
-            .value(),
-        );
+      Promise.all(promises).then(async results => {
+        const ordered = _.chain(results)
+          .flatten()
+          .orderBy(
+            [
+              o => {
+                return !o.notification.read &&
+                  o.notification.notification_type === 6
+                  ? 0
+                  : 1;
+              },
+              'notification.created_at',
+            ],
+            ['asc', 'desc'],
+          )
+          .value();
+        resolve(await availableNotificationRows(ordered));
       });
     });
   }

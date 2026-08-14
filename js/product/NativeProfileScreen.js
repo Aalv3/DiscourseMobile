@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { decode } from 'html-entities';
 import { activeMemberSite } from './ProductData';
+import { availableContributionActions } from '../memberContentAvailability';
 import { Action, NestedHeader, useProductTheme } from './ProductComponents';
 import { radius, spacing } from './DesignSystem';
 import EmojiTextInput from './EmojiTextInput';
@@ -71,10 +72,14 @@ export default function NativeProfileScreen({
           )
           .catch(() => ({ user_actions: [] })),
       ]);
+      const actions = await availableContributionActions(
+        site,
+        activity?.user_actions || [],
+      );
       setState({
         loading: false,
         user: profile?.user || profile,
-        actions: activity?.user_actions || [],
+        actions,
         error: null,
       });
     } catch {

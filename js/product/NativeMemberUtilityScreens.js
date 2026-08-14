@@ -122,7 +122,7 @@ export function NotificationSettingsScreen({ navigation, screenProps }) {
       setState({
         loading: false,
         saving: false,
-        emailLevel: payload?.user?.user_option?.email_level ?? 1,
+        emailLevel: payload?.user?.user_option?.email_level ?? 0,
         error: null,
       });
     } catch {

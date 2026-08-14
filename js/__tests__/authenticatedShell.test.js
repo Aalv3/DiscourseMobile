@@ -39,6 +39,16 @@ describe('authenticated member shell', () => {
     );
   });
 
+  test('all six primary destinations expose the native notification center', () => {
+    const primary = read('product/ProductScreens.js');
+    const lounge = read('product/NativeLoungeScreen.js');
+    const root = read('Discourse.js');
+    expect((primary.match(/<HeaderActions/g) || []).length).toBe(5);
+    expect(lounge).toContain('<NotificationBell');
+    expect(root).toContain('name="NotificationCenter"');
+    expect(root).toContain('nativeMemberShell');
+  });
+
   test('nested pages share an accessible solid-chevron back header', () => {
     const source = read('product/ProductComponents.js');
     const topic = read('product/NativeTopicScreen.js');
