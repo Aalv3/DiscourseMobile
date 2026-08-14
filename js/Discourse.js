@@ -70,7 +70,11 @@ import {
 import { productTheme } from './product/DesignSystem';
 import { NestedHeader } from './product/ProductComponents';
 import NativeTopicScreen from './product/NativeTopicScreen';
-import { nativeTopicRoute } from './nativeMemberRouting';
+import NativeCollectionScreen from './product/NativeCollectionScreen';
+import {
+  nativeCollectionRoute,
+  nativeTopicRoute,
+} from './nativeMemberRouting';
 import {
   loadOnboardingState,
   onboardingSessionId,
@@ -551,6 +555,12 @@ class Discourse extends React.Component {
       this._navigation.navigate('Topic', topicRoute);
       return;
     }
+    const collectionRoute = nativeCollectionRoute(url, Boolean(site));
+    if (collectionRoute) {
+      this._siteManager.setActiveSite(site);
+      this._navigation.navigate('Collection', collectionRoute);
+      return;
+    }
     if (Platform.OS === 'ios') {
       this._navigation.navigate('WebView', {
         url: url,
@@ -981,6 +991,14 @@ class Discourse extends React.Component {
               <Stack.Screen name="Topic">
                 {props => (
                   <NativeTopicScreen
+                    {...props}
+                    screenProps={{ ...screenProps }}
+                  />
+                )}
+              </Stack.Screen>
+              <Stack.Screen name="Collection">
+                {props => (
+                  <NativeCollectionScreen
                     {...props}
                     screenProps={{ ...screenProps }}
                   />

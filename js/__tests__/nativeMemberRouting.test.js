@@ -1,7 +1,10 @@
 /* @flow */
 'use strict';
 
-import { nativeTopicRoute } from '../nativeMemberRouting';
+import {
+  nativeCollectionRoute,
+  nativeTopicRoute,
+} from '../nativeMemberRouting';
 
 describe('native authenticated member routing', () => {
   test.each([
@@ -30,5 +33,23 @@ describe('native authenticated member routing', () => {
     expect(
       nativeTopicRoute('https://adjusternetwork.org/t/example/42', false),
     ).toBeNull();
+  });
+
+  test.each([
+    ['https://adjusternetwork.org/tag/today-in-claims', 'tag', '/search.json?q=tags%3Atoday-in-claims%20order%3Alatest'],
+    ['https://adjusternetwork.org/tag/claims-weather', 'tag', '/search.json?q=tags%3Aclaims-weather%20order%3Alatest'],
+    ['https://adjusternetwork.org/tag/field-knowledge', 'tag', '/search.json?q=tags%3Afield-knowledge%20order%3Alatest'],
+    ['https://adjusternetwork.org/c/property/7', 'category', '/c/property/7.json'],
+  ])('routes first-party collection %s natively', (url, kind, endpoint) => {
+    expect(nativeCollectionRoute(url, true)).toMatchObject({ kind, endpoint });
+  });
+
+  test.each([
+    'https://example.com/tag/today-in-claims',
+    'http://adjusternetwork.org/tag/today-in-claims',
+    'https://adjusternetwork.org/u/qa_test',
+    'https://adjusternetwork.org/tag/../../admin',
+  ])('rejects unsafe or unsupported collection route %s', url => {
+    expect(nativeCollectionRoute(url, true)).toBeNull();
   });
 });

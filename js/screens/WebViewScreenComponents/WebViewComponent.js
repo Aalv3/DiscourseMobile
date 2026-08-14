@@ -26,6 +26,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from '@react-native-community/blur';
 import { classifyNavigation } from '../../adjusterNetworkSecurity';
 import { NestedHeader } from '../../product/ProductComponents';
+import {
+  nativeCollectionRoute,
+  nativeTopicRoute,
+} from '../../nativeMemberRouting';
 
 export const withInsets = Component => {
   return props => {
@@ -275,7 +279,13 @@ class WebViewComponent extends React.Component {
               }
 
               if (classifyNavigation(request.url) === 'internal') {
-                if (/^https:\/\/adjusternetwork\.org\/t\//.test(request.url)) {
+                const authenticated = this.siteManager
+                  .listSites()
+                  .some(site => site.authToken);
+                if (
+                  nativeTopicRoute(request.url, authenticated) ||
+                  nativeCollectionRoute(request.url, authenticated)
+                ) {
                   this.props.screenProps.openUrl(request.url);
                   return false;
                 }
