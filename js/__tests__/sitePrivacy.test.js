@@ -55,4 +55,30 @@ describe('site privacy serialization', () => {
       'auth-client-A',
     );
   });
+
+  test('accepts successful no-content mutations without parsing JSON', async () => {
+    const json = jest.fn();
+    fetch.mockResolvedValue({ status: 204, json });
+    const site = new Site({
+      url: 'https://adjusternetwork.org',
+      authToken: 'synthetic-key',
+      clientId: 'auth-client-A',
+    });
+
+    await expect(site.jsonApi('/posts/42.json', 'DELETE')).resolves.toBeNull();
+    expect(json).not.toHaveBeenCalled();
+  });
+
+  test('does not require a JSON body for successful deletes', async () => {
+    const json = jest.fn(() => Promise.reject(new SyntaxError('empty body')));
+    fetch.mockResolvedValue({ status: 200, json });
+    const site = new Site({
+      url: 'https://adjusternetwork.org',
+      authToken: 'synthetic-key',
+      clientId: 'auth-client-A',
+    });
+
+    await expect(site.jsonApi('/posts/42.json', 'DELETE')).resolves.toBeNull();
+    expect(json).not.toHaveBeenCalled();
+  });
 });

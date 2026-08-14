@@ -43,4 +43,34 @@ describe('native topic participation', () => {
     expect(source).toContain('error.userMessages.join');
     expect(source).not.toContain('console.log');
   });
+
+  test('renders persisted reply relationships and member identity', () => {
+    expect(source).toContain('post.reply_to_post_number');
+    expect(source).toContain('postsByNumber[post.reply_to_post_number]');
+    expect(source).toContain('Replying to');
+    expect(source).toContain('post?.avatar_template');
+    expect(source).toContain('post.created_at');
+    expect(source).toContain('jumpToPost(post.reply_to_post_number)');
+  });
+
+  test('shows the specific target before submit and permits changing it', () => {
+    expect(source).toContain('`Replying to ${memberName(replyTarget)}`');
+    expect(source).toContain('compactExcerpt(replyTarget)');
+    expect(source).toContain('Change to topic-level reply');
+    expect(source).toContain('replyToPostNumber: null');
+  });
+
+  test('exposes delete only when Guardian authorizes it', () => {
+    expect(source).toContain('post.can_delete');
+    expect(source).toContain("site.jsonApi(`/posts/${post.id}.json`, 'DELETE')");
+  });
+
+  test('does not present tombstone-inclusive list aggregates as replies', () => {
+    const screens = fs.readFileSync(
+      path.join(__dirname, '../product/ProductScreens.js'),
+      'utf8',
+    );
+    expect(screens).toContain('Open conversation ·');
+    expect(screens).not.toContain('topic.posts_count || 0} replies');
+  });
 });

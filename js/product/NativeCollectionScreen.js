@@ -75,7 +75,7 @@ export default function NativeCollectionScreen({ navigation, route, screenProps 
               style={({ pressed }) => [styles.topic, { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.72 : 1 }]}
             >
               <Text style={[styles.topicTitle, { color: colors.text }]}>{topic.title}</Text>
-              <Text style={[styles.meta, { color: colors.muted }]}>{topic.posts_count || 1} posts · {topic.views || 0} views</Text>
+              <Text style={[styles.meta, { color: colors.muted }]}>Open conversation · {topic.views || 0} views</Text>
             </Pressable>
           )) : (
             <View style={[styles.empty, { backgroundColor: colors.surface, borderColor: colors.border }]}>

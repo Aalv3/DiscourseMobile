@@ -205,7 +205,7 @@ const TopicCard = ({ topic, site, openUrl }) => {
           {topic.title}
         </Text>
         <Text style={[styles.topicMeta, { color: colors.muted }]}>
-          {topic.posts_count || 0} replies · {topic.views || 0} views
+          Open conversation · {topic.views || 0} views
         </Text>
       </View>
       <FontAwesome5

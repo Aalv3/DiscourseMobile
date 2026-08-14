@@ -160,8 +160,10 @@ class Site {
       this._currentFetch = fetch(req);
       this._currentFetch
         .then(async r1 => {
-          if (r1.status === 200) {
-            return r1.json();
+          if (r1.status >= 200 && r1.status < 300) {
+            return method === 'DELETE' || r1.status === 204 || r1.status === 205
+              ? null
+              : r1.json();
           } else if (classifyAuthResponse(r1.status) === 'revoked') {
             this.logoff();
             credentialStore.removeSiteToken(this.url).catch(() => {});
@@ -174,6 +176,14 @@ class Site {
             // caller render an unavailable state.
             const error = new Error('auth_forbidden');
             error.status = r1.status;
+            try {
+              const payload = await r1.json();
+              error.userMessages = Array.isArray(payload?.errors)
+                ? payload.errors.filter(message => typeof message === 'string')
+                : [];
+            } catch {
+              error.userMessages = [];
+            }
             throw error;
           } else {
             const error = new Error('api_request_failed');
