@@ -16,7 +16,7 @@ module.exports = {
     useEmbeddedUpdate: true,
     disableAntiBrickingMeasures: false,
     requestHeaders: {
-      'expo-channel-name': process.env.AN_OTA_CHANNEL || 'staging',
+      'expo-channel-name': process.env.AN_OTA_CHANNEL || 'production',
     },
   },
   extra: {

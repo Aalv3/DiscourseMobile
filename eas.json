@@ -6,10 +6,18 @@
   "build": {
     "staging": {
       "channel": "staging",
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "AN_OTA_CHANNEL": "staging",
+        "AN_OTA_CHANNEL_OVERRIDE": "staging"
+      }
     },
     "production": {
-      "channel": "production"
+      "channel": "production",
+      "env": {
+        "AN_OTA_CHANNEL": "production",
+        "AN_OTA_CHANNEL_OVERRIDE": "production"
+      }
     }
   }
 }

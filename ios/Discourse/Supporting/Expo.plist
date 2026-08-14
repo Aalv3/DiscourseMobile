@@ -17,7 +17,7 @@
     <key>EXUpdatesRequestHeaders</key>
     <dict>
       <key>expo-channel-name</key>
-      <string>staging</string>
+      <string>$(AN_OTA_CHANNEL)</string>
     </dict>
     <key>EXUpdatesDisableAntiBrickingMeasures</key>
     <false/>

@@ -9,6 +9,10 @@ const ios = readFileSync(
   resolve(root, 'ios/Discourse/Supporting/Expo.plist'),
   'utf8',
 );
+const iosProject = readFileSync(
+  resolve(root, 'ios/Discourse.xcodeproj/project.pbxproj'),
+  'utf8',
+);
 const android = readFileSync(
   resolve(root, 'android/app/src/main/AndroidManifest.xml'),
   'utf8',
@@ -20,19 +24,60 @@ const androidStrings = readFileSync(
 const runtime = config.runtimeVersion;
 
 const checks = [
-  ['explicit runtime boundary', /^an-ios-android-\d+\.\d+\.\d+-native-\d+$/.test(runtime)],
-  ['EAS update URL', /^https:\/\/u\.expo\.dev\/[0-9a-f-]{36}$/.test(config.updates.url)],
+  [
+    'explicit runtime boundary',
+    /^an-ios-android-\d+\.\d+\.\d+-native-\d+$/.test(runtime),
+  ],
+  [
+    'EAS update URL',
+    /^https:\/\/u\.expo\.dev\/[0-9a-f-]{36}$/.test(config.updates.url),
+  ],
   ['embedded recovery bundle', config.updates.useEmbeddedUpdate === true],
-  ['anti-bricking enabled', config.updates.disableAntiBrickingMeasures === false],
+  [
+    'anti-bricking enabled',
+    config.updates.disableAntiBrickingMeasures === false,
+  ],
   ['non-blocking launch', config.updates.fallbackToCacheTimeout === 0],
   ['iOS runtime matches', ios.includes(`<string>${runtime}</string>`)],
-  ['Android runtime matches', androidStrings.includes(`>${runtime}</string>`) ],
-  ['iOS staging channel header', ios.includes('<string>staging</string>')],
-  ['Starter transport does not claim code signing', !config.updates.codeSigningCertificate],
-  ['iOS anti-bricking enabled', ios.includes('<key>EXUpdatesDisableAntiBrickingMeasures</key>\n    <false/>')],
-  ['Android anti-bricking enabled', android.includes('DISABLE_ANTI_BRICKING_MEASURES" android:value="false"')],
-  ['staging channel configured', readFileSync(resolve(root, 'eas.json'), 'utf8').includes('"channel": "staging"')],
-  ['production channel configured', readFileSync(resolve(root, 'eas.json'), 'utf8').includes('"channel": "production"')],
+  ['Android runtime matches', androidStrings.includes(`>${runtime}</string>`)],
+  [
+    'iOS channel injected at build time',
+    ios.includes('<string>$(AN_OTA_CHANNEL)</string>'),
+  ],
+  [
+    'iOS Debug defaults to staging',
+    iosProject.includes('AN_OTA_CHANNEL = staging;'),
+  ],
+  [
+    'iOS Release defaults to production',
+    iosProject.includes('AN_OTA_CHANNEL = production;'),
+  ],
+  [
+    'Starter transport does not claim code signing',
+    !config.updates.codeSigningCertificate,
+  ],
+  [
+    'iOS anti-bricking enabled',
+    ios.includes(
+      '<key>EXUpdatesDisableAntiBrickingMeasures</key>\n    <false/>',
+    ),
+  ],
+  [
+    'Android anti-bricking enabled',
+    android.includes('DISABLE_ANTI_BRICKING_MEASURES" android:value="false"'),
+  ],
+  [
+    'staging channel configured',
+    readFileSync(resolve(root, 'eas.json'), 'utf8').includes(
+      '"channel": "staging"',
+    ),
+  ],
+  [
+    'production channel configured',
+    readFileSync(resolve(root, 'eas.json'), 'utf8').includes(
+      '"channel": "production"',
+    ),
+  ],
 ];
 
 const failures = checks.filter(([, passed]) => !passed);

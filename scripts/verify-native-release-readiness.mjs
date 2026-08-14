@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 
-const read = path => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+const read = path =>
+  fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const findings = [];
 const check = (area, state, detail) => findings.push({ area, state, detail });
 
@@ -28,14 +29,18 @@ check(
 );
 check(
   'Android application identity',
-  androidGradle.includes('applicationId "org.adjusternetwork.app"') ? 'PASS' : 'FAIL',
+  androidGradle.includes('applicationId "org.adjusternetwork.app"')
+    ? 'PASS'
+    : 'FAIL',
   'Owner-approved application ID must be org.adjusternetwork.app',
 );
 check(
   'Android verified links',
   androidManifest.includes('android:autoVerify="true"') &&
     androidManifest.includes('android:host="adjusternetwork.org"') &&
-    ['/t/', '/c/', '/u/'].every(path => androidManifest.includes(`android:pathPrefix="${path}"`))
+    ['/t/', '/c/', '/u/'].every(path =>
+      androidManifest.includes(`android:pathPrefix="${path}"`),
+    )
     ? 'PASS'
     : 'FAIL',
   'Owner-approved adjusternetwork.org topic/category/user paths must be declared',
@@ -48,7 +53,9 @@ check(
 check(
   'iOS application identity',
   iosProject.includes('PRODUCT_BUNDLE_IDENTIFIER = org.adjusternetwork.app;') &&
-    iosProject.includes('PRODUCT_BUNDLE_IDENTIFIER = org.adjusternetwork.app.ShareExtension;')
+    iosProject.includes(
+      'PRODUCT_BUNDLE_IDENTIFIER = org.adjusternetwork.app.ShareExtension;',
+    )
     ? 'PASS'
     : 'FAIL',
   'Owner-approved app and Share Extension bundle IDs must be configured',
@@ -67,14 +74,16 @@ check(
   'Only the owner-authorized Adjuster Network association domain may remain',
 );
 check(
-  'Firebase founding-beta disposition',
+  'A3-owned push disposition',
   !packageManifest.includes('@react-native-firebase') &&
     !androidGradle.includes('google-services') &&
-    !iosEntitlements.includes('aps-environment') &&
+    productConfig.includes('push: false') &&
+    productConfig.includes('pushDelivery: true') &&
+    iosEntitlements.includes('aps-environment') &&
     !iosInfo.includes('<string>remote-notification</string>')
     ? 'PASS'
     : 'FAIL',
-  'Firebase and push entitlements must be absent while push, analytics and crash reporting remain off',
+  'Direct APNs registration must remain separate from the disabled legacy relay, Firebase and analytics',
 );
 check(
   'release version',
@@ -87,7 +96,9 @@ check(
 );
 check(
   'iOS ATS',
-  iosInfo.includes('<key>NSAllowsArbitraryLoads</key>\n\t<false/>') ? 'PASS' : 'FAIL',
+  iosInfo.includes('<key>NSAllowsArbitraryLoads</key>\n\t<false/>')
+    ? 'PASS'
+    : 'FAIL',
   'Arbitrary loads must remain disabled',
 );
 check(
@@ -102,7 +113,7 @@ check(
 );
 check(
   'iOS canonical welcome branding',
-  productScreens.includes("height: 171, aspectRatio: 1183 / 845") &&
+  productScreens.includes('height: 103, aspectRatio: 1183 / 845') &&
     productScreens.includes("overflow: 'hidden'") &&
     productScreens.includes('accessibilityLabel="Adjuster Network"')
     ? 'PASS'
@@ -117,5 +128,11 @@ check(
 
 const failed = findings.filter(item => item.state === 'FAIL');
 const pending = findings.filter(item => item.state === 'OWNER_INPUT');
-console.log(JSON.stringify({ findings, failed: failed.length, ownerInputs: pending.length }, null, 2));
+console.log(
+  JSON.stringify(
+    { findings, failed: failed.length, ownerInputs: pending.length },
+    null,
+    2,
+  ),
+);
 if (failed.length) process.exitCode = 1;

@@ -231,6 +231,7 @@
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
+				A30A0A012E4B000100000001 /* Configure OTA channel */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				BD9F666823F5B02C001001B3 /* Embed App Extensions */,
 				76F0B67DB1686AF6FA39E8E4 /* [CP] Embed Pods Frameworks */,
@@ -455,6 +456,23 @@
 			shellPath = /bin/sh;
 			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-Discourse/expo-configure-project.sh\"\n";
 		};
+		A30A0A012E4B000100000001 /* Configure OTA channel */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Expo.plist",
+			);
+			name = "Configure OTA channel";
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/adjuster-network-ota-channel-$(CONFIGURATION).txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\nchannel=\"${AN_OTA_CHANNEL_OVERRIDE:-$AN_OTA_CHANNEL}\"\ncase \"$channel\" in\n  staging|production) ;;\n  *) echo \"error: invalid Adjuster Network OTA channel\" >&2; exit 1 ;;\nesac\nplist=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Expo.plist\"\n/usr/libexec/PlistBuddy -c \"Set :EXUpdatesRequestHeaders:expo-channel-name $channel\" \"$plist\"\nprintf '%s\\n' \"$channel\" > \"$SCRIPT_OUTPUT_FILE_0\"\n";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -512,6 +530,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 94936B1821688FB21A88C81D /* Pods-Discourse.debug.xcconfig */;
 			buildSettings = {
+				AN_OTA_CHANNEL = staging;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Discourse/Discourse.entitlements;
@@ -557,6 +576,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 2482A32288AB770A5EC3D04B /* Pods-Discourse.release.xcconfig */;
 			buildSettings = {
+				AN_OTA_CHANNEL = production;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Discourse/Discourse.entitlements;
@@ -727,7 +747,6 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
@@ -764,7 +783,6 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = YES;
 				CURRENT_PROJECT_VERSION = 1;

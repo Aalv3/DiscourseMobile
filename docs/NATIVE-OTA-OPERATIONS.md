@@ -5,7 +5,8 @@ bundled assets only. The native iOS and Android projects remain hand-managed.
 
 ## Build 1 security model
 
-Build 1 uses standard EAS Update transport on the existing Starter account.
+Build 1 uses standard EAS Update transport on the existing Starter account,
+as explicitly accepted by the owner.
 EAS project isolation, HTTPS delivery, artifact hashes, the explicit native
 runtime boundary, staging and production channels, anti-bricking, and the
 embedded recovery bundle remain mandatory. End-to-end publisher code signing
@@ -24,6 +25,18 @@ signing until that capability is configured and certified.
 - Build 1 does not embed a publisher signing certificate.
 
 Run `yarn verify:ota` before every native build or update publication.
+
+## Release channels and authority
+
+Debug builds default to `staging`; Release/App Store archives default to
+`production`. EAS staging builds must explicitly set the staging channel, and
+production builds must explicitly set production. A mismatch fails the native
+build rather than silently crossing channels.
+
+Only the Expo project owner may authorize a production promotion. The release
+operator may publish to staging and assemble evidence, but may not promote
+without that approval. The owner or designated incident commander may pause a
+rollout, republish the prior known-good update, or invoke rollback-to-embedded.
 
 ## Release evidence and promotion
 
@@ -55,6 +68,16 @@ the private key, auth tokens, or notification payloads in release evidence.
 - Losing or rotating the signing key requires a new certificate, runtime value,
   and store binary. An old binary must never accept updates from a new signer.
 
-Update publication is prohibited until the Production/Enterprise EAS plan is
-confirmed, the private key is stored in the owner secret manager, and the full
-staging certification matrix has passed.
+Production publication remains prohibited until the full staging certification
+matrix passes and the owner authorizes the exact update group. Build 1 uses the
+accepted Starter transport model and must not claim end-to-end publisher
+signing. Adding publisher signing later requires a separately certified native
+configuration and store binary.
+
+## Store-binary boundary
+
+Reviewed JavaScript, copy, layout, navigation, and bundled-asset changes may be
+delivered through OTA when they stay inside the existing runtime contract.
+Native source or dependencies, Expo modules, entitlements, permissions,
+capabilities, privacy declarations, app/extension configuration, or any change
+to the JS/native interface requires a new App Store binary and runtime version.
