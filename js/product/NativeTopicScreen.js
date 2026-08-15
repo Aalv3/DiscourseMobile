@@ -25,11 +25,7 @@ import {
   conversationOrder,
   visibleConversationPosts,
 } from './topicConversation';
-import {
-  canEditPost,
-  loadEditablePost,
-  savePostEdit,
-} from './topicEditing';
+import { canEditPost, loadEditablePost, savePostEdit } from './topicEditing';
 
 function readablePost(cooked) {
   return decode(
@@ -317,6 +313,46 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
       ],
     );
 
+  const toggleBookmark = async post => {
+    try {
+      let bookmarkId = post.bookmark_id;
+      if (post.bookmarked && bookmarkId) {
+        await site.jsonApi(`/bookmarks/${bookmarkId}.json`, 'DELETE');
+        bookmarkId = null;
+      } else {
+        const response = await site.jsonApi('/bookmarks.json', 'POST', {
+          bookmarkable_id: post.id,
+          bookmarkable_type: 'Post',
+        });
+        bookmarkId = response?.id;
+      }
+      setState(current => ({
+        ...current,
+        topic: {
+          ...current.topic,
+          post_stream: {
+            ...current.topic.post_stream,
+            posts: current.topic.post_stream.posts.map(candidate =>
+              candidate.id === post.id
+                ? {
+                    ...candidate,
+                    bookmarked: Boolean(bookmarkId),
+                    bookmark_id: bookmarkId,
+                  }
+                : candidate,
+            ),
+          },
+        },
+      }));
+    } catch (error) {
+      Alert.alert(
+        'Bookmark not updated',
+        error?.userMessages?.join(' ') ||
+          'The saved-item state could not be changed. Please try again.',
+      );
+    }
+  };
+
   const leaveDeletedTopic = () => {
     screenProps.invalidateMemberContent();
     navigation.popToTop();
@@ -542,6 +578,20 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
                       </Text>
                     </Pressable>
                   ) : null}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      post.bookmarked ? 'Remove bookmark' : 'Bookmark post'
+                    }
+                    onPress={() => toggleBookmark(post)}
+                    style={styles.postReply}
+                  >
+                    <Text
+                      style={[styles.postReplyText, { color: colors.accent }]}
+                    >
+                      {post.bookmarked ? 'Saved' : 'Save'}
+                    </Text>
+                  </Pressable>
                   {post.can_delete ? (
                     <Pressable
                       accessibilityRole="button"

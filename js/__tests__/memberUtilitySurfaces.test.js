@@ -28,10 +28,11 @@ describe('native member utility surfaces', () => {
     expect(screens).toContain('accessibilityState=');
   });
 
-  test('notifications default to Always when no server preference exists', () => {
+  test('notifications expose only server-returned supported preferences', () => {
     const source = read('product/NativeMemberUtilityScreens.js');
-    expect(source).toContain('user_option?.email_level ?? 0');
+    expect(source).toContain('supportedNotificationPreferences');
     expect(source).toContain("['Always', 0]");
+    expect(source).toContain("['On', true]");
   });
 
   test('search and bookmarks use authenticated APIs and native topic routing', () => {
@@ -39,9 +40,17 @@ describe('native member utility surfaces', () => {
     expect(source).toContain('`/search.json?q=${encodeURIComponent(term)}`');
     expect(source).toContain('/activity/bookmarks.json`');
     expect(source).toContain('screenProps.openUrl(');
-    expect(source).toContain('`${site.url}/t/');
+    expect(source).toContain('searchResults(payload)');
+    expect(source).toContain('bookmarkDeletePath(item.id)');
     expect(source).not.toContain('WebView');
-    expect(source).not.toContain('Linking.openURL');
+  });
+
+  test('privacy actions are confirmed and use authenticated export plus reviewed deletion', () => {
+    const source = read('product/NativeMemberUtilityScreens.js');
+    expect(source).toContain('/export_csv/export_entity.json');
+    expect(source).toContain("entity: 'user_archive'");
+    expect(source).toContain('privacy@adjusternetwork.org');
+    expect(source).toContain("'Request account deletion?'");
   });
 
   test('privacy logout requires destructive confirmation', () => {

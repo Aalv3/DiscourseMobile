@@ -90,7 +90,7 @@ const HeaderActions = ({ navigation, screenProps, search = false }) => {
 
 export function WelcomeScreen({ onConnect, onLogin, busy }) {
   const colors = useProductTheme();
-  const { width } = useWindowDimensions();
+  const { width, fontScale } = useWindowDimensions();
   const [brandAssets] = useAssets([
     require('../../img/adjuster-network-logo.png'),
   ]);
@@ -104,6 +104,7 @@ export function WelcomeScreen({ onConnect, onLogin, busy }) {
           contentContainerStyle={[
             styles.welcome,
             width >= 700 && styles.welcomeWide,
+            fontScale >= 1.6 && styles.welcomeAccessibility,
           ]}
           keyboardShouldPersistTaps="handled"
         >
@@ -342,26 +343,32 @@ export function FloorScreen({ navigation, screenProps }) {
 }
 
 export function DiscussionsScreen({ navigation, screenProps }) {
+  const colors = useProductTheme();
   const site = activeMemberSite(screenProps.siteManager);
   const data = useCommunity(
     screenProps.siteManager,
     screenProps.memberContentVersion,
   );
-  const [filter, setFilter] = useState('All');
+  const [filter, setFilter] = useState('all');
+  const selectedCategory = data.categories.find(
+    category => String(category.id) === filter,
+  );
   const categories = [
-    'All',
-    'Unanswered',
-    ...data.categories.slice(0, 5).map(c => c.name),
+    { key: 'all', name: 'All' },
+    { key: 'unanswered', name: 'Unanswered' },
+    ...data.categories.map(category => ({
+      key: String(category.id),
+      name: category.name,
+    })),
   ];
   const visible = useMemo(
     () =>
       data.topics.filter(
         topic =>
-          filter === 'All' ||
-          (filter === 'Unanswered'
+          filter === 'all' ||
+          (filter === 'unanswered'
             ? (topic.posts_count || 1) <= 1
-            : topic.category_id ===
-              data.categories.find(c => c.name === filter)?.id),
+            : String(topic.category_id) === filter),
       ),
     [data, filter],
   );
@@ -381,13 +388,30 @@ export function DiscussionsScreen({ navigation, screenProps }) {
       >
         {categories.map(item => (
           <Pill
-            key={item}
-            label={item}
-            selected={filter === item}
-            onPress={() => setFilter(item)}
+            key={item.key}
+            label={item.name}
+            selected={filter === item.key}
+            onPress={() => setFilter(item.key)}
           />
         ))}
       </ScrollView>
+      {selectedCategory ? (
+        <View style={styles.categoryDiscovery}>
+          <Text style={[styles.categoryDescription, { color: colors.muted }]}>
+            {selectedCategory.description_text ||
+              `Browse every discussion in ${selectedCategory.name}.`}
+          </Text>
+          <Action
+            label={`Open ${selectedCategory.name}`}
+            secondary
+            onPress={() =>
+              screenProps.openUrl(
+                `${site.url}/c/${selectedCategory.slug}/${selectedCategory.id}`,
+              )
+            }
+          />
+        </View>
+      ) : null}
       {data.loading ? (
         <StateCard
           loading
@@ -415,7 +439,7 @@ export function DiscussionsScreen({ navigation, screenProps }) {
           icon="comments"
           title="Nothing here yet"
           body={
-            filter === 'Unanswered'
+            filter === 'unanswered'
               ? 'No unanswered discussions are available.'
               : 'This category does not have any discussions yet.'
           }
@@ -649,8 +673,8 @@ export function IntelligenceScreen({ navigation, screenProps }) {
         }
       />
       <Text style={[styles.intro, { color: colors.muted }]}>
-        Native-friendly briefings and field knowledge. Detailed map work stays
-        on the web where it fits.
+        Source-backed claims briefings, weather context, and practical field
+        knowledge published for Network members.
       </Text>
       {rows.map(row => (
         <Pressable
@@ -684,7 +708,7 @@ export function IntelligenceScreen({ navigation, screenProps }) {
               {row.body}
             </Text>
             <Text style={[styles.available, { color: colors.accent }]}>
-              Open current collection
+              View published content
             </Text>
           </View>
           <FontAwesome5
@@ -704,13 +728,21 @@ export function ProfileScreen({ navigation, screenProps }) {
   const site = activeMemberSite(screenProps.siteManager);
   const username = site?.username || 'Member';
   const [adjusterCard, setAdjusterCard] = useState(null);
+  const [avatarTemplate, setAvatarTemplate] = useState(null);
   useEffect(() => {
     let mounted = true;
     if (site?.authToken) {
-      site
-        .jsonApi('/native/v1/profile')
-        .then(payload => {
-          if (mounted) setAdjusterCard(parseAdjusterCard(payload));
+      Promise.all([
+        site.jsonApi('/native/v1/profile'),
+        site
+          .jsonApi(`/u/${encodeURIComponent(username)}.json`)
+          .catch(() => null),
+      ])
+        .then(([profilePayload, userPayload]) => {
+          if (mounted) {
+            setAdjusterCard(parseAdjusterCard(profilePayload));
+            setAvatarTemplate(userPayload?.user?.avatar_template || null);
+          }
         })
         .catch(() => {});
     }
@@ -728,11 +760,23 @@ export function ProfileScreen({ navigation, screenProps }) {
         }
       />
       <Card style={styles.identity}>
-        <View style={[styles.avatar, { backgroundColor: colors.accent }]}>
-          <Text style={styles.avatarText}>
-            {username.slice(0, 1).toUpperCase()}
-          </Text>
-        </View>
+        {avatarTemplate ? (
+          <Image
+            accessibilityLabel={`${username} profile photo`}
+            source={{
+              uri: avatarTemplate.startsWith('http')
+                ? avatarTemplate.replace('{size}', '120')
+                : `${site.url}${avatarTemplate.replace('{size}', '120')}`,
+            }}
+            style={styles.avatar}
+          />
+        ) : (
+          <View style={[styles.avatar, { backgroundColor: colors.accent }]}>
+            <Text style={styles.avatarText}>
+              {username.slice(0, 1).toUpperCase()}
+            </Text>
+          </View>
+        )}
         <View>
           <Text style={[styles.identityName, { color: colors.text }]}>
             {adjusterCard?.values.name || username}
@@ -912,6 +956,11 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   welcomeWide: { paddingVertical: 50 },
+  welcomeAccessibility: {
+    justifyContent: 'flex-start',
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xl,
+  },
   brandLogoPlate: {
     width: 156,
     height: 112,
@@ -978,6 +1027,12 @@ const styles = StyleSheet.create({
   topicTitle: { fontSize: 16, lineHeight: 22, fontWeight: '700' },
   topicMeta: { fontSize: 12, marginTop: 6 },
   pills: { gap: 8, paddingBottom: spacing.md },
+  categoryDiscovery: { alignItems: 'flex-start', marginBottom: spacing.md },
+  categoryDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: spacing.sm,
+  },
   loungeAction: { alignItems: 'flex-start', marginBottom: spacing.md },
   permissionNote: { fontSize: 14, lineHeight: 20, marginBottom: spacing.md },
   composerSafe: { flex: 1 },

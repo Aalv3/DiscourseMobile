@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		13B07FBC1A68108700A75B9A /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB01A68108700A75B9A /* AppDelegate.swift */; };
 		13B07FBD1A68108700A75B9A /* LaunchScreen.xib in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB11A68108700A75B9A /* LaunchScreen.xib */; };
+		A30A0A102E4B000100000001 /* adjuster-network-logo.png in Resources */ = {isa = PBXBuildFile; fileRef = A30A0A112E4B000100000001 /* adjuster-network-logo.png */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		163A9678DBCFD6F7CCBE13D0 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B1FE75293E7ABC2D0246179 /* ExpoModulesProvider.swift */; };
 		2D21EBACC6C4F9E264463A9D /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 8103E0379C707B648ED89375 /* PrivacyInfo.xcprivacy */; };
@@ -57,6 +58,7 @@
 		13B07FB21A68108700A75B9A /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/LaunchScreen.xib; sourceTree = "<group>"; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Discourse/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Discourse/Info.plist; sourceTree = "<group>"; };
+		A30A0A112E4B000100000001 /* adjuster-network-logo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "adjuster-network-logo.png"; path = "../img/adjuster-network-logo.png"; sourceTree = "<group>"; };
 		2482A32288AB770A5EC3D04B /* Pods-Discourse.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Discourse.release.xcconfig"; path = "Target Support Files/Pods-Discourse/Pods-Discourse.release.xcconfig"; sourceTree = "<group>"; };
 		35667425B8D25AC23B513768 /* libPods-Discourse.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Discourse.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		6A4F199A2E4A000100000002 /* Expo.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Expo.plist; path = Discourse/Supporting/Expo.plist; sourceTree = "<group>"; };
@@ -206,6 +208,7 @@
 		EBC3308E104F4DB19F2249B1 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				A30A0A112E4B000100000001 /* adjuster-network-logo.png */,
 				B52583FD1E5551D7001E9B7C /* nav-icon-gray@3x.png */,
 			);
 			name = Resources;
@@ -235,6 +238,7 @@
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				BD9F666823F5B02C001001B3 /* Embed App Extensions */,
 				76F0B67DB1686AF6FA39E8E4 /* [CP] Embed Pods Frameworks */,
+				A30A0A122E4B000100000001 /* Generate Hermes dSYM */,
 				C4D0DE796E7D7DB770C5F3D3 /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
@@ -309,6 +313,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
+				A30A0A102E4B000100000001 /* adjuster-network-logo.png in Resources */,
 				B52583FE1E5551D7001E9B7C /* nav-icon-gray@3x.png in Resources */,
 				13B07FBD1A68108700A75B9A /* LaunchScreen.xib in Resources */,
 				BDEA363522D818BC0040787F /* Settings.bundle in Resources */,
@@ -358,6 +363,23 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Discourse/Pods-Discourse-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		A30A0A122E4B000100000001 /* Generate Hermes dSYM */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(FRAMEWORKS_FOLDER_PATH)/hermes.framework/hermes",
+			);
+			name = "Generate Hermes dSYM";
+			outputPaths = (
+				"$(DWARF_DSYM_FOLDER_PATH)/hermes.framework.dSYM/Contents/Resources/DWARF/hermes",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\nHERMES_BINARY=\"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework/hermes\"\nHERMES_DSYM=\"${DWARF_DSYM_FOLDER_PATH}/hermes.framework.dSYM\"\nif [ \"${DEBUG_INFORMATION_FORMAT}\" = \"dwarf-with-dsym\" ] && [ -f \"${HERMES_BINARY}\" ]; then\n  rm -rf \"${HERMES_DSYM}\"\n  xcrun dsymutil \"${HERMES_BINARY}\" -o \"${HERMES_DSYM}\"\nfi\n";
 			showEnvVarsInLog = 0;
 		};
 		A30A0A012E4B000100000001 /* Configure OTA channel */ = {

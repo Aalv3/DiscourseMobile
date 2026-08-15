@@ -11,6 +11,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -126,6 +127,7 @@ export default function AdjusterCardOnboardingScreen({
   site,
 }) {
   const colors = useProductTheme();
+  const { fontScale } = useWindowDimensions();
   const [state, setState] = useState({
     loading: true,
     saving: false,
@@ -432,7 +434,10 @@ export default function AdjusterCardOnboardingScreen({
         style={styles.safe}
       >
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[
+            styles.content,
+            fontScale >= 1.6 && styles.accessibilityContent,
+          ]}
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.brandRow}>
@@ -797,6 +802,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     paddingBottom: spacing.xl,
   },
+  accessibilityContent: { paddingTop: spacing.sm, paddingBottom: 72 },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   eyebrow: { fontSize: 13, fontWeight: '700', letterSpacing: 0.4 },
   progress: { flexDirection: 'row', gap: 5, marginTop: spacing.md },
