@@ -39,6 +39,13 @@ static NSString *pendingAPNSToken = nil;
 
 RCT_EXPORT_MODULE()
 
+- (NSDictionary *)constantsToExport
+{
+  NSString *environment = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"ANPushEnvironment"];
+  BOOL trusted = [environment isEqualToString:@"staging"] || [environment isEqualToString:@"production"];
+  return @{ @"pushEnvironment": trusted ? environment : [NSNull null] };
+}
+
 - (NSArray<NSString *> *)supportedEvents
 {
   return @[@"keyInputEvent"];
@@ -64,6 +71,43 @@ RCT_REMAP_METHOD(consumeAPNSToken,
     pendingAPNSToken = nil;
   }
   resolve(token ?: [NSNull null]);
+}
+
+RCT_REMAP_METHOD(consumeShareIntent,
+                 consumeShareIntentWithResolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject)
+{
+  NSURL *container = [[NSFileManager defaultManager]
+      containerURLForSecurityApplicationGroupIdentifier:@"group.org.adjusternetwork.app"];
+  NSURL *file = [container URLByAppendingPathComponent:@"pending-share.json"];
+  NSData *data = file ? [NSData dataWithContentsOfURL:file] : nil;
+  if (file) [[NSFileManager defaultManager] removeItemAtURL:file error:nil];
+  if (!data || data.length > 12288) {
+    resolve([NSNull null]);
+    return;
+  }
+  id decoded = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+  if (![decoded isKindOfClass:[NSDictionary class]]) {
+    resolve([NSNull null]);
+    return;
+  }
+  NSDictionary *payload = (NSDictionary *)decoded;
+  NSString *schema = payload[@"schema"];
+  NSString *kind = payload[@"kind"];
+  NSString *value = payload[@"value"];
+  NSNumber *createdAt = payload[@"created_at"];
+  NSTimeInterval age = [[NSDate date] timeIntervalSince1970] - createdAt.doubleValue;
+  BOOL valid = [schema isEqualToString:@"an.share-intent.v1"] &&
+      [createdAt isKindOfClass:[NSNumber class]] &&
+      ([kind isEqualToString:@"url"] || [kind isEqualToString:@"text"]) &&
+      value.length > 0 && value.length <= ([kind isEqualToString:@"url"] ? 2048 : 8192) &&
+      age >= 0 && age <= 300;
+  if (valid && [kind isEqualToString:@"url"]) {
+    NSURL *url = [NSURL URLWithString:value];
+    valid = [url.scheme.lowercaseString isEqualToString:@"https"] &&
+        [url.host.lowercaseString isEqualToString:@"adjusternetwork.org"];
+  }
+  resolve(valid ? payload : [NSNull null]);
 }
 
 RCT_REMAP_METHOD(generateSecureInstallationId,

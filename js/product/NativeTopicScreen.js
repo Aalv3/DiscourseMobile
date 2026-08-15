@@ -25,6 +25,11 @@ import {
   conversationOrder,
   visibleConversationPosts,
 } from './topicConversation';
+import {
+  canEditPost,
+  loadEditablePost,
+  savePostEdit,
+} from './topicEditing';
 
 function readablePost(cooked) {
   return decode(
@@ -104,6 +109,8 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
   });
   const [composer, setComposer] = useState({
     visible: false,
+    mode: 'reply',
+    postId: null,
     raw: '',
     replyToPostNumber: null,
     submitting: false,
@@ -182,11 +189,43 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
   const openComposer = replyToPostNumber =>
     setComposer({
       visible: true,
+      mode: 'reply',
+      postId: null,
       raw: '',
       replyToPostNumber,
       submitting: false,
       error: null,
     });
+
+  const openEditor = async post => {
+    if (!canEditPost(post)) return;
+    setComposer({
+      visible: true,
+      mode: 'edit',
+      postId: post.id,
+      raw: typeof post.raw === 'string' ? post.raw : '',
+      replyToPostNumber: null,
+      submitting: typeof post.raw !== 'string',
+      error: null,
+    });
+    if (typeof post.raw === 'string') return;
+    try {
+      const editableRaw = await loadEditablePost(site, post);
+      setComposer(current => ({
+        ...current,
+        raw: editableRaw,
+        submitting: false,
+      }));
+    } catch (error) {
+      setComposer(current => ({
+        ...current,
+        submitting: false,
+        error:
+          error?.userMessages?.join(' ') ||
+          'This post could not be prepared for editing.',
+      }));
+    }
+  };
 
   const closeComposer = () => {
     if (!composer.submitting) {
@@ -194,18 +233,21 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
     }
   };
 
-  const submitReply = async () => {
+  const submitComposer = async () => {
     const raw = composer.raw.trim();
     if (!raw || !state.topic?.id || !site?.authToken) return;
     setComposer(current => ({ ...current, submitting: true, error: null }));
     try {
-      const created = await site.jsonApi('/posts.json', 'POST', {
-        topic_id: state.topic.id,
-        raw,
-        ...(composer.replyToPostNumber
-          ? { reply_to_post_number: composer.replyToPostNumber }
-          : {}),
-      });
+      const editing = composer.mode === 'edit';
+      const created = editing
+        ? await savePostEdit(site, composer.postId, raw)
+        : await site.jsonApi('/posts.json', 'POST', {
+            topic_id: state.topic.id,
+            raw,
+            ...(composer.replyToPostNumber
+              ? { reply_to_post_number: composer.replyToPostNumber }
+              : {}),
+          });
       setComposer(current => ({
         ...current,
         visible: false,
@@ -213,6 +255,7 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
       }));
       await loadTopic();
       setTimeout(() => {
+        if (editing) return;
         if (created?.post_number) {
           jumpToPost(created.post_number);
         } else {
@@ -223,7 +266,13 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
       setComposer(current => ({
         ...current,
         submitting: false,
-        error: replyErrorMessage(error),
+        error:
+          composer.mode === 'edit'
+            ? error?.userMessages?.join(' ') ||
+              (error?.status === 403
+                ? 'Your account is no longer permitted to edit this post.'
+                : 'Your changes could not be saved. Please try again.')
+            : replyErrorMessage(error),
       }));
     }
   };
@@ -477,6 +526,22 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
                       </Text>
                     </Pressable>
                   ) : null}
+                  {canEditPost(post) ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Edit your ${
+                        post.post_number === 1 ? 'discussion' : 'reply'
+                      }`}
+                      onPress={() => openEditor(post)}
+                      style={styles.postReply}
+                    >
+                      <Text
+                        style={[styles.postReplyText, { color: colors.accent }]}
+                      >
+                        Edit
+                      </Text>
+                    </Pressable>
+                  ) : null}
                   {post.can_delete ? (
                     <Pressable
                       accessibilityRole="button"
@@ -507,7 +572,10 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={[styles.composer, { backgroundColor: colors.canvas }]}
         >
-          <NestedHeader title="Reply" onBack={closeComposer} />
+          <NestedHeader
+            title={composer.mode === 'edit' ? 'Edit post' : 'Reply'}
+            onBack={closeComposer}
+          />
           <ScrollView
             contentContainerStyle={styles.composerContent}
             keyboardShouldPersistTaps="handled"
@@ -516,11 +584,13 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
               accessibilityRole="header"
               style={[styles.composerTitle, { color: colors.text }]}
             >
-              {replyTarget
+              {composer.mode === 'edit'
+                ? 'Edit your contribution'
+                : replyTarget
                 ? `Replying to ${memberName(replyTarget)}`
                 : 'Join the discussion'}
             </Text>
-            {replyTarget ? (
+            {composer.mode === 'reply' && replyTarget ? (
               <View
                 style={[
                   styles.composerTarget,
@@ -567,7 +637,11 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
               onChangeText={raw =>
                 setComposer(current => ({ ...current, raw, error: null }))
               }
-              placeholder="Write a helpful reply…"
+              placeholder={
+                composer.mode === 'edit'
+                  ? 'Update your contribution…'
+                  : 'Write a helpful reply…'
+              }
               placeholderTextColor={colors.muted}
               style={[
                 styles.input,
@@ -596,9 +670,17 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
                 onPress={closeComposer}
               />
               <Action
-                label={composer.submitting ? 'Posting…' : 'Post reply'}
+                label={
+                  composer.submitting
+                    ? composer.mode === 'edit'
+                      ? 'Saving…'
+                      : 'Posting…'
+                    : composer.mode === 'edit'
+                    ? 'Save changes'
+                    : 'Post reply'
+                }
                 disabled={composer.submitting || !composer.raw.trim()}
-                onPress={submitReply}
+                onPress={submitComposer}
               />
             </View>
           </ScrollView>

@@ -530,7 +530,9 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 94936B1821688FB21A88C81D /* Pods-Discourse.debug.xcconfig */;
 			buildSettings = {
+				AN_APNS_ENVIRONMENT = development;
 				AN_OTA_CHANNEL = staging;
+				AN_PUSH_ENVIRONMENT = staging;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Discourse/Discourse.entitlements;
@@ -576,7 +578,9 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 2482A32288AB770A5EC3D04B /* Pods-Discourse.release.xcconfig */;
 			buildSettings = {
+				AN_APNS_ENVIRONMENT = production;
 				AN_OTA_CHANNEL = production;
+				AN_PUSH_ENVIRONMENT = production;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Discourse/Discourse.entitlements;
@@ -753,6 +757,7 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
@@ -789,6 +794,7 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = YES;
 				CURRENT_PROJECT_VERSION = 1;

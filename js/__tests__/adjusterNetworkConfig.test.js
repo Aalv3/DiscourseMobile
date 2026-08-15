@@ -1,4 +1,7 @@
-import { adjusterNetwork } from '../adjusterNetworkConfig';
+import {
+  adjusterNetwork,
+  trustedPushEnvironment,
+} from '../adjusterNetworkConfig';
 
 describe('Adjuster Network product boundary', () => {
   test('pins the canonical HTTPS origin', () => {
@@ -31,9 +34,18 @@ describe('Adjuster Network product boundary', () => {
       pushDelivery: true,
       publicNativePreview: false,
     });
-    expect(adjusterNetwork.push).toEqual({
-      backendOrigin: 'https://adjusternetwork.org',
-      environment: 'staging',
-    });
+    expect(adjusterNetwork.push.backendOrigin).toBe(
+      'https://adjusternetwork.org',
+    );
+    expect([null, 'staging', 'production']).toContain(
+      adjusterNetwork.push.environment,
+    );
+  });
+
+  test('accepts only trusted iOS build environments', () => {
+    expect(trustedPushEnvironment('ios', 'staging')).toBe('staging');
+    expect(trustedPushEnvironment('ios', 'production')).toBe('production');
+    expect(trustedPushEnvironment('ios', 'sandbox')).toBeNull();
+    expect(trustedPushEnvironment('android', 'production')).toBeNull();
   });
 });

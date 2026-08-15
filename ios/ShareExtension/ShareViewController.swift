@@ -1,81 +1,91 @@
-//
-//  ShareViewController.swift
-//  ShareExtension
-//
-//  Shows a Discourse icon in the iOS share sheet
-// and lets users send URLs to the app.
-//
-
 import UIKit
-import MobileCoreServices
+import UniformTypeIdentifiers
 
-extension NSItemProvider {
-    var isText: Bool { return hasItemConformingToTypeIdentifier(String(kUTTypeText)) }
-    var isUrl: Bool { return hasItemConformingToTypeIdentifier(String(kUTTypeURL)) }
-
-    func processText(completion: CompletionHandler?) {
-        loadItem(forTypeIdentifier: String(kUTTypeText), options: nil, completionHandler: completion)
-    }
-
-    func processUrl(completion: CompletionHandler?) {
-        loadItem(forTypeIdentifier: String(kUTTypeURL), options: nil, completionHandler: completion)
-    }
+private struct ShareIntent: Encodable {
+  let schema = "an.share-intent.v1"
+  let id: String
+  let created_at: TimeInterval
+  let kind: String
+  let value: String
 }
 
-class ShareViewController: UIViewController {
+final class ShareViewController: UIViewController {
+  private let appGroup = "group.org.adjusternetwork.app"
+  private let payloadName = "pending-share.json"
+
   override func viewDidLoad() {
     super.viewDidLoad()
-
-    guard let extensionContext = extensionContext,
-          let inputItems = extensionContext.inputItems as? [NSExtensionItem] else {
-        return
-    }
-
-    for inputItem in inputItems {
-        guard let attachments = inputItem.attachments else { continue }
-
-        for attachment in attachments {
-          if attachment.isUrl {
-              attachment.processUrl { obj, err in
-                  guard err == nil else {
-                      return
-                  }
-
-                  guard let url = obj as? URL else {
-                      return
-                  }
-
-                  DispatchQueue.main.async {
-                    if let application = UIApplication.value(forKeyPath: #keyPath(UIApplication.shared)) as? UIApplication {
-                        application.open(URL(string: "adjusternetwork://share?sharedUrl=\(url)")!, options: [:], completionHandler: nil)
-                    }
-                  }
-              }
-          } else if attachment.isText {
-              attachment.processText { obj, err in
-                  guard err == nil else {
-                      return
-                  }
-
-                  guard let url = URL(string: obj as! String) else {
-                      return
-                  }
-
-                  DispatchQueue.main.async {
-                    if let application = UIApplication.value(forKeyPath: #keyPath(UIApplication.shared)) as? UIApplication {
-                        application.open(URL(string: "adjusternetwork://share?sharedUrl=\(url)")!, options: [:], completionHandler: nil)
-                    }
-                  }
-              }
-          }
-      }
-    }
-
-    UIView.animate(withDuration: 0.2, delay: 0, options: [], animations: {
-        self.view.alpha = 0
-    }, completion: { _ in
-        self.extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
-    })
+    view.backgroundColor = .clear
+    consumeFirstSupportedAttachment()
   }
 
+  private func consumeFirstSupportedAttachment() {
+    guard
+      let items = extensionContext?.inputItems as? [NSExtensionItem],
+      let providers = items.first?.attachments
+    else {
+      finish()
+      return
+    }
+
+    if let provider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.url.identifier) }) {
+      provider.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { [weak self] item, _ in
+        guard let self, let url = item as? URL, self.isApprovedURL(url) else {
+          self?.finish()
+          return
+        }
+        self.persistAndOpen(kind: "url", value: url.absoluteString, limit: 2048)
+      }
+      return
+    }
+
+    if let provider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) }) {
+      provider.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { [weak self] item, _ in
+        guard let self, let text = item as? String else {
+          self?.finish()
+          return
+        }
+        self.persistAndOpen(kind: "text", value: text, limit: 8192)
+      }
+      return
+    }
+
+    finish()
+  }
+
+  private func isApprovedURL(_ url: URL) -> Bool {
+    url.scheme?.lowercased() == "https" && url.host?.lowercased() == "adjusternetwork.org"
+  }
+
+  private func persistAndOpen(kind: String, value: String, limit: Int) {
+    let bounded = String(value.prefix(limit)).trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !bounded.isEmpty,
+          let container = FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: appGroup
+          ) else {
+      finish()
+      return
+    }
+    let payload = ShareIntent(
+      id: UUID().uuidString,
+      created_at: Date().timeIntervalSince1970,
+      kind: kind,
+      value: bounded
+    )
+    let destination = container.appendingPathComponent(payloadName)
+    do {
+      let data = try JSONEncoder().encode(payload)
+      try data.write(to: destination, options: [.atomic, .completeFileProtection])
+      finish()
+    } catch {
+      try? FileManager.default.removeItem(at: destination)
+      finish()
+    }
+  }
+
+  private func finish() {
+    DispatchQueue.main.async { [weak self] in
+      self?.extensionContext?.completeRequest(returningItems: nil)
+    }
+  }
 }

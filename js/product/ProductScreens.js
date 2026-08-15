@@ -425,7 +425,7 @@ export function DiscussionsScreen({ navigation, screenProps }) {
   );
 }
 
-export function AskScreen({ navigation, screenProps }) {
+export function AskScreen({ navigation, route, screenProps }) {
   const colors = useProductTheme();
   const site = activeMemberSite(screenProps.siteManager);
   const data = useCommunity(
@@ -440,6 +440,16 @@ export function AskScreen({ navigation, screenProps }) {
     submitting: false,
     error: null,
   });
+  useEffect(() => {
+    const sharedText = route?.params?.sharedText;
+    if (typeof sharedText === 'string' && sharedText.trim()) {
+      setQuestion(current => ({
+        ...current,
+        raw: sharedText.slice(0, 8192),
+      }));
+      navigation.setParams({ sharedText: undefined, shareIntentId: undefined });
+    }
+  }, [navigation, route?.params?.shareIntentId, route?.params?.sharedText]);
   const submitQuestion = async () => {
     if (!site?.authToken || !category) return;
     setQuestion(current => ({ ...current, submitting: true, error: null }));

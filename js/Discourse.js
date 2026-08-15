@@ -142,7 +142,9 @@ class Discourse extends React.Component {
     this._siteManager = new SiteManager();
     this._pushRoute = new PendingPushRoute();
     this._pushFoundation = new PushFoundation({
-      enabled: adjusterNetwork.features.pushDelivery,
+      enabled:
+        adjusterNetwork.features.pushDelivery &&
+        Boolean(adjusterNetwork.push.environment),
       environment: adjusterNetwork.push.environment,
       appId: 'org.adjusternetwork.app',
       appVersion: DeviceInfo.getVersion(),
@@ -167,6 +169,7 @@ class Discourse extends React.Component {
         this.setState({ privacyShield: false });
         StatusBar.setHidden(false);
         this._siteManager.refreshSites();
+        this._consumeShareIntent();
 
         clearTimeout(this.refreshTimerId);
         this.refreshTimerId = setTimeout(this._refresh, 30000);
@@ -174,6 +177,7 @@ class Discourse extends React.Component {
     };
 
     this._handleOpenUrl = this._handleOpenUrl.bind(this);
+    this._consumeShareIntent = this._consumeShareIntent.bind(this);
     this._flushPendingPushRoute = this._flushPendingPushRoute.bind(this);
 
     if (
@@ -299,6 +303,11 @@ class Discourse extends React.Component {
       const params = this._siteManager.parseURLparameters(event.url);
       const site = this._siteManager.activeSite;
 
+      if (event.url === 'adjusternetwork://share') {
+        await this._consumeShareIntent();
+        return;
+      }
+
       if (Platform.OS === 'ios' && Settings.get('external_links_svc')) {
         SafariView.dismiss();
       }
@@ -347,16 +356,6 @@ class Discourse extends React.Component {
         }
       }
 
-      // handle shared URLs
-      if (params.sharedUrl) {
-        this._siteManager.setActiveSite(params.sharedUrl).then(activeSite => {
-          if (activeSite.activeSite !== undefined) {
-            this.openUrl(params.sharedUrl);
-          } else {
-            this._addSite(params.sharedUrl);
-          }
-        });
-      }
     } else if (kind === 'internal') {
       // Handle URLs from Universal Links
       if (this._siteManager.urlInSites(event.url)) {
@@ -367,6 +366,33 @@ class Discourse extends React.Component {
     } else if (kind === 'external') {
       Linking.openURL(event.url).catch(() => {});
     }
+  }
+
+  async _consumeShareIntent() {
+    const intent = await DiscourseKeyboardShortcuts?.consumeShareIntent?.();
+    if (!intent) return false;
+    const authenticated = this._siteManager
+      .listSites()
+      .find(candidate => candidate.authToken);
+    if (!authenticated) {
+      Alert.alert(
+        'Sign in to share',
+        'Open Adjuster Network and sign in before sharing member content.',
+      );
+      return false;
+    }
+    if (intent.kind === 'url') {
+      this.openUrl(intent.value);
+      return true;
+    }
+    if (intent.kind === 'text') {
+      this._navigation?.navigate('HomeWrapper', {
+        screen: 'Ask',
+        params: { sharedText: intent.value, shareIntentId: intent.id },
+      });
+      return true;
+    }
+    return false;
   }
 
   componentDidMount() {
@@ -455,6 +481,7 @@ class Discourse extends React.Component {
     };
     this._siteManager.subscribe(this._productSiteSubscription);
     this._productSiteSubscription();
+    this._consumeShareIntent();
     this._appStateSubscription = AppState.addEventListener(
       'change',
       this._handleAppStateChange,

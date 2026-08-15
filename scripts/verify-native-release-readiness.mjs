@@ -10,6 +10,10 @@ const androidManifest = read('android/app/src/main/AndroidManifest.xml');
 const iosProject = read('ios/Discourse.xcodeproj/project.pbxproj');
 const iosInfo = read('ios/Discourse/Info.plist');
 const iosEntitlements = read('ios/Discourse/Discourse.entitlements');
+const shareEntitlements = read(
+  'ios/ShareExtension/ShareExtension.entitlements',
+);
+const shareController = read('ios/ShareExtension/ShareViewController.swift');
 const productConfig = read('js/adjusterNetworkConfig.js');
 const packageManifest = read('package.json');
 const siteManager = read('js/site_manager.js');
@@ -84,6 +88,29 @@ check(
     ? 'PASS'
     : 'FAIL',
   'Direct APNs registration must remain separate from the disabled legacy relay, Firebase and analytics',
+);
+check(
+  'iOS APNs build-channel separation',
+  iosProject.includes('AN_APNS_ENVIRONMENT = development;') &&
+    iosProject.includes('AN_PUSH_ENVIRONMENT = staging;') &&
+    iosProject.includes('AN_APNS_ENVIRONMENT = production;') &&
+    iosProject.includes('AN_PUSH_ENVIRONMENT = production;') &&
+    iosEntitlements.includes('$(AN_APNS_ENVIRONMENT)') &&
+    iosInfo.includes('$(AN_PUSH_ENVIRONMENT)')
+    ? 'PASS'
+    : 'FAIL',
+  'Debug must pair APNs sandbox with staging and Release must pair production APNs with production backend registration',
+);
+check(
+  'iOS Share Extension App Group boundary',
+  iosEntitlements.includes('group.org.adjusternetwork.app') &&
+    shareEntitlements.includes('group.org.adjusternetwork.app') &&
+    shareController.includes('an.share-intent.v1') &&
+    shareController.includes('.completeFileProtection') &&
+    !shareController.includes('UIApplication.shared')
+    ? 'PASS'
+    : 'FAIL',
+  'The extension must hand off only a bounded protected intent through the shared App Group',
 );
 check(
   'release version',

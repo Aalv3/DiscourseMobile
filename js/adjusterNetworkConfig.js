@@ -1,7 +1,20 @@
 /* @flow */
 'use strict';
 
+import { NativeModules, Platform } from 'react-native';
 import { nativeContracts } from './adjusterNetworkContracts';
+
+export function trustedPushEnvironment(platform, configured) {
+  if (platform !== 'ios') return null;
+  return configured === 'staging' || configured === 'production'
+    ? configured
+    : null;
+}
+
+const pushEnvironment = trustedPushEnvironment(
+  Platform.OS,
+  NativeModules.DiscourseKeyboardShortcuts?.pushEnvironment,
+);
 
 // Keep Adjuster Network product choices in one reversible boundary. Native
 // identifiers, signing, push credentials, and upstream site management remain
@@ -21,9 +34,9 @@ export const adjusterNetwork = Object.freeze({
   }),
   push: Object.freeze({
     backendOrigin: 'https://adjusternetwork.org',
-    // The backend's staging environment is bound to Apple's APNs sandbox
-    // (`aps-environment=development`) and can never deliver through production.
-    environment: 'staging',
+    // Injected by signed build configuration and exported by the native
+    // module. Missing or unexpected values fail closed; users cannot switch it.
+    environment: pushEnvironment,
   }),
   navigation: Object.freeze({
     floor: Object.freeze({

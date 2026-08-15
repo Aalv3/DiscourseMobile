@@ -28,9 +28,8 @@ describe('native topic participation', () => {
   test('provides an accessible native composer and refreshes after posting', () => {
     expect(source).toContain('label="Join discussion"');
     expect(source).toContain('accessibilityLabel="Reply text"');
-    expect(source).toContain(
-      "label={composer.submitting ? 'Posting…' : 'Post reply'}",
-    );
+    expect(source).toContain("'Posting…'");
+    expect(source).toContain("'Post reply'");
     expect(source).toContain('await loadTopic();');
   });
 
@@ -69,6 +68,14 @@ describe('native topic participation', () => {
     expect(source).toContain(
       "site.jsonApi(`/posts/${post.id}.json`, 'DELETE')",
     );
+  });
+
+  test('edits only posts Guardian marks editable and refreshes the thread', () => {
+    expect(source).toContain('canEditPost(post)');
+    expect(source).toContain('loadEditablePost(site, post)');
+    expect(source).toContain('savePostEdit(site, composer.postId, raw)');
+    expect(source).toContain("? 'Save changes'");
+    expect(source).toContain('await loadTopic();');
   });
 
   test('keeps creator-topic deletion separate behind backend capability', () => {
