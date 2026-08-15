@@ -11,7 +11,7 @@
     <key>EXUpdatesURL</key>
     <string>https://u.expo.dev/1142c79f-1c43-412a-a2ef-1efb3951177a</string>
     <key>EXUpdatesRuntimeVersion</key>
-    <string>an-ios-android-1.0.0-native-1</string>
+    <string>an-ios-android-1.0.0-native-2</string>
     <key>EXUpdatesHasEmbeddedUpdate</key>
     <true/>
     <key>EXUpdatesRequestHeaders</key>

@@ -1,6 +1,6 @@
 'use strict';
 
-const runtimeVersion = 'an-ios-android-1.0.0-native-1';
+const runtimeVersion = 'an-ios-android-1.0.0-native-2';
 
 module.exports = {
   name: 'Adjuster Network',

@@ -360,6 +360,23 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Discourse/Pods-Discourse-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
+		A30A0A012E4B000100000001 /* Configure OTA channel */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Expo.plist",
+			);
+			name = "Configure OTA channel";
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/adjuster-network-ota-channel-$(CONFIGURATION).txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\nchannel=\"${AN_OTA_CHANNEL_OVERRIDE:-$AN_OTA_CHANNEL}\"\ncase \"$channel\" in\n  staging|production) ;;\n  *) echo \"error: invalid Adjuster Network OTA channel\" >&2; exit 1 ;;\nesac\nplist=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Expo.plist\"\n/usr/libexec/PlistBuddy -c \"Set :EXUpdatesRequestHeaders:expo-channel-name $channel\" \"$plist\"\nprintf '%s\\n' \"$channel\" > \"$SCRIPT_OUTPUT_FILE_0\"\n";
+		};
 		BFE12B46C2D9D6A07EC74E45 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -455,23 +472,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-Discourse/expo-configure-project.sh\"\n";
-		};
-		A30A0A012E4B000100000001 /* Configure OTA channel */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Expo.plist",
-			);
-			name = "Configure OTA channel";
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/adjuster-network-ota-channel-$(CONFIGURATION).txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "set -eu\nchannel=\"${AN_OTA_CHANNEL_OVERRIDE:-$AN_OTA_CHANNEL}\"\ncase \"$channel\" in\n  staging|production) ;;\n  *) echo \"error: invalid Adjuster Network OTA channel\" >&2; exit 1 ;;\nesac\nplist=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Expo.plist\"\n/usr/libexec/PlistBuddy -c \"Set :EXUpdatesRequestHeaders:expo-channel-name $channel\" \"$plist\"\nprintf '%s\\n' \"$channel\" > \"$SCRIPT_OUTPUT_FILE_0\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -670,7 +670,10 @@
 				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift$(inherited)";
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				OTHER_LDFLAGS = "$(inherited)  ";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
@@ -727,7 +730,10 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift$(inherited)";
 				MTL_ENABLE_DEBUG_INFO = NO;
-				OTHER_LDFLAGS = "$(inherited)  ";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;

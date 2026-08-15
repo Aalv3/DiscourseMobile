@@ -62,10 +62,10 @@ import {
   FloorScreen,
   IntelligenceScreen,
   LoungeScreen,
-  OnboardingScreen,
   ProfileScreen,
   WelcomeScreen,
 } from './product/ProductScreens';
+import OnboardingScreen from './product/AdjusterCardOnboardingScreen';
 import { productTheme } from './product/DesignSystem';
 import { NestedHeader } from './product/ProductComponents';
 import {
@@ -87,6 +87,10 @@ import {
   recordOnboardingAuditTrace,
   shouldShowOnboarding,
 } from './onboardingState';
+import {
+  loadCanonicalOnboarding,
+  localStatusForProgress,
+} from './adjusterCardClient';
 
 const { DiscourseKeyboardShortcuts } = NativeModules;
 
@@ -382,7 +386,34 @@ class Discourse extends React.Component {
         !this.state.signedIn ||
         this.state.onboardingSessionId !== sessionId
       ) {
-        const onboarding = await loadOnboardingState(undefined, sessionId);
+        const localOnboarding = await loadOnboardingState(undefined, sessionId);
+        let onboarding = localOnboarding;
+        try {
+          const canonical = await loadCanonicalOnboarding(site);
+          onboarding = {
+            status: localStatusForProgress(canonical),
+            dismissedSessionId:
+              canonical.state === 'COMPLETED'
+                ? null
+                : localOnboarding.dismissedSessionId,
+            completedAt:
+              canonical.state === 'COMPLETED'
+                ? localOnboarding.completedAt || 'server-confirmed'
+                : null,
+            schemaVersion: 3,
+          };
+        } catch {
+          // The server contract is canonical when available. A transient load
+          // failure must not let a legacy local completion override it. Keep
+          // only the current-session dismissal marker and fail toward
+          // incomplete; no structured profile value is stored locally.
+          onboarding = {
+            status: ONBOARDING_STATUS.INCOMPLETE,
+            dismissedSessionId: localOnboarding.dismissedSessionId,
+            completedAt: null,
+            schemaVersion: 3,
+          };
+        }
         const onboardingRequired = shouldShowOnboarding(onboarding, sessionId);
         recordOnboardingAuditTrace([
           'AUTH_COMPLETE',
@@ -771,6 +802,9 @@ class Discourse extends React.Component {
             <StatusBar barStyle={theme.barStyle} translucent={false} />
             <OnboardingScreen
               sessionId={this.state.onboardingSessionId}
+              site={this._siteManager
+                .listSites()
+                .find(candidate => candidate.authToken)}
               onSkip={state =>
                 this.setState(
                   {

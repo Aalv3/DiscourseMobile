@@ -59,6 +59,25 @@ export const nativeContracts = Object.freeze({
     source: 'system',
     modes: Object.freeze(['light', 'dark']),
   }),
+  adjusterCard: Object.freeze({
+    profile: Object.freeze({
+      schema: 'an.adjuster-card.v2',
+      endpoint: '/native/v1/profile',
+      capabilityDriven: true,
+    }),
+    onboarding: Object.freeze({
+      schema: 'an.onboarding-progress.v2',
+      endpoint: '/native/v1/onboarding',
+      serverAuthoritative: true,
+    }),
+    resume: Object.freeze({
+      schema: 'an.private-resume.v1',
+      endpoint: '/native/v1/profile/resume',
+      ownerOnly: true,
+      publicUrl: false,
+      recruiterSearch: false,
+    }),
+  }),
   restrictions: Object.freeze({
     authority: 'server',
     failClosed: true,
@@ -70,7 +89,6 @@ export const nativeContracts = Object.freeze({
     }),
   }),
   future: Object.freeze({
-    onboarding: Object.freeze({ route: null, status: 'counsel_gated' }),
     requestToJoin: Object.freeze({ route: null, status: 'counsel_gated' }),
   }),
 });

@@ -19,6 +19,15 @@ async function main() {
     }),
     request('mobile basic info', '/site/basic-info.json'),
     request('closed-site boundary', '/site.json'),
+    request('Adjuster Card boundary', '/native/v1/profile', {
+      headers: { Accept: 'application/json' },
+    }),
+    request('onboarding progress boundary', '/native/v1/onboarding', {
+      headers: { Accept: 'application/json' },
+    }),
+    request('private resume boundary', '/native/v1/profile/resume', {
+      headers: { Accept: 'application/json' },
+    }),
     request('web manifest', '/manifest.webmanifest'),
   ]);
 
@@ -37,7 +46,12 @@ async function main() {
           `${name}: expected 200 with login_required=true; got ${response.status}/${body.login_required}`,
         );
       }
-    } else if (name === 'closed-site boundary') {
+    } else if (
+      name === 'closed-site boundary' ||
+      name === 'Adjuster Card boundary' ||
+      name === 'onboarding progress boundary' ||
+      name === 'private resume boundary'
+    ) {
       if (response.status !== 403) {
         failures.push(
           `${name}: expected anonymous 403; got ${response.status}`,
@@ -55,7 +69,7 @@ async function main() {
   }
 
   console.log(
-    `PASS ${origin}: mobile API v2+, closed-site boundary, basic info, and manifest`,
+    `PASS ${origin}: mobile API v2+, closed-site/profile/onboarding/resume boundaries, basic info, and manifest`,
   );
 }
 

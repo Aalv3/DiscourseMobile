@@ -12,10 +12,11 @@ describe('Adjuster Network shared native contracts', () => {
     expect(nativeContracts.destinations.you.route).toBeNull();
   });
 
-  test('keeps admission and onboarding surfaces counsel gated', () => {
-    expect(nativeContracts.future.onboarding).toEqual({
-      route: null,
-      status: 'counsel_gated',
+  test('binds onboarding to the deployed server contract while admission stays gated', () => {
+    expect(nativeContracts.adjusterCard.onboarding).toEqual({
+      schema: 'an.onboarding-progress.v2',
+      endpoint: '/native/v1/onboarding',
+      serverAuthoritative: true,
     });
     expect(nativeContracts.future.requestToJoin).toEqual({
       route: null,

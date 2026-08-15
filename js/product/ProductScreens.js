@@ -34,14 +34,9 @@ import {
 } from './ProductData';
 import { radius, spacing } from './DesignSystem';
 import { adjusterNetwork } from '../adjusterNetworkConfig';
-import {
-  markOnboardingCompleted,
-  markOnboardingSkipped,
-} from '../onboardingState';
 export { default as LoungeScreen } from './NativeLoungeScreen';
 import EmojiTextInput from './EmojiTextInput';
-
-const interests = ['CAT & Storm', 'Property', 'Auto', 'Field Tools', 'Career'];
+import { parseAdjusterCard } from '../adjusterCardClient';
 
 const Screen = ({ children }) => {
   const colors = useProductTheme();
@@ -698,6 +693,21 @@ export function ProfileScreen({ navigation, screenProps }) {
   const colors = useProductTheme();
   const site = activeMemberSite(screenProps.siteManager);
   const username = site?.username || 'Member';
+  const [adjusterCard, setAdjusterCard] = useState(null);
+  useEffect(() => {
+    let mounted = true;
+    if (site?.authToken) {
+      site
+        .jsonApi('/native/v1/profile')
+        .then(payload => {
+          if (mounted) setAdjusterCard(parseAdjusterCard(payload));
+        })
+        .catch(() => {});
+    }
+    return () => {
+      mounted = false;
+    };
+  }, [site]);
   return (
     <Screen>
       <PageHeader
@@ -715,10 +725,11 @@ export function ProfileScreen({ navigation, screenProps }) {
         </View>
         <View>
           <Text style={[styles.identityName, { color: colors.text }]}>
-            {username}
+            {adjusterCard?.values.name || username}
           </Text>
           <Text style={[styles.cardBody, { color: colors.muted }]}>
-            Adjuster Network member
+            {adjusterCard?.values.professional_headline ||
+              'Adjuster Network member'}
           </Text>
         </View>
       </Card>
@@ -766,8 +777,8 @@ export function ProfileScreen({ navigation, screenProps }) {
         onPress={() => screenProps.siteManager.remove(site)}
       />
       <Text style={[styles.finePrint, { color: colors.muted }]}>
-        Only safe basic identity is shown here. Advanced professional fields are
-        not collected in the native app.
+        Your Adjuster Card shows only fields enabled by the Network. Private
+        résumé data is never displayed here or exposed to recruiter search.
       </Text>
     </Screen>
   );
@@ -857,139 +868,6 @@ const ProfileLink = ({ icon, label, detail, onPress, danger }) => {
     </Pressable>
   );
 };
-
-export function OnboardingScreen({ onComplete, onSkip, sessionId }) {
-  const colors = useProductTheme();
-  const [step, setStep] = useState(0);
-  const [selected, setSelected] = useState([]);
-  const steps = [
-    {
-      icon: 'hand-paper',
-      title: 'Welcome to the Network',
-      body: 'A focused home for adjusters to learn from peers and keep up with claims.',
-    },
-    {
-      icon: 'lock',
-      title: 'Private by default',
-      body: 'Member discussions are private. Public owner resources are separate; never assume a post is public.',
-    },
-    {
-      icon: 'shield-alt',
-      title: 'No claim data. Ever.',
-      body: 'Leave out names, addresses, identifiers, documents, photos, and any facts that could identify a claim.',
-    },
-    {
-      icon: 'user-check',
-      title: 'Keep your profile simple',
-      body: 'Use only the basic professional context you are comfortable sharing with other members.',
-    },
-  ];
-  const finish = async () => {
-    const state = await markOnboardingCompleted(selected);
-    onComplete(state);
-  };
-  const skipForNow = async () => {
-    const state = await markOnboardingSkipped(sessionId);
-    onSkip(state);
-  };
-  return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.canvas }]}>
-      <ScrollView
-        contentContainerStyle={styles.onboarding}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.progress}>
-          {[0, 1, 2, 3, 4].map(i => (
-            <View
-              key={i}
-              style={[
-                styles.progressBar,
-                { backgroundColor: i <= step ? colors.accent : colors.border },
-              ]}
-            />
-          ))}
-        </View>
-        {step < 4 ? (
-          <>
-            <View
-              style={[
-                styles.onboardingIcon,
-                { backgroundColor: colors.accentSoft },
-              ]}
-            >
-              <FontAwesome5
-                name={steps[step].icon}
-                size={30}
-                color={colors.accent}
-                iconStyle="solid"
-              />
-            </View>
-            <Text
-              accessibilityRole="header"
-              style={[styles.onboardingTitle, { color: colors.text }]}
-            >
-              {steps[step].title}
-            </Text>
-            <Text style={[styles.onboardingBody, { color: colors.muted }]}>
-              {steps[step].body}
-            </Text>
-          </>
-        ) : (
-          <>
-            <Text
-              accessibilityRole="header"
-              style={[styles.onboardingTitle, { color: colors.text }]}
-            >
-              What do you work with?
-            </Text>
-            <Text style={[styles.onboardingBody, { color: colors.muted }]}>
-              Optional. Pick any topics you want to find faster.
-            </Text>
-            <View style={styles.interests}>
-              {interests.map(item => (
-                <Pill
-                  key={item}
-                  label={item}
-                  selected={selected.includes(item)}
-                  onPress={() =>
-                    setSelected(current =>
-                      current.includes(item)
-                        ? current.filter(x => x !== item)
-                        : [...current, item],
-                    )
-                  }
-                />
-              ))}
-            </View>
-          </>
-        )}
-        <View style={styles.onboardingActions}>
-          {step < 4 ? (
-            <Action label="Continue" onPress={() => setStep(step + 1)} />
-          ) : (
-            <Action
-              label="Start on the Floor"
-              icon="arrow-right"
-              onPress={finish}
-            />
-          )}
-          {step > 0 ? (
-            <Action label="Back" secondary onPress={() => setStep(step - 1)} />
-          ) : null}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityHint="Onboarding will appear again the next time you open the app"
-            onPress={skipForNow}
-          >
-            <Text style={[styles.skip, { color: colors.muted }]}>
-              Skip for now
-            </Text>
-          </Pressable>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
 
 const styles = StyleSheet.create({
   headerActions: {
@@ -1208,32 +1086,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: spacing.md,
   },
-  onboarding: {
-    flexGrow: 1,
-    width: '100%',
-    maxWidth: 620,
-    alignSelf: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  progress: { flexDirection: 'row', gap: 6 },
-  progressBar: { height: 4, flex: 1, borderRadius: 2 },
-  onboardingIcon: {
-    marginTop: 32,
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  onboardingTitle: {
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: '850',
-    marginTop: 18,
-  },
-  onboardingBody: { fontSize: 17, lineHeight: 25, marginTop: 10 },
-  onboardingActions: { marginTop: 'auto', paddingTop: 24, gap: 8 },
-  skip: { textAlign: 'center', padding: 12, fontSize: 15, fontWeight: '600' },
-  interests: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 24 },
 });

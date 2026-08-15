@@ -6617,6 +6617,8 @@ __metadata:
     eslint-plugin-ft-flow: "npm:^3.0.11"
     expo: "npm:~54.0.0"
     expo-asset: "npm:~12.0.13"
+    expo-document-picker: "npm:~14.0.8"
+    expo-image-picker: "npm:~17.0.11"
     expo-updates: "npm:~29.0.19"
     hermes-eslint: "npm:^0.32.0"
     html-entities: "npm:^2.5.2"
@@ -7525,6 +7527,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"expo-document-picker@npm:~14.0.8":
+  version: 14.0.8
+  resolution: "expo-document-picker@npm:14.0.8"
+  peerDependencies:
+    expo: "*"
+  checksum: 10/6bc2a41a87c840ac13d9bc872f5838e396b90eaeeeddcee19e88ca62614ec57c3517ab1f5725d4efc43470760e9c6b7035e7d35d6c600d246771a0cee93a45b1
+  languageName: node
+  linkType: hard
+
 "expo-eas-client@npm:~1.0.8":
   version: 1.0.8
   resolution: "expo-eas-client@npm:1.0.8"
@@ -7552,6 +7563,26 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10/dc1f46573555accc7e33a5cdfc0434ea8e198f2f73469ed1f8a244b76b6e13892197d68f39d2b4d354ca76ad62c26b7012ec05e56879a9f97986f776c2bf1258
+  languageName: node
+  linkType: hard
+
+"expo-image-loader@npm:~6.0.0":
+  version: 6.0.0
+  resolution: "expo-image-loader@npm:6.0.0"
+  peerDependencies:
+    expo: "*"
+  checksum: 10/896b4df1208ec071888acac0a8673ee4a67afcc8e06061de26fd189feed3369959ab9254314d51f303bcfc8f6289fd04ca9bec616007333d3dcb2e6d0618a2fe
+  languageName: node
+  linkType: hard
+
+"expo-image-picker@npm:~17.0.11":
+  version: 17.0.11
+  resolution: "expo-image-picker@npm:17.0.11"
+  dependencies:
+    expo-image-loader: "npm:~6.0.0"
+  peerDependencies:
+    expo: "*"
+  checksum: 10/5ace69627009df039125a2a0ae68dbc4c0e20efa2371c1b066b04f1a477a3e21df7619c8edf0a0bbe96364bc4e550f1a71053317987390e9193df5e5439b8442
   languageName: node
   linkType: hard
 

@@ -69,6 +69,28 @@ describe('site privacy serialization', () => {
     expect(json).not.toHaveBeenCalled();
   });
 
+  test('multipart uploads preserve User API identity without forcing a boundary', async () => {
+    fetch.mockResolvedValue({
+      status: 200,
+      json: () => Promise.resolve({ id: 42 }),
+    });
+    const site = new Site({
+      url: 'https://adjusternetwork.org',
+      authToken: 'synthetic-key',
+      clientId: 'auth-client-A',
+    });
+    const body = new FormData();
+    body.append('type', 'avatar');
+
+    await expect(site.multipartApi('/uploads.json', body)).resolves.toEqual({
+      id: 42,
+    });
+    const request = fetch.mock.calls.at(-1)[0];
+    expect(request.headers.get('User-Api-Key')).toBe('synthetic-key');
+    expect(request.headers.get('User-Api-Client-Id')).toBe('auth-client-A');
+    expect(request.headers.get('Content-Type')).not.toBe('application/json');
+  });
+
   test('does not require a JSON body for successful deletes', async () => {
     const json = jest.fn(() => Promise.reject(new SyntaxError('empty body')));
     fetch.mockResolvedValue({ status: 200, json });

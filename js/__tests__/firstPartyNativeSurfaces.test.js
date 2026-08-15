@@ -24,8 +24,9 @@ describe('first-party native surfaces', () => {
       'site.jsonApi(`/u/${encodeURIComponent(username)}.json`)',
     );
     expect(source).toContain('filter=4,5');
-    expect(source).toContain("'PUT'");
-    expect(source).toContain('user?.can_edit === true');
+    expect(source).toContain("? '/native/v1/profile'");
+    expect(source).toContain('saveAdjusterCardFields(site, state.card');
+    expect(source).toContain('card?.editable === true');
   });
 
   test('settings removes advanced web settings from Build 1', () => {

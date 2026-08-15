@@ -211,6 +211,52 @@ class Site {
     });
   }
 
+  multipartApi(path, formData) {
+    const headers = {
+      'User-Api-Key': this.authToken,
+      'User-Agent': `Discourse ${Platform.OS} App / 1.0`,
+      'Dont-Chunk': 'true',
+      'User-Api-Client-Id': this.clientId || '',
+    };
+    const request = new Request(this.url + path, {
+      headers,
+      method: 'POST',
+      body: formData,
+    });
+    this._currentFetch = fetch(request);
+    return this._currentFetch
+      .then(async response => {
+        if (response.status >= 200 && response.status < 300) {
+          return response.json();
+        }
+        const classification = classifyAuthResponse(response.status);
+        if (classification === 'revoked') {
+          this.logoff();
+          credentialStore.removeSiteToken(this.url).catch(() => {});
+        }
+        const error = new Error(
+          classification === 'revoked'
+            ? 'auth_revoked'
+            : classification === 'forbidden'
+            ? 'auth_forbidden'
+            : 'api_request_failed',
+        );
+        error.status = response.status;
+        try {
+          const payload = await response.json();
+          error.userMessages = Array.isArray(payload?.errors)
+            ? payload.errors.filter(message => typeof message === 'string')
+            : [];
+        } catch {
+          error.userMessages = [];
+        }
+        throw error;
+      })
+      .finally(() => {
+        this._currentFetch = undefined;
+      });
+  }
+
   logoff() {
     this.authToken = null;
     this.username = null;
