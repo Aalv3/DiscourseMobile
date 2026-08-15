@@ -26,7 +26,7 @@ import {
   useProductTheme,
 } from './ProductComponents';
 import { activeMemberSite } from './ProductData';
-import { spacing } from './DesignSystem';
+import { radius, spacing, type } from './DesignSystem';
 import EmojiTextInput from './EmojiTextInput';
 import {
   canSendToLounge,
@@ -308,6 +308,12 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
       <Text style={[styles.subtitle, { color: colors.muted }]}>
         Open conversation for Network members.
       </Text>
+      <View style={[styles.liveRule, { backgroundColor: colors.accentSoft }]}>
+        <View style={[styles.liveDot, { backgroundColor: colors.success }]} />
+        <Text style={[styles.liveLabel, { color: colors.accent }]}>
+          SHARED MEMBER CHANNEL
+        </Text>
+      </View>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.chatArea}
@@ -463,6 +469,19 @@ const styles = StyleSheet.create({
     marginTop: -spacing.sm,
     marginBottom: spacing.sm,
   },
+  liveRule: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.xs,
+    borderRadius: radius.pill,
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  liveDot: { width: 7, height: 7, borderRadius: 4 },
+  liveLabel: { ...type.label, fontSize: 10 },
   feed: {
     width: '100%',
     maxWidth: 920,
@@ -491,7 +510,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.sm,
-    paddingVertical: 7,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(128, 145, 156, 0.2)',
   },
   avatar: { width: 36, height: 36, borderRadius: 18 },
   messageCopy: { flex: 1, minWidth: 0 },
@@ -512,6 +533,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+    shadowColor: '#07131D',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
   },
   emojiInput: { flex: 1 },
   input: {

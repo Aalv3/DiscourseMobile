@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import FontAwesome5 from '@react-native-vector-icons/fontawesome5';
 import { ThemeContext } from '../ThemeContext';
-import { productTheme, radius, spacing } from './DesignSystem';
+import { elevation, productTheme, radius, spacing, type } from './DesignSystem';
 
 export const useProductTheme = () =>
   productTheme(useContext(ThemeContext).name);
@@ -73,7 +73,7 @@ export const NestedHeader = ({ onBack, title = 'Member page' }) => {
 export const PageHeader = ({ eyebrow, title, action }) => {
   const colors = useProductTheme();
   return (
-    <View style={styles.header}>
+    <View style={[styles.header, { borderBottomColor: colors.border }]}>
       <View style={styles.headerCopy}>
         <View style={styles.brandRow}>
           <BrandMark />
@@ -137,6 +137,7 @@ export const Card = ({ children, style, accessibilityLabel }) => {
       accessibilityLabel={accessibilityLabel}
       style={[
         styles.card,
+        elevation.subtle,
         { backgroundColor: colors.surface, borderColor: colors.border },
         style,
       ]}
@@ -192,7 +193,7 @@ export const Action = ({
 export const SectionTitle = ({ title, detail }) => {
   const colors = useProductTheme();
   return (
-    <View style={styles.sectionTitle}>
+    <View style={[styles.sectionTitle, { borderBottomColor: colors.border }]}>
       <Text
         accessibilityRole="header"
         style={[styles.sectionHeading, { color: colors.text }]}
@@ -261,6 +262,46 @@ export const Pill = ({ label, selected, onPress }) => {
   );
 };
 
+export const Avatar = ({ label, uri, size = 40 }) => {
+  const colors = useProductTheme();
+  const style = { width: size, height: size, borderRadius: size / 2 };
+  if (uri) {
+    return (
+      <Image
+        accessibilityLabel={`${label} profile photo`}
+        source={{ uri }}
+        style={style}
+      />
+    );
+  }
+  return (
+    <View
+      accessibilityLabel={`${label} profile placeholder`}
+      style={[styles.avatarFallback, style, { backgroundColor: colors.accent }]}
+    >
+      <Text
+        style={[styles.avatarInitial, { fontSize: Math.max(13, size * 0.4) }]}
+      >
+        {(label || 'M').slice(0, 1).toUpperCase()}
+      </Text>
+    </View>
+  );
+};
+
+export const Metadata = ({ children, accent = false }) => {
+  const colors = useProductTheme();
+  return (
+    <Text
+      style={[
+        styles.metadata,
+        { color: accent ? colors.accent : colors.muted },
+      ]}
+    >
+      {children}
+    </Text>
+  );
+};
+
 const styles = StyleSheet.create({
   notificationBell: {
     width: 44,
@@ -289,6 +330,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   headerCopy: { flex: 1 },
   brandRow: {
@@ -340,7 +382,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginHorizontal: spacing.sm,
   },
-  pageTitle: { fontSize: 28, lineHeight: 34, fontWeight: '800' },
+  pageTitle: type.display,
   card: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radius.md,
@@ -357,14 +399,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionText: { fontSize: 16, fontWeight: '750' },
-  sectionTitle: { marginTop: spacing.lg, marginBottom: spacing.sm },
-  sectionHeading: { fontSize: 20, fontWeight: '750' },
+  sectionTitle: {
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+    paddingBottom: spacing.xs,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  sectionHeading: type.heading,
   detail: { fontSize: 14, marginTop: 3, lineHeight: 20 },
   state: { flexDirection: 'row', gap: 14, alignItems: 'flex-start' },
   stateIcon: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -379,4 +426,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  avatarFallback: { alignItems: 'center', justifyContent: 'center' },
+  avatarInitial: { color: '#FFFFFF', fontWeight: '850' },
+  metadata: type.metadata,
 });

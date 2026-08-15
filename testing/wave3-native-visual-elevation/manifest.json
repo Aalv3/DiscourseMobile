@@ -1,0 +1,43 @@
+{
+  "baseline_sha": "3066f9c7a7a82257723a9ad1b013017cbd471835",
+  "runtime": "an-ios-android-1.0.0-native-2",
+  "device": "iPhone 17 Pro Simulator",
+  "ios": "26.5",
+  "captures": [
+    {
+      "file": "screenshots/001-before-current-state.png",
+      "state": "baseline welcome at accessibility-extra-large",
+      "appearance": "light",
+      "phase": "before"
+    },
+    {
+      "file": "screenshots/002-before-welcome-light.png",
+      "state": "baseline welcome",
+      "appearance": "light",
+      "phase": "before"
+    },
+    {
+      "file": "screenshots/003-after-welcome-light.png",
+      "state": "elevated welcome",
+      "appearance": "light",
+      "phase": "after"
+    },
+    {
+      "file": "screenshots/004-after-welcome-dark.png",
+      "state": "elevated welcome",
+      "appearance": "dark",
+      "phase": "after"
+    },
+    {
+      "file": "screenshots/005-after-welcome-accessibility-extra-large.png",
+      "state": "elevated welcome at accessibility-extra-large",
+      "appearance": "light",
+      "phase": "after"
+    }
+  ],
+  "notes": [
+    "Representative evidence only; certified functionality was not reopened.",
+    "No credentials or member-private values are included.",
+    "The preserved Simulator data container was signed out; authenticated representative screens were smoke-checked on the paired physical iPhone instead of reopening Simulator authentication."
+  ]
+}

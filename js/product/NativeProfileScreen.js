@@ -637,8 +637,9 @@ const styles = StyleSheet.create({
   heading: { fontSize: 23, lineHeight: 30, fontWeight: '800' },
   profile: {
     borderWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: 3,
     borderRadius: radius.md,
-    padding: spacing.md,
+    padding: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
@@ -667,6 +668,8 @@ const styles = StyleSheet.create({
     fontWeight: '750',
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
+    paddingBottom: spacing.xs,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   actionRow: {
     borderTopWidth: StyleSheet.hairlineWidth,

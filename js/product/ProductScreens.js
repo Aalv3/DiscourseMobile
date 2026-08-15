@@ -18,7 +18,9 @@ import FontAwesome5 from '@react-native-vector-icons/fontawesome5';
 import { useAssets } from 'expo-asset';
 import {
   Action,
+  Avatar,
   Card,
+  Metadata,
   NotificationBell,
   PageHeader,
   Pill,
@@ -32,7 +34,7 @@ import {
   loadCommunity,
   topicPath,
 } from './ProductData';
-import { radius, spacing } from './DesignSystem';
+import { elevation, radius, spacing, type } from './DesignSystem';
 import { adjusterNetwork } from '../adjusterNetworkConfig';
 export { default as LoungeScreen } from './NativeLoungeScreen';
 import EmojiTextInput from './EmojiTextInput';
@@ -211,8 +213,22 @@ function useCommunity(siteManager, contentVersion) {
   return { ...state, refresh };
 }
 
-const TopicCard = ({ topic, site, openUrl }) => {
+const topicAvatar = (site, topic) => {
+  const template = topic.posters?.[0]?.avatar_template;
+  if (!template) return null;
+  const path = template.replace('{size}', '80');
+  return path.startsWith('http') ? path : `${site.url}${path}`;
+};
+
+const TopicCard = ({ topic, site, openUrl, category }) => {
   const colors = useProductTheme();
+  const replies = Math.max(0, (topic.posts_count || 1) - 1);
+  const lastActivity = topic.last_posted_at
+    ? new Date(topic.last_posted_at).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+      })
+    : 'Recently';
   return (
     <Pressable
       accessibilityRole="link"
@@ -227,16 +243,43 @@ const TopicCard = ({ topic, site, openUrl }) => {
         },
       ]}
     >
+      <Avatar
+        label={topic.last_poster_username || 'Member'}
+        size={38}
+        uri={topicAvatar(site, topic)}
+      />
       <View style={styles.topicCopy}>
+        <View style={styles.topicContext}>
+          {category ? (
+            <Text style={[styles.topicCategory, { color: colors.accent }]}>
+              {category.name}
+            </Text>
+          ) : null}
+          {topic.unseen || topic.new_posts ? (
+            <View
+              style={[
+                styles.unreadDot,
+                { backgroundColor: colors.amber || '#D99A2B' },
+              ]}
+            />
+          ) : null}
+        </View>
         <Text
           numberOfLines={2}
           style={[styles.topicTitle, { color: colors.text }]}
         >
           {topic.title}
         </Text>
-        <Text style={[styles.topicMeta, { color: colors.muted }]}>
-          Open conversation · {topic.views || 0} views
-        </Text>
+        <View style={styles.topicMetadata}>
+          <Metadata accent>Open conversation ·</Metadata>
+          <Metadata>
+            {replies === 1 ? '1 reply' : `${replies} replies`}
+          </Metadata>
+          <Metadata>·</Metadata>
+          <Metadata>{topic.views || 0} views</Metadata>
+          <Metadata>·</Metadata>
+          <Metadata>{lastActivity}</Metadata>
+        </View>
       </View>
       <FontAwesome5
         name="chevron-right"
@@ -277,6 +320,27 @@ export function FloorScreen({ navigation, screenProps }) {
           No summary has been published yet. We’ll show source-backed updates
           here—not filler.
         </Text>
+      </View>
+      <View style={styles.networkPulse}>
+        <View style={styles.pulseItem}>
+          <Text style={[styles.pulseValue, { color: colors.text }]}>
+            {data.topics.length}
+          </Text>
+          <Text style={[styles.pulseLabel, { color: colors.muted }]}>
+            ACTIVE DISCUSSIONS
+          </Text>
+        </View>
+        <View
+          style={[styles.pulseDivider, { backgroundColor: colors.border }]}
+        />
+        <View style={styles.pulseItem}>
+          <Text style={[styles.pulseValue, { color: colors.text }]}>
+            {data.categories.length}
+          </Text>
+          <Text style={[styles.pulseLabel, { color: colors.muted }]}>
+            KNOWLEDGE AREAS
+          </Text>
+        </View>
       </View>
       <View style={styles.twoCol}>
         <Card style={styles.flexCard}>
@@ -330,6 +394,9 @@ export function FloorScreen({ navigation, screenProps }) {
               topic={topic}
               site={site}
               openUrl={screenProps.openUrl}
+              category={data.categories.find(
+                category => category.id === topic.category_id,
+              )}
             />
           ))
       ) : (
@@ -432,6 +499,9 @@ export function DiscussionsScreen({ navigation, screenProps }) {
             topic={topic}
             site={site}
             openUrl={screenProps.openUrl}
+            category={data.categories.find(
+              category => category.id === topic.category_id,
+            )}
           />
         ))
       ) : (
@@ -672,10 +742,18 @@ export function IntelligenceScreen({ navigation, screenProps }) {
           <HeaderActions navigation={navigation} screenProps={screenProps} />
         }
       />
-      <Text style={[styles.intro, { color: colors.muted }]}>
-        Source-backed claims briefings, weather context, and practical field
-        knowledge published for Network members.
-      </Text>
+      <View
+        style={[styles.intelligenceIntro, { backgroundColor: colors.hero }]}
+      >
+        <Text style={styles.intelligenceKicker}>THE NETWORK DESK</Text>
+        <Text style={styles.intelligenceTitle}>
+          Field intelligence, curated for adjusters.
+        </Text>
+        <Text style={styles.intelligenceBody}>
+          Source-backed claims briefings, weather context, and practical field
+          knowledge published for Network members.
+        </Text>
+      </View>
       {rows.map(row => (
         <Pressable
           key={row.title}
@@ -759,7 +837,7 @@ export function ProfileScreen({ navigation, screenProps }) {
           <HeaderActions navigation={navigation} screenProps={screenProps} />
         }
       />
-      <Card style={styles.identity}>
+      <Card style={[styles.identity, { borderTopColor: colors.accent }]}>
         {avatarTemplate ? (
           <Image
             accessibilityLabel={`${username} profile photo`}
@@ -777,7 +855,7 @@ export function ProfileScreen({ navigation, screenProps }) {
             </Text>
           </View>
         )}
-        <View>
+        <View style={styles.identityCopy}>
           <Text style={[styles.identityName, { color: colors.text }]}>
             {adjusterCard?.values.name || username}
           </Text>
@@ -785,6 +863,36 @@ export function ProfileScreen({ navigation, screenProps }) {
             {adjusterCard?.values.professional_headline ||
               'Adjuster Network member'}
           </Text>
+          {adjusterCard?.values.bio ? (
+            <Text
+              numberOfLines={2}
+              style={[styles.identityBio, { color: colors.muted }]}
+            >
+              {adjusterCard.values.bio}
+            </Text>
+          ) : null}
+          <View style={styles.identityTags}>
+            {(Array.isArray(adjusterCard?.values.licensed_states)
+              ? adjusterCard.values.licensed_states
+              : []
+            )
+              .slice(0, 3)
+              .map(state => (
+                <View
+                  key={state}
+                  style={[
+                    styles.identityTag,
+                    { backgroundColor: colors.accentSoft },
+                  ]}
+                >
+                  <Text
+                    style={[styles.identityTagText, { color: colors.accent }]}
+                  >
+                    {state}
+                  </Text>
+                </View>
+              ))}
+          </View>
         </View>
       </Card>
       <SectionTitle title="Account" />
@@ -1008,24 +1116,41 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   heroBody: { color: '#C9D7E0', fontSize: 15, lineHeight: 22, marginTop: 8 },
+  networkPulse: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+  },
+  pulseItem: { flex: 1, alignItems: 'center' },
+  pulseDivider: { width: StyleSheet.hairlineWidth, height: 32 },
+  pulseValue: { fontSize: 20, lineHeight: 24, fontWeight: '850' },
+  pulseLabel: { ...type.label, fontSize: 10, marginTop: 2 },
   twoCol: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 12 },
   flexCard: { flex: 1, minWidth: 260 },
   cardKicker: { fontSize: 11, fontWeight: '850', letterSpacing: 1 },
   cardTitle: { fontSize: 17, fontWeight: '750' },
   cardBody: { fontSize: 14, lineHeight: 20, marginTop: 4 },
   topic: {
-    minHeight: 76,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: 9,
+    minHeight: 82,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 13,
+    paddingHorizontal: spacing.xs,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: spacing.sm,
   },
   topicCopy: { flex: 1 },
-  topicTitle: { fontSize: 16, lineHeight: 22, fontWeight: '700' },
-  topicMeta: { fontSize: 12, marginTop: 6 },
+  topicContext: { flexDirection: 'row', alignItems: 'center', minHeight: 17 },
+  topicCategory: { ...type.label, fontSize: 10 },
+  unreadDot: { width: 7, height: 7, borderRadius: 4, marginLeft: spacing.xs },
+  topicTitle: { fontSize: 16, lineHeight: 21, fontWeight: '720', marginTop: 2 },
+  topicMetadata: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 5,
+    marginTop: 5,
+  },
   pills: { gap: 8, paddingBottom: spacing.md },
   categoryDiscovery: { alignItems: 'flex-start', marginBottom: spacing.md },
   categoryDescription: {
@@ -1101,11 +1226,23 @@ const styles = StyleSheet.create({
   },
   categoryTitle: { fontSize: 15, fontWeight: '750' },
   intro: { fontSize: 16, lineHeight: 24, marginBottom: spacing.md },
+  intelligenceIntro: {
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  intelligenceKicker: { ...type.label, color: '#82CEDC' },
+  intelligenceTitle: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '820',
+    marginTop: spacing.sm,
+  },
+  intelligenceBody: { color: '#C9D7E0', ...type.body, marginTop: spacing.xs },
   intel: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     padding: spacing.md,
-    marginBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
@@ -1118,7 +1255,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   available: { fontSize: 13, fontWeight: '700', marginTop: 8 },
-  identity: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  identity: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 14,
+    borderTopWidth: 3,
+    ...elevation.subtle,
+  },
+  identityCopy: { flex: 1 },
   avatar: {
     width: 52,
     height: 52,
@@ -1128,6 +1272,19 @@ const styles = StyleSheet.create({
   },
   avatarText: { color: '#FFF', fontSize: 22, fontWeight: '800' },
   identityName: { fontSize: 20, fontWeight: '800' },
+  identityBio: { ...type.body, marginTop: spacing.xs },
+  identityTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: spacing.sm,
+  },
+  identityTag: {
+    borderRadius: radius.pill,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  identityTagText: { fontSize: 11, lineHeight: 15, fontWeight: '750' },
   profileLink: {
     minHeight: 58,
     borderBottomWidth: StyleSheet.hairlineWidth,

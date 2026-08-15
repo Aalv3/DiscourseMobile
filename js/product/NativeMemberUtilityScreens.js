@@ -565,10 +565,9 @@ const styles = StyleSheet.create({
   },
   row: {
     minHeight: 64,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
@@ -586,7 +585,7 @@ const styles = StyleSheet.create({
   input: {
     minHeight: 48,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.md,
+    borderRadius: radius.sm,
     paddingHorizontal: spacing.md,
     fontSize: 16,
   },

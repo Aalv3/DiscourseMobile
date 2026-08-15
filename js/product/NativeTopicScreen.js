@@ -19,7 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { decode } from 'html-entities';
 import { activeMemberSite } from './ProductData';
 import { Action, NestedHeader, useProductTheme } from './ProductComponents';
-import { radius, spacing } from './DesignSystem';
+import { radius, spacing, type } from './DesignSystem';
 import EmojiTextInput from './EmojiTextInput';
 import {
   conversationOrder,
@@ -421,12 +421,23 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
-          <Text
-            accessibilityRole="header"
-            style={[styles.title, { color: colors.text }]}
+          <View
+            style={[styles.topicHeader, { borderBottomColor: colors.border }]}
           >
-            {state.topic?.title}
-          </Text>
+            <Text style={[styles.topicKicker, { color: colors.accent }]}>
+              MEMBER DISCUSSION
+            </Text>
+            <Text
+              accessibilityRole="header"
+              style={[styles.title, { color: colors.text }]}
+            >
+              {state.topic?.title}
+            </Text>
+            <Text style={[styles.topicSummary, { color: colors.muted }]}>
+              {conversation.length}{' '}
+              {conversation.length === 1 ? 'contribution' : 'contributions'}
+            </Text>
+          </View>
           {creatorDelete.allowed ? (
             <View style={styles.topicManagement}>
               <Action
@@ -767,23 +778,35 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   title: {
-    fontSize: 28,
-    lineHeight: 35,
-    fontWeight: '800',
-    marginBottom: spacing.md,
+    fontSize: 27,
+    lineHeight: 34,
+    fontWeight: '820',
+    marginTop: spacing.xs,
   },
+  topicHeader: {
+    paddingBottom: spacing.md,
+    marginBottom: spacing.md,
+    borderBottomWidth: 2,
+  },
+  topicKicker: type.label,
+  topicSummary: { ...type.metadata, marginTop: spacing.xs },
   post: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     paddingVertical: 14,
     paddingHorizontal: spacing.sm,
   },
   originalPost: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.md,
+    borderLeftWidth: 3,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.sm,
     paddingHorizontal: spacing.md,
     marginBottom: spacing.xs,
   },
-  threadedReply: { marginLeft: 28 },
+  threadedReply: {
+    marginLeft: 24,
+    borderLeftWidth: 2,
+    paddingLeft: spacing.md,
+  },
   identityRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   postAvatar: { width: 38, height: 38, borderRadius: 19 },
   avatarFallback: { alignItems: 'center', justifyContent: 'center' },
@@ -801,7 +824,7 @@ const styles = StyleSheet.create({
   },
   replyingTo: { fontSize: 13, lineHeight: 18, fontWeight: '750' },
   contextExcerpt: { fontSize: 13, lineHeight: 18, marginTop: 2 },
-  postActions: { flexDirection: 'row', gap: spacing.lg },
+  postActions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.lg },
   primaryReply: { alignItems: 'flex-start', marginBottom: spacing.md },
   unavailable: { fontSize: 14, lineHeight: 20, marginBottom: spacing.md },
   postReply: {

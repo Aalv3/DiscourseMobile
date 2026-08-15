@@ -355,7 +355,6 @@ class Discourse extends React.Component {
           this._addSite(params.siteUrl);
         }
       }
-
     } else if (kind === 'internal') {
       // Handle URLs from Universal Links
       if (this._siteManager.urlInSites(event.url)) {
@@ -891,17 +890,22 @@ class Discourse extends React.Component {
                       tabBarStyle: {
                         position: 'absolute',
                         borderTopWidth: StyleSheet.hairlineWidth,
-                        borderTopColor: theme.grayBorder,
+                        borderTopColor: shellColors.border,
+                        backgroundColor: shellColors.tab,
+                        minHeight: this.state.largerUI ? 74 : 62,
+                        paddingTop: 5,
                       },
                       tabBarLabelStyle: {
                         fontSize: this.state.largerUI ? 16 : 12,
+                        fontWeight: '650',
+                        paddingBottom: 3,
                       },
                       // Bottom tabs have fixed-width slots. Letting Dynamic Type
                       // scale six labels makes the destinations overlap and clip;
                       // the tab buttons still expose their full titles to VoiceOver.
                       tabBarAllowFontScaling: false,
-                      tabBarActiveTintColor: theme.blueCallToAction,
-                      tabBarInactiveTintColor: theme.grayTabInactiveColor,
+                      tabBarActiveTintColor: shellColors.accent,
+                      tabBarInactiveTintColor: shellColors.muted,
                       tabBarBackground: () => this._blurView(theme.name),
                     }}
                   >
