@@ -3,7 +3,6 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -18,7 +17,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { decode } from 'html-entities';
 import { activeMemberSite } from './ProductData';
-import { Action, NestedHeader, useProductTheme } from './ProductComponents';
+import {
+  Action,
+  ContentSkeleton,
+  InlineState,
+  NestedHeader,
+  useProductTheme,
+} from './ProductComponents';
 import { radius, spacing, type } from './DesignSystem';
 import EmojiTextInput from './EmojiTextInput';
 import {
@@ -303,9 +308,9 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
               Alert.alert(
                 'Reply not deleted',
                 error?.userMessages?.join(' ') ||
-                  (error?.status
-                    ? `Discourse rejected this deletion (HTTP ${error.status}).`
-                    : 'Your account cannot delete this reply.'),
+                  (error?.status === 403
+                    ? 'Your account cannot delete this reply.'
+                    : 'The reply could not be deleted. Please try again.'),
               );
             }
           },
@@ -397,23 +402,17 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.canvas }]}>
       <NestedHeader title="Topic" onBack={() => navigation.goBack()} />
       {state.loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.accent} />
-          <Text style={[styles.status, { color: colors.muted }]}>
-            Loading topic…
-          </Text>
+        <View style={styles.content}>
+          <ContentSkeleton rows={5} />
         </View>
       ) : state.error ? (
-        <View style={styles.center}>
-          <Text
-            accessibilityRole="header"
-            style={[styles.errorTitle, { color: colors.text }]}
-          >
-            Topic unavailable
-          </Text>
-          <Text style={[styles.status, { color: colors.muted }]}>
-            This authenticated topic could not be loaded.
-          </Text>
+        <View style={styles.content}>
+          <InlineState
+            icon="comments"
+            title="This discussion isn’t available"
+            body="It may have been removed or the Network may be temporarily unreachable."
+            action={<Action label="Try again" secondary onPress={loadTopic} />}
+          />
         </View>
       ) : (
         <ScrollView
@@ -479,15 +478,16 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
                     backgroundColor:
                       highlightedPost === post.post_number
                         ? colors.accentSoft
-                        : index === 0
-                        ? colors.surface
                         : colors.canvas,
                     borderColor:
                       highlightedPost === post.post_number
                         ? colors.accent
                         : colors.border,
                   },
-                  index === 0 && styles.originalPost,
+                  index === 0 && [
+                    styles.originalPost,
+                    { borderTopColor: colors.accent },
+                  ],
                   depth > 1 && styles.threadedReply,
                 ]}
               >

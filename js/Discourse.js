@@ -769,15 +769,11 @@ class Discourse extends React.Component {
             'push_token_failed',
             'push_installation_failed',
             'push_backend_failed',
+            'push_temporarily_unavailable',
           ];
-          const safeBackendStatus =
-            /^push_backend_rejected_(?:[1-5][0-9]{2}|transport)$/.test(
-              error?.message || '',
-            );
-          const reason =
-            safeFailures.includes(error?.message) || safeBackendStatus
-              ? error.message
-              : 'push_registration_failed';
+          const reason = safeFailures.includes(error?.message)
+            ? error.message
+            : 'push_registration_failed';
           this.setState({ pushStatus: reason });
         }
       },

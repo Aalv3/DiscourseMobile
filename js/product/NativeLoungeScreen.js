@@ -21,6 +21,8 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import FontAwesome5 from '@react-native-vector-icons/fontawesome5';
 import {
   Action,
+  ContentSkeleton,
+  InlineState,
   NotificationBell,
   PageHeader,
   useProductTheme,
@@ -319,23 +321,27 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
         style={styles.chatArea}
       >
         {chat.loading ? (
-          <View style={styles.centered}>
-            <ActivityIndicator color={colors.accent} />
-            <Text style={[styles.statusText, { color: colors.muted }]}>
-              Loading the Lounge…
-            </Text>
+          <View style={styles.feed}>
+            <ContentSkeleton rows={5} />
           </View>
         ) : chat.error ? (
-          <View style={styles.centered}>
-            <Text style={[styles.statusTitle, { color: colors.text }]}>
-              Lounge unavailable
-            </Text>
-            <Text style={[styles.statusText, { color: colors.muted }]}>
-              {chat.error === 'channel_missing'
-                ? 'The shared Lounge chat channel could not be found.'
-                : 'The member chat could not be loaded.'}
-            </Text>
-            <Action label="Try again" onPress={loadLounge} secondary />
+          <View style={styles.feed}>
+            <InlineState
+              icon="comments"
+              title={
+                chat.error === 'channel_missing'
+                  ? 'The Lounge is being prepared'
+                  : 'Couldn’t refresh the Lounge'
+              }
+              body={
+                chat.error === 'channel_missing'
+                  ? 'The shared member channel is not available yet.'
+                  : 'Visible messages are preserved when possible. Try the connection again.'
+              }
+              action={
+                <Action label="Try again" onPress={loadLounge} secondary />
+              }
+            />
           </View>
         ) : (
           <FlatList

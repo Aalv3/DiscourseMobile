@@ -34,7 +34,7 @@ import {
   loadCommunity,
   topicPath,
 } from './ProductData';
-import { elevation, radius, spacing, type } from './DesignSystem';
+import { radius, spacing, type } from './DesignSystem';
 import { adjusterNetwork } from '../adjusterNetworkConfig';
 export { default as LoungeScreen } from './NativeLoungeScreen';
 import EmojiTextInput from './EmojiTextInput';
@@ -312,13 +312,14 @@ export function FloorScreen({ navigation, screenProps }) {
         }
       />
       <View style={[styles.hero, { backgroundColor: colors.hero }]}>
-        <Text style={styles.heroKicker}>TODAY IN CLAIMS</Text>
+        <Text style={styles.heroKicker}>NETWORK BRIEFING</Text>
         <Text style={styles.heroTitle}>
-          Your daily briefing is ready when approved intelligence is available.
+          {data.topics[0]?.title || 'Your adjuster network, in one place.'}
         </Text>
         <Text style={styles.heroBody}>
-          No summary has been published yet. We’ll show source-backed updates
-          here—not filler.
+          {data.topics[0]
+            ? 'The most recent member conversation, followed by the activity and intelligence that matter now.'
+            : 'Member conversations and source-backed intelligence will appear here as the Network publishes them.'}
         </Text>
       </View>
       <View style={styles.networkPulse}>
@@ -342,31 +343,40 @@ export function FloorScreen({ navigation, screenProps }) {
           </Text>
         </View>
       </View>
-      <View style={styles.twoCol}>
-        <Card style={styles.flexCard}>
+      <View style={[styles.deskStrip, { borderColor: colors.border }]}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => navigation.navigate('Intelligence')}
+          style={styles.deskItem}
+        >
           <Text style={[styles.cardKicker, { color: colors.accent }]}>
             CLAIMS WEATHER
           </Text>
           <Text style={[styles.cardTitle, { color: colors.text }]}>
-            No active snapshot
+            Field conditions desk
           </Text>
           <Text style={[styles.cardBody, { color: colors.muted }]}>
-            A compact CAT and weather view will appear when the approved feed
-            reports an update.
+            Current, source-backed weather context when published.
           </Text>
-        </Card>
-        <Card style={styles.flexCard}>
+        </Pressable>
+        <View
+          style={[styles.deskDivider, { backgroundColor: colors.border }]}
+        />
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => navigation.navigate('Intelligence')}
+          style={styles.deskItem}
+        >
           <Text style={[styles.cardKicker, { color: colors.accent }]}>
             FIELD KNOWLEDGE
           </Text>
           <Text style={[styles.cardTitle, { color: colors.text }]}>
-            Build the playbook
+            The working playbook
           </Text>
           <Text style={[styles.cardBody, { color: colors.muted }]}>
-            Practical, reviewed field guidance will live here as members
-            contribute it.
+            Reviewed methods from the claims field.
           </Text>
-        </Card>
+        </Pressable>
       </View>
       <SectionTitle
         title="Relevant discussions"
@@ -762,7 +772,7 @@ export function IntelligenceScreen({ navigation, screenProps }) {
           style={({ pressed }) => [
             styles.intel,
             {
-              backgroundColor: colors.surface,
+              backgroundColor: colors.canvas,
               borderColor: colors.border,
               opacity: pressed ? 0.7 : 1,
             },
@@ -837,7 +847,7 @@ export function ProfileScreen({ navigation, screenProps }) {
           <HeaderActions navigation={navigation} screenProps={screenProps} />
         }
       />
-      <Card style={[styles.identity, { borderTopColor: colors.accent }]}>
+      <View style={[styles.identity, { borderColor: colors.border }]}>
         {avatarTemplate ? (
           <Image
             accessibilityLabel={`${username} profile photo`}
@@ -894,8 +904,11 @@ export function ProfileScreen({ navigation, screenProps }) {
               ))}
           </View>
         </View>
-      </Card>
-      <SectionTitle title="Account" />
+      </View>
+      <SectionTitle
+        title="Member tools"
+        detail="Your activity, saved knowledge, and account controls."
+      />
       {adjusterNetwork.features.pushEducation ? (
         <NotificationEducation
           status={screenProps.pushStatus}
@@ -952,6 +965,7 @@ const NotificationEducation = ({ status, onEnable }) => {
   const enabled = status === 'enabled';
   const working = status === 'working';
   const failed = typeof status === 'string' && status.includes('_');
+  const temporarilyUnavailable = status === 'push_temporarily_unavailable';
   return (
     <Card style={styles.notificationEducation}>
       <View style={styles.notificationEducationHeader}>
@@ -970,8 +984,10 @@ const NotificationEducation = ({ status, onEnable }) => {
           ? 'Important member activity is enabled for this device.'
           : working
           ? 'Finishing secure registration for this device…'
+          : temporarilyUnavailable
+          ? 'Notification setup is taking a short break. You can keep using the Network and try again in a minute.'
           : failed
-          ? `Secure registration could not finish (${status}).`
+          ? 'Notifications could not be enabled right now. You can keep using every member feature and try again later.'
           : denied
           ? 'Notifications are off. You can keep using every member feature.'
           : 'Choose whether this device may alert you to important member activity. No marketing.'}
@@ -1127,6 +1143,20 @@ const styles = StyleSheet.create({
   pulseValue: { fontSize: 20, lineHeight: 24, fontWeight: '850' },
   pulseLabel: { ...type.label, fontSize: 10, marginTop: 2 },
   twoCol: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 12 },
+  deskStrip: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    marginTop: spacing.sm,
+  },
+  deskItem: {
+    flex: 1,
+    minWidth: 250,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+  },
+  deskDivider: { width: StyleSheet.hairlineWidth, marginVertical: spacing.sm },
   flexCard: { flex: 1, minWidth: 260 },
   cardKicker: { fontSize: 11, fontWeight: '850', letterSpacing: 1 },
   cardTitle: { fontSize: 17, fontWeight: '750' },
@@ -1242,7 +1272,8 @@ const styles = StyleSheet.create({
   intelligenceBody: { color: '#C9D7E0', ...type.body, marginTop: spacing.xs },
   intel: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    padding: spacing.md,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xs,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
@@ -1258,20 +1289,21 @@ const styles = StyleSheet.create({
   identity: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 14,
-    borderTopWidth: 3,
-    ...elevation.subtle,
+    gap: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: spacing.lg,
   },
   identityCopy: { flex: 1 },
   avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: { color: '#FFF', fontSize: 22, fontWeight: '800' },
-  identityName: { fontSize: 20, fontWeight: '800' },
+  identityName: { fontSize: 24, lineHeight: 30, fontWeight: '820' },
   identityBio: { ...type.body, marginTop: spacing.xs },
   identityTags: {
     flexDirection: 'row',

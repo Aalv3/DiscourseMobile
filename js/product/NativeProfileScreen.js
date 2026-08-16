@@ -3,7 +3,6 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -21,9 +20,16 @@ import * as ImagePicker from 'expo-image-picker';
 import { decode } from 'html-entities';
 import { activeMemberSite } from './ProductData';
 import { availableContributionActions } from '../memberContentAvailability';
-import { Action, NestedHeader, useProductTheme } from './ProductComponents';
+import {
+  Action,
+  ContentSkeleton,
+  InlineState,
+  NestedHeader,
+  useProductTheme,
+} from './ProductComponents';
 import { radius, spacing } from './DesignSystem';
 import EmojiTextInput from './EmojiTextInput';
+import { loadMemberProfileData } from './memberProfileData';
 import {
   deletePrivateResume,
   editableFieldsForStep,
@@ -90,21 +96,10 @@ export default function NativeProfileScreen({
       });
     setState(current => ({ ...current, loading: true, error: null }));
     try {
-      const [profile, activity, cardPayload] = await Promise.all([
-        site.jsonApi(`/u/${encodeURIComponent(username)}.json`),
-        site
-          .jsonApi(
-            `/user_actions.json?username=${encodeURIComponent(
-              username,
-            )}&filter=4,5`,
-          )
-          .catch(() => ({ user_actions: [] })),
-        site.jsonApi(
-          username === site.username
-            ? '/native/v1/profile'
-            : `/native/v1/profile/${encodeURIComponent(username)}`,
-        ),
-      ]);
+      const { profile, activity, cardPayload } = await loadMemberProfileData(
+        site,
+        username,
+      );
       const actions = await availableContributionActions(
         site,
         activity?.user_actions || [],
@@ -112,7 +107,7 @@ export default function NativeProfileScreen({
       setState({
         loading: false,
         user: profile?.user || profile,
-        card: parseAdjusterCard(cardPayload),
+        card: cardPayload ? parseAdjusterCard(cardPayload) : null,
         actions,
         error: null,
       });
@@ -302,21 +297,17 @@ export default function NativeProfileScreen({
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.canvas }]}>
       <NestedHeader title="Member profile" onBack={() => navigation.goBack()} />
       {state.loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.accent} />
-          <Text style={[styles.status, { color: colors.muted }]}>
-            Loading profile…
-          </Text>
+        <View style={styles.content}>
+          <ContentSkeleton rows={4} />
         </View>
       ) : state.error ? (
-        <View style={styles.center}>
-          <Text
-            accessibilityRole="header"
-            style={[styles.heading, { color: colors.text }]}
-          >
-            Profile unavailable
-          </Text>
-          <Action label="Try again" secondary onPress={load} />
+        <View style={styles.content}>
+          <InlineState
+            icon="user"
+            title="Couldn’t refresh this member"
+            body="The member profile is temporarily unavailable. Try again without leaving the Network."
+            action={<Action label="Try again" secondary onPress={load} />}
+          />
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>

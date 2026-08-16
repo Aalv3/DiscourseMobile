@@ -83,6 +83,30 @@ describe('push foundation lifecycle', () => {
     expect(account.clientId).toBe('synthetic-client-id');
   });
 
+  test('coalesces duplicate registration attempts', async () => {
+    const deps = fixture();
+    const attempts = await Promise.all([
+      deps.foundation.enable(account),
+      deps.foundation.enable(account),
+    ]);
+    expect(attempts).toEqual(['enabled', 'enabled']);
+    expect(deps.client.register).toHaveBeenCalledTimes(1);
+  });
+
+  test('turns backend rate limiting into a bounded member-safe cooldown', async () => {
+    const deps = fixture();
+    deps.client.register.mockRejectedValue(
+      new Error('push_backend_rejected_429'),
+    );
+    await expect(deps.foundation.enable(account)).rejects.toThrow(
+      'push_temporarily_unavailable',
+    );
+    await expect(deps.foundation.enable(account)).rejects.toThrow(
+      'push_temporarily_unavailable',
+    );
+    expect(deps.client.register).toHaveBeenCalledTimes(1);
+  });
+
   test.each([
     ['permission before auth', 'transport-token'],
     ['permission after auth', 'transport-token'],

@@ -22,6 +22,9 @@ export class PushFoundation {
     this.client = client;
     this.account = null;
     this.tokenSubscription = null;
+    this.enablePromise = null;
+    this.registeredIdentity = null;
+    this.retryAfter = 0;
   }
 
   async status() {
@@ -41,7 +44,20 @@ export class PushFoundation {
   }
 
   async enable(account) {
+    if (this.enablePromise) return this.enablePromise;
+    this.enablePromise = this._enable(account);
+    try {
+      return await this.enablePromise;
+    } finally {
+      this.enablePromise = null;
+    }
+  }
+
+  async _enable(account) {
     if (!this.enabled) return 'disabled';
+    if (Date.now() < this.retryAfter) {
+      throw new Error('push_temporarily_unavailable');
+    }
     const permission = await this.transport.requestPermission();
     if (permission !== 'granted') {
       await this.store.setPreference('denied');
@@ -60,6 +76,8 @@ export class PushFoundation {
       throw new Error('push_installation_failed');
     }
     try {
+      const identity = `${installationId}:${token}:${account.clientId}`;
+      if (this.registeredIdentity === identity) return 'enabled';
       await this.client.register({
         installationId,
         authToken: account.authToken,
@@ -67,13 +85,19 @@ export class PushFoundation {
         registration: this.registration(token),
       });
     } catch (error) {
-      const safeStatus = /^push_backend_rejected_(?:[1-5][0-9]{2}|transport)$/.test(
-        error?.message || '',
-      )
-        ? error.message
-        : 'push_backend_failed';
+      const safeStatus =
+        /^push_backend_rejected_(?:[1-5][0-9]{2}|transport)$/.test(
+          error?.message || '',
+        )
+          ? error.message
+          : 'push_backend_failed';
+      if (safeStatus === 'push_backend_rejected_429') {
+        this.retryAfter = Date.now() + 60 * 1000;
+        throw new Error('push_temporarily_unavailable');
+      }
       throw new Error(safeStatus);
     }
+    this.registeredIdentity = `${installationId}:${token}:${account.clientId}`;
     this.account = account;
     await this.store.setPreference('enabled');
     this.tokenSubscription?.remove?.();
@@ -112,6 +136,8 @@ export class PushFoundation {
     this.tokenSubscription?.remove?.();
     this.tokenSubscription = null;
     this.account = null;
+    this.registeredIdentity = null;
+    this.retryAfter = 0;
     if (!this.enabled || !account?.authToken) return false;
     const installationId = await this.store.installationId();
     await this.client

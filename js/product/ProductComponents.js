@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import FontAwesome5 from '@react-native-vector-icons/fontawesome5';
 import { ThemeContext } from '../ThemeContext';
-import { elevation, productTheme, radius, spacing, type } from './DesignSystem';
+import { productTheme, radius, spacing, type } from './DesignSystem';
 
 export const useProductTheme = () =>
   productTheme(useContext(ThemeContext).name);
@@ -137,7 +137,6 @@ export const Card = ({ children, style, accessibilityLabel }) => {
       accessibilityLabel={accessibilityLabel}
       style={[
         styles.card,
-        elevation.subtle,
         { backgroundColor: colors.surface, borderColor: colors.border },
         style,
       ]}
@@ -216,7 +215,7 @@ export const StateCard = ({
 }) => {
   const colors = useProductTheme();
   return (
-    <Card style={styles.state}>
+    <View style={[styles.state, { borderColor: colors.border }]}>
       <View style={[styles.stateIcon, { backgroundColor: colors.accentSoft }]}>
         {loading ? (
           <ActivityIndicator color={colors.accent} />
@@ -234,7 +233,7 @@ export const StateCard = ({
         <Text style={[styles.stateBody, { color: colors.muted }]}>{body}</Text>
         {action}
       </View>
-    </Card>
+    </View>
   );
 };
 
@@ -284,6 +283,59 @@ export const Avatar = ({ label, uri, size = 40 }) => {
       >
         {(label || 'M').slice(0, 1).toUpperCase()}
       </Text>
+    </View>
+  );
+};
+
+export const MemberAvatar = Avatar;
+
+export const ContentSkeleton = ({ rows = 3 }) => {
+  const colors = useProductTheme();
+  return (
+    <View accessibilityLabel="Loading content" style={styles.skeleton}>
+      {Array.from({ length: rows }).map((_, index) => (
+        <View key={index} style={styles.skeletonRow}>
+          <View
+            style={[
+              styles.skeletonAvatar,
+              { backgroundColor: colors.surfaceAlt },
+            ]}
+          />
+          <View style={styles.skeletonCopy}>
+            <View
+              style={[
+                styles.skeletonLine,
+                { backgroundColor: colors.surfaceAlt },
+              ]}
+            />
+            <View
+              style={[
+                styles.skeletonLineShort,
+                { backgroundColor: colors.surfaceAlt },
+              ]}
+            />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+};
+
+export const InlineState = ({ title, body, icon = 'inbox', action }) => {
+  const colors = useProductTheme();
+  return (
+    <View style={[styles.inlineState, { borderColor: colors.border }]}>
+      <FontAwesome5
+        name={icon}
+        size={18}
+        color={colors.accent}
+        iconStyle="solid"
+      />
+      <View style={styles.stateCopy}>
+        <Text style={[styles.stateTitle, { color: colors.text }]}>{title}</Text>
+        <Text style={[styles.stateBody, { color: colors.muted }]}>{body}</Text>
+        {action ? <View style={styles.inlineAction}>{action}</View> : null}
+      </View>
     </View>
   );
 };
@@ -407,7 +459,14 @@ const styles = StyleSheet.create({
   },
   sectionHeading: type.heading,
   detail: { fontSize: 14, marginTop: 3, lineHeight: 20 },
-  state: { flexDirection: 'row', gap: 14, alignItems: 'flex-start' },
+  state: {
+    flexDirection: 'row',
+    gap: 14,
+    alignItems: 'flex-start',
+    paddingVertical: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
   stateIcon: {
     width: 40,
     height: 40,
@@ -429,4 +488,18 @@ const styles = StyleSheet.create({
   avatarFallback: { alignItems: 'center', justifyContent: 'center' },
   avatarInitial: { color: '#FFFFFF', fontWeight: '850' },
   metadata: type.metadata,
+  skeleton: { gap: spacing.md, paddingVertical: spacing.md },
+  skeletonRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  skeletonAvatar: { width: 40, height: 40, borderRadius: 20 },
+  skeletonCopy: { flex: 1, gap: spacing.xs },
+  skeletonLine: { height: 12, width: '86%', borderRadius: radius.sm },
+  skeletonLineShort: { height: 10, width: '52%', borderRadius: radius.sm },
+  inlineState: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingVertical: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  inlineAction: { alignSelf: 'flex-start', marginTop: spacing.md },
 });

@@ -20,11 +20,11 @@ describe('first-party native surfaces', () => {
 
   test('profiles load activity and save permitted fields natively', () => {
     const source = read('product/NativeProfileScreen.js');
-    expect(source).toContain(
-      'site.jsonApi(`/u/${encodeURIComponent(username)}.json`)',
-    );
-    expect(source).toContain('filter=4,5');
-    expect(source).toContain("? '/native/v1/profile'");
+    const dataSource = read('product/memberProfileData.js');
+    expect(source).toContain('loadMemberProfileData(');
+    expect(dataSource).toContain('site.jsonApi(`/u/${encoded}.json`)');
+    expect(dataSource).toContain('filter=4,5');
+    expect(dataSource).toContain("? '/native/v1/profile'");
     expect(source).toContain('saveAdjusterCardFields(site, state.card');
     expect(source).toContain('card?.editable === true');
   });

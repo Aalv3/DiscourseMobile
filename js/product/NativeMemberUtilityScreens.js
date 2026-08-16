@@ -3,7 +3,6 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Linking,
   Pressable,
@@ -16,7 +15,12 @@ import {
 import FontAwesome5 from '@react-native-vector-icons/fontawesome5';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { activeMemberSite } from './ProductData';
-import { Action, NestedHeader, useProductTheme } from './ProductComponents';
+import {
+  Action,
+  ContentSkeleton,
+  NestedHeader,
+  useProductTheme,
+} from './ProductComponents';
 import { radius, spacing } from './DesignSystem';
 import {
   bookmarkDeletePath,
@@ -171,7 +175,7 @@ export function NotificationSettingsScreen({ navigation, screenProps }) {
     <Shell title="Notifications" navigation={navigation}>
       <ScrollView contentContainerStyle={styles.content}>
         {state.loading ? (
-          <ActivityIndicator color={colors.accent} />
+          <ContentSkeleton rows={3} />
         ) : (
           state.preferences.map(preference => (
             <View key={preference.key}>
@@ -412,7 +416,7 @@ export function NativeSearchScreen({ navigation, screenProps }) {
         contentContainerStyle={styles.content}
       >
         {state.loading ? (
-          <ActivityIndicator color={colors.accent} />
+          <ContentSkeleton rows={4} />
         ) : (
           state.results.map(result => (
             <Row
@@ -501,7 +505,7 @@ export function NativeBookmarksScreen({ navigation, screenProps }) {
     <Shell title="Bookmarks" navigation={navigation}>
       <ScrollView contentContainerStyle={styles.content}>
         {state.loading ? (
-          <ActivityIndicator color={colors.accent} />
+          <ContentSkeleton rows={4} />
         ) : (
           state.items.map((item, index) => (
             <View

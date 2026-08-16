@@ -2,18 +2,19 @@
 'use strict';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { activeMemberSite, topicPath } from './ProductData';
-import { Action, NestedHeader, useProductTheme } from './ProductComponents';
+import {
+  Action,
+  ContentSkeleton,
+  InlineState,
+  MemberAvatar,
+  NestedHeader,
+  useProductTheme,
+} from './ProductComponents';
 import { radius, spacing } from './DesignSystem';
+import { collectionTopics } from './collectionData';
 
 const titleFromSlug = slug =>
   String(slug || 'Collection')
@@ -44,7 +45,7 @@ export default function NativeCollectionScreen({
       const payload = await site.jsonApi(route.params.endpoint);
       setState({
         loading: false,
-        topics: payload?.topic_list?.topics || payload?.topics || [],
+        topics: collectionTopics(payload),
         error: null,
       });
     } catch {
@@ -61,24 +62,17 @@ export default function NativeCollectionScreen({
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.canvas }]}>
       <NestedHeader title={title} onBack={() => navigation.goBack()} />
       {state.loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.accent} />
-          <Text style={[styles.status, { color: colors.muted }]}>
-            Loading {title}…
-          </Text>
+        <View style={styles.content}>
+          <ContentSkeleton rows={4} />
         </View>
       ) : state.error ? (
-        <View style={styles.center}>
-          <Text
-            accessibilityRole="header"
-            style={[styles.heading, { color: colors.text }]}
-          >
-            Content unavailable
-          </Text>
-          <Text style={[styles.status, { color: colors.muted }]}>
-            This member collection could not be loaded.
-          </Text>
-          <Action label="Try again" secondary onPress={load} />
+        <View style={styles.content}>
+          <InlineState
+            icon="signal"
+            title="Couldn’t refresh this desk"
+            body="The latest published material is temporarily unavailable. Your account remains connected."
+            action={<Action label="Try again" secondary onPress={load} />}
+          />
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
@@ -108,12 +102,20 @@ export default function NativeCollectionScreen({
                   },
                 ]}
               >
-                <Text style={[styles.topicTitle, { color: colors.text }]}>
-                  {topic.title}
-                </Text>
-                <Text style={[styles.meta, { color: colors.muted }]}>
-                  Open conversation · {topic.views || 0} views
-                </Text>
+                <MemberAvatar
+                  label={topic.last_poster_username || 'Network member'}
+                  size={38}
+                />
+                <View style={styles.topicCopy}>
+                  <Text style={[styles.topicTitle, { color: colors.text }]}>
+                    {topic.title}
+                  </Text>
+                  <Text style={[styles.meta, { color: colors.muted }]}>
+                    {topic.last_poster_username || 'Network member'} ·{' '}
+                    {Math.max(0, (topic.posts_count || 1) - 1)} replies ·{' '}
+                    {topic.views || 0} views
+                  </Text>
+                </View>
               </Pressable>
             ))
           ) : (
@@ -168,8 +170,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xs,
-    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
   },
+  topicCopy: { flex: 1 },
   topicTitle: { fontSize: 16, lineHeight: 22, fontWeight: '700' },
   meta: { fontSize: 12, marginTop: spacing.xs },
   empty: {

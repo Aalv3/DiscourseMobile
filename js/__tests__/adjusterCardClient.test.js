@@ -433,6 +433,10 @@ describe('AN-2870 Adjuster Card contracts', () => {
       path.join(__dirname, '../product/NativeProfileScreen.js'),
       'utf8',
     );
+    const profileData = fs.readFileSync(
+      path.join(__dirname, '../product/memberProfileData.js'),
+      'utf8',
+    );
     const root = fs.readFileSync(
       path.join(__dirname, '../Discourse.js'),
       'utf8',
@@ -446,7 +450,7 @@ describe('AN-2870 Adjuster Card contracts', () => {
     expect(onboarding).toContain(
       'No file selector or local copy is created while this capability is off.',
     );
-    expect(profile).toContain("? '/native/v1/profile'");
+    expect(profileData).toContain("? '/native/v1/profile'");
     expect(profile).toContain('saveAdjusterCardFields(site, state.card');
     expect(root).toContain('loadCanonicalOnboarding(site)');
     expect(onboarding).not.toContain('AsyncStorage');

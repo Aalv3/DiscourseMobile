@@ -40,17 +40,17 @@ describe('native authenticated member routing', () => {
     [
       'https://adjusternetwork.org/tag/today-in-claims',
       'tag',
-      '/search.json?q=tags%3Atoday-in-claims%20order%3Alatest',
+      '/tag/today-in-claims.json',
     ],
     [
       'https://adjusternetwork.org/tag/claims-weather',
       'tag',
-      '/search.json?q=tags%3Aclaims-weather%20order%3Alatest',
+      '/tag/claims-weather.json',
     ],
     [
       'https://adjusternetwork.org/tag/field-knowledge',
       'tag',
-      '/search.json?q=tags%3Afield-knowledge%20order%3Alatest',
+      '/tag/field-knowledge.json',
     ],
     [
       'https://adjusternetwork.org/c/property/7',
