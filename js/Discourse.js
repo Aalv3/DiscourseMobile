@@ -57,6 +57,11 @@ import {
   shouldReportAuthFailureAfterSettlement,
 } from './authAttempt';
 import {
+  AUTH_FAILURE,
+  authFailureAlert,
+  classifyAuthFailure,
+} from './authFailure';
+import {
   AskScreen,
   DiscussionsScreen,
   FloorScreen,
@@ -704,13 +709,18 @@ class Discourse extends React.Component {
       } else {
         this.openUrl(authUrl);
       }
-    } catch {
+    } catch (error) {
       // iOS can deliver the verified callback through Linking while the
       // presentation promise concurrently reports browser invalidation. Once
       // the callback has established a connected site, that verified state is
       // authoritative and must not be surfaced as a failed login.
       if (await shouldReportAuthFailureAfterSettlement(this._siteManager)) {
-        Alert.alert('Unable to connect', 'Please try again in a moment.');
+        const category = classifyAuthFailure(error);
+        securityEvent(`auth.failure.${category}`);
+        if (category !== AUTH_FAILURE.USER_CANCEL) {
+          const alert = authFailureAlert(category);
+          Alert.alert(alert.title, alert.message);
+        }
       }
     } finally {
       this.setState({ connecting: false });

@@ -43,4 +43,21 @@ describe('iOS authentication presentation failures', () => {
       requestIOSAuth('https://adjusternetwork.org/auth', 'adjusternetwork'),
     ).resolves.toBe(callback);
   });
+
+  test('propagates user cancellation without converting it to connectivity failure', async () => {
+    const cancellation = Object.assign(
+      new Error('Authentication was cancelled.'),
+      {
+        code: 'auth_user_cancelled',
+      },
+    );
+    SafariWebAuth.requestAuth.mockRejectedValueOnce(cancellation);
+
+    await expect(
+      requestIOSAuth(
+        'https://adjusternetwork.org/user-api-key/new',
+        'adjusternetwork',
+      ),
+    ).rejects.toBe(cancellation);
+  });
 });

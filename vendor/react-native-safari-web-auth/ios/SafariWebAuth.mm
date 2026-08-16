@@ -88,7 +88,12 @@ RCT_REMAP_METHOD(requestAuth,
         strongSelf.presentationWindow = nil;
 
         if (error != nil) {
-          reject(@"auth_session_failed", error.localizedDescription, error);
+          if ([error.domain isEqualToString:ASWebAuthenticationSessionErrorDomain] &&
+              error.code == ASWebAuthenticationSessionErrorCodeCanceledLogin) {
+            reject(@"auth_user_cancelled", @"Authentication was cancelled.", error);
+          } else {
+            reject(@"auth_session_failed", error.localizedDescription, error);
+          }
         } else if (callbackURL != nil) {
           resolve(callbackURL.absoluteString);
         } else {

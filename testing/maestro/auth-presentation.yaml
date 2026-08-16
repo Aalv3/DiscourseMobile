@@ -1,0 +1,8 @@
+appId: org.adjusternetwork.app
+name: iOS system authentication presentation preflight
+---
+- clearKeychain
+- launchApp:
+    clearState: true
+- tapOn: 'Log in'
+- assertVisible: 'Continue|Welcome back'
