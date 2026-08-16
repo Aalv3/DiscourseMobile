@@ -1,5 +1,6 @@
 import {
   adjusterNetwork,
+  trustedAPSEnvironment,
   trustedPushEnvironment,
 } from '../adjusterNetworkConfig';
 
@@ -47,5 +48,8 @@ describe('Adjuster Network product boundary', () => {
     expect(trustedPushEnvironment('ios', 'production')).toBe('production');
     expect(trustedPushEnvironment('ios', 'sandbox')).toBeNull();
     expect(trustedPushEnvironment('android', 'production')).toBeNull();
+    expect(trustedAPSEnvironment('ios', 'development')).toBe('development');
+    expect(trustedAPSEnvironment('ios', 'production')).toBe('production');
+    expect(trustedAPSEnvironment('ios', 'sandbox')).toBeNull();
   });
 });

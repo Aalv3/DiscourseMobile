@@ -148,6 +148,7 @@ class Discourse extends React.Component {
         adjusterNetwork.features.pushDelivery &&
         Boolean(adjusterNetwork.push.environment),
       environment: adjusterNetwork.push.environment,
+      apsEnvironment: adjusterNetwork.push.apsEnvironment,
       appId: 'org.adjusternetwork.app',
       appVersion: DeviceInfo.getVersion(),
       build: DeviceInfo.getBuildNumber(),

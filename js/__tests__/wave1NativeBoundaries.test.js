@@ -20,6 +20,8 @@ describe('Wave 1 native boundaries', () => {
     expect(entitlements).toContain('$(AN_APNS_ENVIRONMENT)');
     expect(info).toContain('$(AN_PUSH_ENVIRONMENT)');
     expect(nativeModule).toContain('@"pushEnvironment"');
+    expect(nativeModule).toContain('@"apsEnvironment"');
+    expect(nativeModule).toContain('embedded.mobileprovision');
   });
 
   test('uses one explicit App Group without sharing credentials', () => {

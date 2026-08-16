@@ -1,5 +1,6 @@
 #import "DiscourseKeyboardShortcuts.h"
 #import <Security/Security.h>
+#import <TargetConditionals.h>
 
 @implementation DiscourseKeyboardShortcuts
 
@@ -43,7 +44,34 @@ RCT_EXPORT_MODULE()
 {
   NSString *environment = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"ANPushEnvironment"];
   BOOL trusted = [environment isEqualToString:@"staging"] || [environment isEqualToString:@"production"];
-  return @{ @"pushEnvironment": trusted ? environment : [NSNull null] };
+  NSString *apsEnvironment = nil;
+#if !TARGET_OS_SIMULATOR
+  NSString *profilePath = [[NSBundle mainBundle] pathForResource:@"embedded.mobileprovision" ofType:nil];
+  NSURL *profileURL = profilePath ? [NSURL fileURLWithPath:profilePath] : nil;
+  NSData *profileData = profileURL ? [NSData dataWithContentsOfURL:profileURL] : nil;
+  NSString *profile = profileData
+      ? [[NSString alloc] initWithData:profileData encoding:NSISOLatin1StringEncoding]
+      : nil;
+  NSRange apsKey = [profile rangeOfString:@"<key>aps-environment</key>"];
+  if (apsKey.location != NSNotFound) {
+    NSUInteger start = NSMaxRange(apsKey);
+    NSUInteger length = MIN((NSUInteger)256, profile.length - start);
+    NSString *valueWindow = [profile substringWithRange:NSMakeRange(start, length)];
+    if ([valueWindow containsString:@"<string>development</string>"]) {
+      apsEnvironment = @"development";
+    } else if ([valueWindow containsString:@"<string>production</string>"]) {
+      apsEnvironment = @"production";
+    }
+  } else if (!profile && [environment isEqualToString:@"production"]) {
+    // App Store/TestFlight distributions do not include an embedded mobile
+    // provision. Their APNs entitlement is production by contract.
+    apsEnvironment = @"production";
+  }
+#endif
+  return @{
+    @"pushEnvironment": trusted ? environment : [NSNull null],
+    @"apsEnvironment": apsEnvironment ?: [NSNull null]
+  };
 }
 
 - (NSArray<NSString *> *)supportedEvents

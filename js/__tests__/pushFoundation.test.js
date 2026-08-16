@@ -26,6 +26,7 @@ function fixture(permission = 'granted') {
   const foundation = new PushFoundation({
     enabled: true,
     environment: 'staging',
+    apsEnvironment: 'development',
     appId: 'org.adjusternetwork.app',
     appVersion: '1.0.0',
     build: '1',
@@ -55,6 +56,32 @@ describe('push foundation lifecycle', () => {
     await expect(deps.foundation.enable(account)).resolves.toBe('disabled');
     expect(deps.transport.requestPermission).not.toHaveBeenCalled();
     expect(deps.client.register).not.toHaveBeenCalled();
+  });
+
+  test('development-signed Release reports a limitation without registration', async () => {
+    const deps = fixture();
+    deps.foundation.environment = 'production';
+    await expect(deps.foundation.status()).resolves.toBe(
+      'development_build_limitation',
+    );
+    await expect(deps.foundation.enable(account)).resolves.toBe(
+      'development_build_limitation',
+    );
+    expect(deps.transport.requestPermission).not.toHaveBeenCalled();
+    expect(deps.transport.token).not.toHaveBeenCalled();
+    expect(deps.client.register).not.toHaveBeenCalled();
+  });
+
+  test('production entitlement and runtime retain normal registration', async () => {
+    const deps = fixture();
+    deps.foundation.environment = 'production';
+    deps.foundation.apsEnvironment = 'production';
+    await expect(deps.foundation.enable(account)).resolves.toBe('enabled');
+    expect(deps.client.register).toHaveBeenCalledWith(
+      expect.objectContaining({
+        registration: expect.objectContaining({ environment: 'production' }),
+      }),
+    );
   });
 
   test('records denial without requesting a token', async () => {

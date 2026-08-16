@@ -39,6 +39,10 @@ import { adjusterNetwork } from '../adjusterNetworkConfig';
 export { default as LoungeScreen } from './NativeLoungeScreen';
 import EmojiTextInput from './EmojiTextInput';
 import { parseAdjusterCard } from '../adjusterCardClient';
+import {
+  canAttemptNotificationSetup,
+  NOTIFICATION_STATUS,
+} from '../notificationStatus';
 
 const Screen = ({ children }) => {
   const colors = useProductTheme();
@@ -966,6 +970,8 @@ const NotificationEducation = ({ status, onEnable }) => {
   const working = status === 'working';
   const failed = typeof status === 'string' && status.includes('_');
   const temporarilyUnavailable = status === 'push_temporarily_unavailable';
+  const developmentBuild =
+    status === NOTIFICATION_STATUS.DEVELOPMENT_BUILD_LIMITATION;
   return (
     <View
       style={[styles.notificationEducation, { borderColor: colors.border }]}
@@ -986,6 +992,8 @@ const NotificationEducation = ({ status, onEnable }) => {
           ? 'Important member activity is enabled for this device.'
           : working
           ? 'Finishing secure registration for this device…'
+          : developmentBuild
+          ? 'Notifications are unavailable in this development build.'
           : temporarilyUnavailable
           ? 'Notification setup is taking a short break. You can keep using the Network and try again in a minute.'
           : failed
@@ -994,7 +1002,7 @@ const NotificationEducation = ({ status, onEnable }) => {
           ? 'Notifications are off. You can keep using every member feature.'
           : 'Choose whether this device may alert you to important member activity. No marketing.'}
       </Text>
-      {!enabled && !working ? (
+      {canAttemptNotificationSetup(status) ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Enable member notifications"

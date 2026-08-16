@@ -23,6 +23,10 @@ import {
 } from './ProductComponents';
 import { radius, spacing } from './DesignSystem';
 import {
+  canAttemptNotificationSetup,
+  NOTIFICATION_STATUS,
+} from '../notificationStatus';
+import {
   bookmarkDeletePath,
   searchResults,
   supportedNotificationPreferences,
@@ -213,13 +217,16 @@ export function NotificationSettingsScreen({ navigation, screenProps }) {
           title={
             screenProps.pushStatus === 'enabled'
               ? 'Enabled'
+              : screenProps.pushStatus ===
+                NOTIFICATION_STATUS.DEVELOPMENT_BUILD_LIMITATION
+              ? 'Unavailable in development build'
               : 'Enable notifications'
           }
           detail="Uses this device's secure notification permission"
           onPress={
-            screenProps.pushStatus === 'enabled'
-              ? undefined
-              : screenProps.enablePush
+            canAttemptNotificationSetup(screenProps.pushStatus)
+              ? screenProps.enablePush
+              : undefined
           }
         />
         {state.saving ? <Status>Saving…</Status> : null}
