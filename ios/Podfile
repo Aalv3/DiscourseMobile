@@ -1,4 +1,10 @@
+# The prebuilt Hermes iOS framework is stripped and cannot produce a usable
+# App Store dSYM. Build the pinned Hermes source so archive symbol generation
+# has real DWARF input.
+ENV['RCT_BUILD_HERMES_FROM_SOURCE'] = 'true'
+
 require File.join(File.dirname(`node --print "require.resolve('expo/package.json')"`), "scripts/autolinking")
+
 # Resolve react_native_pods.rb with node to allow for hoisting
 require Pod::Executable.execute_command('node', ['-p',
   'require.resolve(

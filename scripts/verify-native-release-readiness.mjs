@@ -1,9 +1,12 @@
 import fs from 'node:fs';
+import { execFileSync } from 'node:child_process';
 
 const read = path =>
   fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const findings = [];
 const check = (area, state, detail) => findings.push({ area, state, detail });
+const archiveFlag = process.argv.indexOf('--archive');
+const archivePath = archiveFlag >= 0 ? process.argv[archiveFlag + 1] : null;
 
 const androidGradle = read('android/app/build.gradle');
 const androidManifest = read('android/app/src/main/AndroidManifest.xml');
@@ -152,6 +155,34 @@ check(
   process.platform === 'darwin' ? 'READY_TO_EXECUTE' : 'EXTERNAL_BLOCKER',
   'Requires an accessible Mac with supported Xcode and iPhone/iPad simulator runtimes; simulator evidence does not require signing',
 );
+
+if (archivePath) {
+  const embeddedHermes = `${archivePath}/Products/Applications/Discourse.app/Frameworks/hermes.framework/hermes`;
+  const archivedDwarf = `${archivePath}/dSYMs/hermes.framework.dSYM/Contents/Resources/DWARF/hermes`;
+  const uuid = path =>
+    execFileSync('dwarfdump', ['--uuid', path], { encoding: 'utf8' }).match(
+      /UUID: ([0-9A-F-]+)/,
+    )?.[1];
+  let archiveSymbolsValid = false;
+  try {
+    const sectionSizes = execFileSync(
+      'xcrun',
+      ['llvm-dwarfdump', '--show-section-sizes', archivedDwarf],
+      { encoding: 'utf8' },
+    );
+    archiveSymbolsValid =
+      fs.statSync(archivedDwarf).size > 0 &&
+      uuid(embeddedHermes) === uuid(archivedDwarf) &&
+      /^__debug_info\s+[1-9][0-9]*/m.test(sectionSizes);
+  } catch {
+    archiveSymbolsValid = false;
+  }
+  check(
+    'archived Hermes symbols',
+    archiveSymbolsValid ? 'PASS' : 'FAIL',
+    'Final xcarchive must contain a non-empty Hermes dSYM with real DWARF and the embedded framework UUID',
+  );
+}
 
 const failed = findings.filter(item => item.state === 'FAIL');
 const pending = findings.filter(item => item.state === 'OWNER_INPUT');

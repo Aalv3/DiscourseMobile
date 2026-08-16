@@ -9,12 +9,12 @@
 /* Begin PBXBuildFile section */
 		13B07FBC1A68108700A75B9A /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB01A68108700A75B9A /* AppDelegate.swift */; };
 		13B07FBD1A68108700A75B9A /* LaunchScreen.xib in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB11A68108700A75B9A /* LaunchScreen.xib */; };
-		A30A0A102E4B000100000001 /* adjuster-network-logo.png in Resources */ = {isa = PBXBuildFile; fileRef = A30A0A112E4B000100000001 /* adjuster-network-logo.png */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		163A9678DBCFD6F7CCBE13D0 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B1FE75293E7ABC2D0246179 /* ExpoModulesProvider.swift */; };
 		2D21EBACC6C4F9E264463A9D /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 8103E0379C707B648ED89375 /* PrivacyInfo.xcprivacy */; };
 		4E232BF82834A5A8A0B7FFD6 /* libPods-Discourse.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 35667425B8D25AC23B513768 /* libPods-Discourse.a */; };
 		6A4F199A2E4A000100000001 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 6A4F199A2E4A000100000002 /* Expo.plist */; };
+		A30A0A102E4B000100000001 /* adjuster-network-logo.png in Resources */ = {isa = PBXBuildFile; fileRef = A30A0A112E4B000100000001 /* adjuster-network-logo.png */; };
 		B52583FE1E5551D7001E9B7C /* nav-icon-gray@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = B52583FD1E5551D7001E9B7C /* nav-icon-gray@3x.png */; };
 		BD4A208227B54FA300574A58 /* DiscourseKeyboardShortcuts.m in Sources */ = {isa = PBXBuildFile; fileRef = BD4A208127B54FA300574A58 /* DiscourseKeyboardShortcuts.m */; };
 		BD9F666023F5B02C001001B3 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD9F665F23F5B02C001001B3 /* ShareViewController.swift */; };
@@ -58,13 +58,13 @@
 		13B07FB21A68108700A75B9A /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/LaunchScreen.xib; sourceTree = "<group>"; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Discourse/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Discourse/Info.plist; sourceTree = "<group>"; };
-		A30A0A112E4B000100000001 /* adjuster-network-logo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "adjuster-network-logo.png"; path = "../img/adjuster-network-logo.png"; sourceTree = "<group>"; };
 		2482A32288AB770A5EC3D04B /* Pods-Discourse.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Discourse.release.xcconfig"; path = "Target Support Files/Pods-Discourse/Pods-Discourse.release.xcconfig"; sourceTree = "<group>"; };
 		35667425B8D25AC23B513768 /* libPods-Discourse.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Discourse.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		6A4F199A2E4A000100000002 /* Expo.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Expo.plist; path = Discourse/Supporting/Expo.plist; sourceTree = "<group>"; };
 		8103E0379C707B648ED89375 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = Discourse/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		8B1FE75293E7ABC2D0246179 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Discourse/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		94936B1821688FB21A88C81D /* Pods-Discourse.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Discourse.debug.xcconfig"; path = "Target Support Files/Pods-Discourse/Pods-Discourse.debug.xcconfig"; sourceTree = "<group>"; };
+		A30A0A112E4B000100000001 /* adjuster-network-logo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "adjuster-network-logo.png"; path = "../img/adjuster-network-logo.png"; sourceTree = "<group>"; };
 		B52583FD1E5551D7001E9B7C /* nav-icon-gray@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "nav-icon-gray@3x.png"; path = "../img/nav-icon-gray@3x.png"; sourceTree = "<group>"; };
 		B587A4F11E5549B8003AAE26 /* Discourse.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; name = Discourse.entitlements; path = Discourse/Discourse.entitlements; sourceTree = "<group>"; };
 		BD34D9672ADEF17500AC757D /* ShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ShareExtension.entitlements; sourceTree = "<group>"; };
@@ -354,7 +354,7 @@
 			);
 			inputPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Discourse/Pods-Discourse-frameworks.sh",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
+				"${PODS_ROOT}/hermes-engine/destroot/Library/Frameworks/ios/hermes.framework",
 			);
 			name = "[CP] Embed Pods Frameworks";
 			outputPaths = (
@@ -363,23 +363,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Discourse/Pods-Discourse-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		A30A0A122E4B000100000001 /* Generate Hermes dSYM */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"$(TARGET_BUILD_DIR)/$(FRAMEWORKS_FOLDER_PATH)/hermes.framework/hermes",
-			);
-			name = "Generate Hermes dSYM";
-			outputPaths = (
-				"$(DWARF_DSYM_FOLDER_PATH)/hermes.framework.dSYM/Contents/Resources/DWARF/hermes",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "set -e\nHERMES_BINARY=\"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework/hermes\"\nHERMES_DSYM=\"${DWARF_DSYM_FOLDER_PATH}/hermes.framework.dSYM\"\nif [ \"${DEBUG_INFORMATION_FORMAT}\" = \"dwarf-with-dsym\" ] && [ -f \"${HERMES_BINARY}\" ]; then\n  rm -rf \"${HERMES_DSYM}\"\n  xcrun dsymutil \"${HERMES_BINARY}\" -o \"${HERMES_DSYM}\"\nfi\n";
 			showEnvVarsInLog = 0;
 		};
 		A30A0A012E4B000100000001 /* Configure OTA channel */ = {
@@ -398,6 +381,23 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "set -eu\nchannel=\"${AN_OTA_CHANNEL_OVERRIDE:-$AN_OTA_CHANNEL}\"\ncase \"$channel\" in\n  staging|production) ;;\n  *) echo \"error: invalid Adjuster Network OTA channel\" >&2; exit 1 ;;\nesac\nplist=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Expo.plist\"\n/usr/libexec/PlistBuddy -c \"Set :EXUpdatesRequestHeaders:expo-channel-name $channel\" \"$plist\"\nprintf '%s\\n' \"$channel\" > \"$SCRIPT_OUTPUT_FILE_0\"\n";
+		};
+		A30A0A122E4B000100000001 /* Generate Hermes dSYM */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(FRAMEWORKS_FOLDER_PATH)/hermes.framework/hermes",
+			);
+			name = "Generate Hermes dSYM";
+			outputPaths = (
+				"$(DWARF_DSYM_FOLDER_PATH)/hermes.framework.dSYM/Contents/Resources/DWARF/hermes",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\nHERMES_BINARY=\"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework/hermes\"\nHERMES_DSYM=\"${DWARF_DSYM_FOLDER_PATH}/hermes.framework.dSYM\"\nHERMES_DWARF=\"${HERMES_DSYM}/Contents/Resources/DWARF/hermes\"\nif [ \"${DEBUG_INFORMATION_FORMAT}\" = \"dwarf-with-dsym\" ] && [ -f \"${HERMES_BINARY}\" ]; then\n  rm -rf \"${HERMES_DSYM}\"\n  xcrun dsymutil \"${HERMES_BINARY}\" -o \"${HERMES_DSYM}\"\n  test -s \"${HERMES_DWARF}\"\n  xcrun llvm-dwarfdump --show-section-sizes \"${HERMES_DWARF}\" | awk '$1 == \"__debug_info\" && $2 + 0 > 0 { found = 1 } END { exit !found }'\nfi\n";
+			showEnvVarsInLog = 0;
 		};
 		BFE12B46C2D9D6A07EC74E45 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;

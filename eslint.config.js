@@ -27,5 +27,13 @@ export default [
       },
     },
   },
-  { ignores: ['lib/*', 'react-native.config.js', '.*', '*.config.js'] },
+  {
+    ignores: [
+      'ios/Pods/**',
+      'lib/*',
+      'react-native.config.js',
+      '.*',
+      '*.config.js',
+    ],
+  },
 ];
