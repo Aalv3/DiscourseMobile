@@ -35,6 +35,7 @@ import {
   editableFieldsForStep,
   FIELD_OPTIONS,
   parseAdjusterCard,
+  removeProfilePhoto,
   saveAdjusterCardFields,
   uploadPrivateResume,
   uploadProfilePhoto,
@@ -73,6 +74,7 @@ export default function NativeProfileScreen({
     name: '',
     professional_headline: '',
     bio: '',
+    base_state: '',
     licensed_states: '',
     specialties: '',
     adjuster_type: '',
@@ -81,6 +83,9 @@ export default function NativeProfileScreen({
     cat_availability: '',
     work_mode: '',
     travel_preference: '',
+    visibility: {},
+    photoAsset: null,
+    photoPreviewUri: null,
     submitting: false,
     error: null,
   });
@@ -132,6 +137,7 @@ export default function NativeProfileScreen({
       name: state.card?.values.name || '',
       professional_headline: state.card?.values.professional_headline || '',
       bio: state.card?.values.bio || '',
+      base_state: state.card?.values.base_state || '',
       licensed_states: (state.card?.values.licensed_states || []).join(', '),
       specialties: (state.card?.values.specialties || []).join(', '),
       adjuster_type: state.card?.values.adjuster_type || '',
@@ -140,36 +146,48 @@ export default function NativeProfileScreen({
       cat_availability: state.card?.values.cat_availability || '',
       work_mode: state.card?.values.work_mode || '',
       travel_preference: state.card?.values.travel_preference || '',
+      visibility: { ...(state.card?.visibility || {}) },
+      photoAsset: null,
+      photoPreviewUri: null,
       submitting: false,
       error: null,
     });
   const saveProfile = async () => {
     setEditor(current => ({ ...current, submitting: true, error: null }));
     try {
-      await saveAdjusterCardFields(site, state.card, {
-        name: editor.name.trim(),
-        professional_headline: editor.professional_headline.trim(),
-        bio: editor.bio.trim(),
-        licensed_states: editor.licensed_states
-          .split(',')
-          .map(value => value.trim().toUpperCase())
-          .filter(Boolean),
-        specialties: editor.specialties
-          .split(',')
-          .map(value =>
-            value
-              .trim()
-              .toLowerCase()
-              .replace(/[^a-z0-9_-]+/g, '_'),
-          )
-          .filter(Boolean),
-        adjuster_type: editor.adjuster_type,
-        years_experience: editor.years_experience,
-        cat_experience: editor.cat_experience,
-        cat_availability: editor.cat_availability,
-        work_mode: editor.work_mode,
-        travel_preference: editor.travel_preference,
-      });
+      if (editor.photoAsset) {
+        await uploadProfilePhoto(site, state.card, editor.photoAsset);
+      }
+      await saveAdjusterCardFields(
+        site,
+        state.card,
+        {
+          name: editor.name.trim(),
+          professional_headline: editor.professional_headline.trim(),
+          bio: editor.bio.trim(),
+          base_state: editor.base_state.trim().toUpperCase(),
+          licensed_states: editor.licensed_states
+            .split(',')
+            .map(value => value.trim().toUpperCase())
+            .filter(Boolean),
+          specialties: editor.specialties
+            .split(',')
+            .map(value =>
+              value
+                .trim()
+                .toLowerCase()
+                .replace(/[^a-z0-9_-]+/g, '_'),
+            )
+            .filter(Boolean),
+          adjuster_type: editor.adjuster_type,
+          years_experience: editor.years_experience,
+          cat_experience: editor.cat_experience,
+          cat_availability: editor.cat_availability,
+          work_mode: editor.work_mode,
+          travel_preference: editor.travel_preference,
+        },
+        editor.visibility,
+      );
       setEditor(current => ({ ...current, visible: false, submitting: false }));
       await load();
     } catch (error) {
@@ -199,13 +217,17 @@ export default function NativeProfileScreen({
         return setEditor(current => ({ ...current, submitting: false }));
       }
       const asset = result.assets[0];
-      await uploadProfilePhoto(site, state.card, {
+      const photoAsset = {
         uri: asset.uri,
         name: asset.fileName || 'profile-photo.jpg',
         mimeType: asset.mimeType || 'image/jpeg',
-      });
-      setEditor(current => ({ ...current, visible: false, submitting: false }));
-      await load();
+      };
+      setEditor(current => ({
+        ...current,
+        photoAsset,
+        photoPreviewUri: asset.uri,
+        submitting: false,
+      }));
     } catch (error) {
       setEditor(current => ({
         ...current,
@@ -217,6 +239,45 @@ export default function NativeProfileScreen({
               'Your profile photo could not be updated.',
       }));
     }
+  };
+
+  const removePhoto = () => {
+    Alert.alert(
+      'Remove profile photo?',
+      'Your Adjuster Card will return to the default member avatar.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            setEditor(current => ({
+              ...current,
+              submitting: true,
+              error: null,
+            }));
+            try {
+              await removeProfilePhoto(site, state.card);
+              setEditor(current => ({
+                ...current,
+                photoAsset: null,
+                photoPreviewUri: null,
+                submitting: false,
+              }));
+              await load();
+            } catch (error) {
+              setEditor(current => ({
+                ...current,
+                submitting: false,
+                error:
+                  error?.userMessages?.join(' ') ||
+                  'Your profile photo could not be removed.',
+              }));
+            }
+          },
+        },
+      ],
+    );
   };
 
   const chooseResume = async () => {
@@ -285,7 +346,10 @@ export default function NativeProfileScreen({
     );
   };
 
-  const user = state.user;
+  const user = state.user || {
+    username,
+    avatar_template: state.card?.avatarTemplate,
+  };
   const card = state.card;
   const canEdit = card?.editable === true && user?.username === site?.username;
   const editableFields = [
@@ -351,6 +415,11 @@ export default function NativeProfileScreen({
               {card.values.professional_headline}
             </Text>
           ) : null}
+          {card?.values.base_state ? (
+            <Text style={[styles.detail, { color: colors.muted }]}>
+              Based in {card.values.base_state}
+            </Text>
+          ) : null}
           {plainText(card?.values.bio) ? (
             <Text style={[styles.bio, { color: colors.text }]}>
               {plainText(card.values.bio)}
@@ -372,7 +441,12 @@ export default function NativeProfileScreen({
               Specialties: {card.values.specialties.join(', ')}
             </Text>
           ) : null}
-          {[card?.values.adjuster_type, card?.values.years_experience]
+          {[
+            card?.values.adjuster_type,
+            card?.values.years_experience,
+            card?.values.cat_experience,
+            card?.values.work_mode,
+          ]
             .filter(Boolean)
             .map(value => (
               <Text
@@ -447,6 +521,7 @@ export default function NativeProfileScreen({
               {[
                 ['Name', 'name'],
                 ['Professional headline', 'professional_headline'],
+                ['Base state', 'base_state'],
                 ['Licensed states', 'licensed_states'],
                 ['Specialties', 'specialties'],
               ]
@@ -548,14 +623,96 @@ export default function NativeProfileScreen({
                     </View>
                   </View>
                 ))}
+              {editableFields
+                .filter(
+                  field =>
+                    card?.capabilities?.[field]?.visibilityOptions?.includes(
+                      'members',
+                    ) &&
+                    card?.capabilities?.[field]?.visibilityOptions?.includes(
+                      'self',
+                    ),
+                )
+                .map(field => (
+                  <View key={`visibility-${field}`} style={styles.optionGroup}>
+                    <Text style={[styles.optionLabel, { color: colors.text }]}>
+                      {field.replaceAll('_', ' ')} visibility
+                    </Text>
+                    <View style={styles.optionRow}>
+                      {[
+                        ['members', 'Network members'],
+                        ['self', 'Only me'],
+                      ].map(([value, label]) => {
+                        const selected =
+                          (editor.visibility[field] || 'self') === value;
+                        return (
+                          <Pressable
+                            key={value}
+                            accessibilityRole="radio"
+                            accessibilityState={{ checked: selected }}
+                            disabled={editor.submitting}
+                            onPress={() =>
+                              setEditor(current => ({
+                                ...current,
+                                visibility: {
+                                  ...current.visibility,
+                                  [field]: value,
+                                },
+                              }))
+                            }
+                            style={[
+                              styles.option,
+                              {
+                                backgroundColor: selected
+                                  ? colors.accentSoft
+                                  : colors.surface,
+                                borderColor: selected
+                                  ? colors.accent
+                                  : colors.border,
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.optionText,
+                                { color: colors.text },
+                              ]}
+                            >
+                              {label}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+                ))}
               {card?.photo.enabled ? (
                 <View style={styles.mediaAction}>
+                  {editor.photoPreviewUri ? (
+                    <Image
+                      accessibilityLabel="Selected profile photo preview"
+                      source={{ uri: editor.photoPreviewUri }}
+                      style={styles.photoPreview}
+                    />
+                  ) : null}
                   <Action
                     disabled={editor.submitting || !card.photo.editable}
-                    label="Choose profile photo"
+                    label={
+                      card.avatarTemplate
+                        ? 'Replace profile photo'
+                        : 'Choose profile photo'
+                    }
                     onPress={choosePhoto}
                     secondary
                   />
+                  {card.avatarTemplate ? (
+                    <Action
+                      disabled={editor.submitting || !card.photo.editable}
+                      label="Remove profile photo"
+                      onPress={removePhoto}
+                      secondary
+                    />
+                  ) : null}
                 </View>
               ) : null}
               {card?.resume.enabled ? (
@@ -695,4 +852,5 @@ const styles = StyleSheet.create({
   },
   optionText: { fontSize: 14, fontWeight: '650' },
   mediaAction: { gap: spacing.sm, marginBottom: spacing.md },
+  photoPreview: { width: 88, height: 88, borderRadius: 44 },
 });

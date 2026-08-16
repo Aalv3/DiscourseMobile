@@ -11,9 +11,11 @@ import {
   localStatusForProgress,
   ONBOARDING_PROGRESS_SCHEMA,
   onboardingStepIndex,
+  onboardingSteps,
   parseAdjusterCard,
   parseOnboardingProgress,
   PRIVATE_RESUME_SCHEMA,
+  removeProfilePhoto,
   saveAdjusterCardFields,
   saveOnboardingProgress,
   uploadPrivateResume,
@@ -137,6 +139,56 @@ describe('AN-2870 Adjuster Card contracts', () => {
       search_indexed: false,
     });
     expect(card.recruiterSearchEnabled).toBe(false);
+  });
+
+  test('parses the server-filtered member Adjuster Card as read-only', () => {
+    const card = parseAdjusterCard({
+      schema: ADJUSTER_CARD_SCHEMA,
+      schema_version: 2,
+      enabled: true,
+      enabled_fields: ['professional_headline', 'base_state'],
+      core: {
+        name: 'Visible Member',
+        bio: 'Member-visible bio',
+        avatar_template: '/user_avatar/example/{size}/1.png',
+      },
+      fields: {
+        professional_headline: 'Property adjuster',
+        base_state: 'OH',
+      },
+      capabilities: {
+        photo: { enabled: true, readable: true, editable: false },
+        recruiter_search: { enabled: false },
+      },
+      editable: false,
+    });
+
+    expect(card.editable).toBe(false);
+    expect(card.values).toEqual({
+      name: 'Visible Member',
+      bio: 'Member-visible bio',
+      professional_headline: 'Property adjuster',
+      base_state: 'OH',
+    });
+    expect(card.values.licensed_states).toBeUndefined();
+    expect(card.resume.enabled).toBe(false);
+    expect(card.avatarTemplate).toContain('{size}');
+  });
+
+  test('skips the disabled Resume step without changing the V2 lifecycle', () => {
+    const card = parseAdjusterCard(profilePayload());
+    expect(onboardingSteps(card).map(step => step.id)).toEqual([
+      'profile',
+      'licenses',
+      'experience',
+      'preview',
+    ]);
+    expect(
+      onboardingStepIndex(
+        parseOnboardingProgress(progressPayload({ step: 4 })),
+        card,
+      ),
+    ).toBe(3);
   });
 
   test('certification fixture renders and edits only server-enabled fields', () => {
@@ -274,13 +326,15 @@ describe('AN-2870 Adjuster Card contracts', () => {
             schema: PRIVATE_RESUME_SCHEMA,
             resume: { state: 'available', public_url: false },
           })
-          .mockResolvedValueOnce({ id: 91 }),
-        jsonApi: jest.fn(path =>
-          Promise.resolve(
-            path === '/session/current.json'
-              ? { current_user: { id: 7 } }
-              : { ok: true },
-          ),
+          .mockResolvedValueOnce({
+            schema: 'an.adjuster-card-photo.v1',
+            configured: true,
+          }),
+        jsonApi: jest.fn(() =>
+          Promise.resolve({
+            schema: 'an.adjuster-card-photo.v1',
+            configured: false,
+          }),
         ),
       };
 
@@ -297,6 +351,7 @@ describe('AN-2870 Adjuster Card contracts', () => {
         name: 'synthetic.jpg',
         mimeType: 'image/jpeg',
       });
+      await removeProfilePhoto(site, card);
 
       expect(site.multipartApi).toHaveBeenNthCalledWith(
         1,
@@ -305,15 +360,13 @@ describe('AN-2870 Adjuster Card contracts', () => {
       );
       expect(site.multipartApi).toHaveBeenNthCalledWith(
         2,
-        '/uploads.json',
+        '/native/v1/profile/photo',
         expect.anything(),
       );
       expect(site.jsonApi).toHaveBeenCalledWith(
-        '/u/qa_test/preferences/avatar/pick.json',
-        'PUT',
-        { type: 'uploaded', upload_id: 91 },
+        '/native/v1/profile/photo',
+        'DELETE',
       );
-      expect(site.jsonApi).toHaveBeenCalledWith('/session/current.json');
     } finally {
       global.FormData = OriginalFormData;
     }
@@ -451,7 +504,8 @@ describe('AN-2870 Adjuster Card contracts', () => {
       'No file selector or local copy is created while this capability is off.',
     );
     expect(profileData).toContain("? '/native/v1/profile'");
-    expect(profile).toContain('saveAdjusterCardFields(site, state.card');
+    expect(profileData).toContain('`/native/v1/profiles/${encoded}`');
+    expect(profile).toContain('saveAdjusterCardFields(');
     expect(root).toContain('loadCanonicalOnboarding(site)');
     expect(onboarding).not.toContain('AsyncStorage');
     expect(profile).not.toContain('AsyncStorage');

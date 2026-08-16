@@ -39,6 +39,7 @@ import {
   mergeChatMessages,
   normalizeChatMessages,
 } from './LoungeChat';
+import { openMemberAdjusterCard } from './memberNavigation';
 
 export default function NativeLoungeScreen({ navigation, screenProps }) {
   const colors = useProductTheme();
@@ -248,22 +249,37 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
       .trim();
     return (
       <View style={styles.message}>
-        {avatarUri ? (
-          <Image
-            accessibilityIgnoresInvertColors
-            source={{ uri: avatarUri }}
-            style={[styles.avatar, { backgroundColor: colors.surfaceAlt }]}
-          />
-        ) : (
-          <View
-            style={[styles.avatar, { backgroundColor: colors.accentSoft }]}
-          />
-        )}
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel={`Open ${
+            user.name || user.username || 'member'
+          } Adjuster Card`}
+          disabled={!user.username}
+          onPress={() => openMemberAdjusterCard(navigation, user.username)}
+        >
+          {avatarUri ? (
+            <Image
+              accessibilityIgnoresInvertColors
+              source={{ uri: avatarUri }}
+              style={[styles.avatar, { backgroundColor: colors.surfaceAlt }]}
+            />
+          ) : (
+            <View
+              style={[styles.avatar, { backgroundColor: colors.accentSoft }]}
+            />
+          )}
+        </Pressable>
         <View style={styles.messageCopy}>
           <View style={styles.messageMeta}>
-            <Text style={[styles.author, { color: colors.text }]}>
-              {user.name || user.username || 'Member'}
-            </Text>
+            <Pressable
+              accessibilityRole="link"
+              disabled={!user.username}
+              onPress={() => openMemberAdjusterCard(navigation, user.username)}
+            >
+              <Text style={[styles.author, { color: colors.text }]}>
+                {user.name || user.username || 'Member'}
+              </Text>
+            </Pressable>
             <Text style={[styles.timestamp, { color: colors.muted }]}>
               {timestamp}
             </Text>

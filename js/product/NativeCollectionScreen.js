@@ -15,6 +15,7 @@ import {
 } from './ProductComponents';
 import { radius, spacing } from './DesignSystem';
 import { collectionTopics } from './collectionData';
+import { openMemberAdjusterCard } from './memberNavigation';
 
 const titleFromSlug = slug =>
   String(slug || 'Collection')
@@ -105,10 +106,25 @@ export default function NativeCollectionScreen({
                   },
                 ]}
               >
-                <MemberAvatar
-                  label={topic.last_poster_username || 'Network member'}
-                  size={38}
-                />
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel={`Open ${
+                    topic.last_poster_username || 'member'
+                  } Adjuster Card`}
+                  disabled={!topic.last_poster_username}
+                  onPress={event => {
+                    event.stopPropagation();
+                    openMemberAdjusterCard(
+                      navigation,
+                      topic.last_poster_username,
+                    );
+                  }}
+                >
+                  <MemberAvatar
+                    label={topic.last_poster_username || 'Network member'}
+                    size={38}
+                  />
+                </Pressable>
                 <View style={styles.topicCopy}>
                   <Text style={[styles.topicTitle, { color: colors.text }]}>
                     {topic.title}

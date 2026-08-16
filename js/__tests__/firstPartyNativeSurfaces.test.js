@@ -25,7 +25,8 @@ describe('first-party native surfaces', () => {
     expect(dataSource).toContain('site.jsonApi(`/u/${encoded}.json`)');
     expect(dataSource).toContain('filter=4,5');
     expect(dataSource).toContain("? '/native/v1/profile'");
-    expect(source).toContain('saveAdjusterCardFields(site, state.card');
+    expect(dataSource).toContain('`/native/v1/profiles/${encoded}`');
+    expect(source).toContain('saveAdjusterCardFields(');
     expect(source).toContain('card?.editable === true');
   });
 

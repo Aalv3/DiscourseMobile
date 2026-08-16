@@ -1,7 +1,7 @@
 import { loadMemberProfileData } from '../product/memberProfileData';
 
 describe('native member profile data', () => {
-  test('renders a legitimate sparse member when the optional card is unavailable', async () => {
+  test('renders a legitimate sparse member from the canonical member card', async () => {
     const site = {
       username: 'qa_test',
       jsonApi: jest.fn(path => {
@@ -10,6 +10,17 @@ describe('native member profile data', () => {
         }
         if (path.startsWith('/user_actions.json')) {
           return Promise.resolve({ user_actions: [] });
+        }
+        if (path === '/native/v1/profiles/sparse_member') {
+          return Promise.resolve({
+            schema: 'an.adjuster-card.v2',
+            schema_version: 2,
+            core: { name: 'Sparse Member', bio: '' },
+            fields: {},
+            enabled_fields: [],
+            capabilities: { photo: { enabled: true } },
+            editable: false,
+          });
         }
         return Promise.reject(
           Object.assign(new Error('not enabled'), { status: 404 }),
@@ -20,7 +31,9 @@ describe('native member profile data', () => {
       {
         profile: { user: { username: 'sparse_member' } },
         activity: { user_actions: [] },
-        cardPayload: null,
+        cardPayload: expect.objectContaining({
+          schema: 'an.adjuster-card.v2',
+        }),
       },
     );
   });

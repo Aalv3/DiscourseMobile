@@ -14,16 +14,19 @@ export const PROFILE_STEPS = Object.freeze([
 ]);
 
 export const FIELD_GROUPS = Object.freeze({
-  profile: Object.freeze(['name', 'professional_headline', 'bio']),
+  profile: Object.freeze([
+    'name',
+    'professional_headline',
+    'bio',
+    'base_state',
+  ]),
   licenses: Object.freeze(['licensed_states']),
   experience: Object.freeze([
     'adjuster_type',
     'years_experience',
     'specialties',
     'cat_experience',
-    'cat_availability',
     'work_mode',
-    'travel_preference',
   ]),
 });
 
@@ -119,11 +122,24 @@ export function parseAdjusterCard(payload) {
   const fieldNames = new Set([
     'name',
     'bio',
+    ...(Array.isArray(payload.enabled_fields) ? payload.enabled_fields : []),
+    ...Object.keys(payload.fields || {}),
     ...Object.keys(payload.capabilities.fields || {}),
   ]);
   const capabilities = {};
+  const memberReadContract = !isObject(payload.capabilities.fields);
   fieldNames.forEach(field => {
-    capabilities[field] = capabilityFor(payload, field);
+    const explicit = capabilityFor(payload, field);
+    capabilities[field] =
+      memberReadContract &&
+      Object.prototype.hasOwnProperty.call(payload.fields || {}, field)
+        ? {
+            enabled: true,
+            readable: true,
+            editable: false,
+            visibilityOptions: [],
+          }
+        : explicit;
   });
 
   const values = {
@@ -170,6 +186,7 @@ export function parseAdjusterCard(payload) {
       ? payload.enabled_fields.filter(field => capabilities[field]?.enabled)
       : [],
     values,
+    avatarTemplate: String(payload.core?.avatar_template || ''),
     visibility: isObject(payload.visibility) ? payload.visibility : {},
     capabilities,
     photo: {
@@ -199,12 +216,15 @@ export function parseOnboardingProgress(payload) {
   return {
     schema: ONBOARDING_PROGRESS_SCHEMA,
     state: payload.state,
-    step: Math.min(4, Math.max(1, Number(payload.step) || 1)),
+    step: Math.min(5, Math.max(1, Number(payload.step) || 1)),
     displayName: String(payload.display_name || ''),
     bio: String(payload.bio || ''),
     interests: Array.isArray(payload.interests) ? payload.interests : [],
     completed: payload.completed === true,
     deferred: payload.deferred === true,
+    requiredVersion: Number(payload.required_onboarding_version || 0),
+    completedVersion: Number(payload.completed_onboarding_version || 0),
+    onboardingRequired: payload.onboarding_required === true,
   };
 }
 
@@ -241,7 +261,12 @@ export async function saveOnboardingProgress(site, data) {
   );
 }
 
-export async function saveAdjusterCardFields(site, card, changes) {
+export async function saveAdjusterCardFields(
+  site,
+  card,
+  changes,
+  visibilityChanges = {},
+) {
   const fields = {};
   const visibility = {};
   Object.entries(changes || {}).forEach(([field, value]) => {
@@ -250,7 +275,10 @@ export async function saveAdjusterCardFields(site, card, changes) {
     if (value == null || (ENUM_FIELDS.has(field) && value === '')) return;
     fields[field] = value;
     if (capability.visibilityOptions.includes('members')) {
-      visibility[field] = card.visibility[field] || 'members';
+      const requested = visibilityChanges[field];
+      visibility[field] = capability.visibilityOptions.includes(requested)
+        ? requested
+        : card.visibility[field] || 'members';
     }
   });
   if (!Object.keys(fields).length) return card;
@@ -316,35 +344,51 @@ export async function uploadProfilePhoto(site, card, asset) {
     throw new Error('photo_capability_disabled');
   }
   assertAsset(asset);
-  const session = await site.jsonApi('/session/current.json');
-  const userId = session?.current_user?.id;
-  if (!userId) throw new Error('avatar_owner_unavailable');
   const form = new FormData();
   form.append('file', {
     uri: asset.uri,
     name: asset.name,
     type: asset.mimeType,
   });
-  form.append('upload_type', 'avatar');
-  form.append('user_id', String(userId));
-  form.append('synchronous', 'true');
-  const upload = await site.multipartApi('/uploads.json', form);
-  if (!upload?.id) throw new Error('avatar_upload_failed');
-  await site.jsonApi(
-    `/u/${encodeURIComponent(site.username)}/preferences/avatar/pick.json`,
-    'PUT',
-    { type: 'uploaded', upload_id: upload.id },
-  );
-  return upload;
+  const payload = await site.multipartApi('/native/v1/profile/photo', form);
+  if (
+    payload?.schema !== 'an.adjuster-card-photo.v1' ||
+    payload?.configured !== true
+  ) {
+    throw new Error('avatar_upload_failed');
+  }
+  return payload;
+}
+
+export async function removeProfilePhoto(site, card) {
+  if (!card?.photo?.enabled || !card.photo.editable) {
+    throw new Error('photo_capability_disabled');
+  }
+  const payload = await site.jsonApi('/native/v1/profile/photo', 'DELETE');
+  if (
+    payload?.schema !== 'an.adjuster-card-photo.v1' ||
+    payload?.configured !== false
+  ) {
+    throw new Error('avatar_remove_failed');
+  }
+  return payload;
 }
 
 export function onboardingStepIndex(progress, card) {
-  if (progress.state === 'COMPLETED') return PROFILE_STEPS.length - 1;
+  const hasResume = card?.resume?.enabled === true;
+  const lastIndex = hasResume ? PROFILE_STEPS.length - 1 : 3;
+  if (progress.state === 'COMPLETED') return lastIndex;
   if (progress.step <= 1) return 0;
   if (progress.step === 2) return 1;
   if (progress.step === 3) return 2;
-  return card?.resume?.enabled ? 3 : 4;
+  if (hasResume && progress.step === 4) return 3;
+  return lastIndex;
 }
+
+export const onboardingSteps = card =>
+  card?.resume?.enabled
+    ? PROFILE_STEPS
+    : PROFILE_STEPS.filter(step => step.id !== 'resume');
 
 export function localStatusForProgress(progress) {
   if (progress.state === 'COMPLETED') return 'completed';

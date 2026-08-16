@@ -24,7 +24,7 @@ import {
   FIELD_OPTIONS,
   loadAdjusterCardBundle,
   onboardingStepIndex,
-  PROFILE_STEPS,
+  onboardingSteps,
   saveAdjusterCardFields,
   saveOnboardingProgress,
   uploadPrivateResume,
@@ -137,6 +137,7 @@ export default function AdjusterCardOnboardingScreen({
     values: {},
     error: null,
   });
+  const steps = onboardingSteps(state.card);
 
   const load = useCallback(async () => {
     setState(current => ({ ...current, loading: true, error: null }));
@@ -285,14 +286,14 @@ export default function AdjusterCardOnboardingScreen({
   };
 
   const persistAndContinue = async () => {
-    const stepId = PROFILE_STEPS[state.step].id;
+    const stepId = steps[state.step].id;
     setState(current => ({ ...current, saving: true, error: null }));
     try {
       const card = await saveFieldsFor(stepId);
-      const nextStep = Math.min(state.step + 1, PROFILE_STEPS.length - 1);
+      const nextStep = Math.min(state.step + 1, steps.length - 1);
       const progress = await saveOnboardingProgress(site, {
         onboarding_action: 'continue',
-        step: Math.min(4, state.step + 1),
+        step: Math.min(5, state.step + 1),
         display_name: state.values.name || '',
         bio: state.values.bio || '',
       });
@@ -320,7 +321,7 @@ export default function AdjusterCardOnboardingScreen({
     try {
       const progress = await saveOnboardingProgress(site, {
         onboarding_action: 'back',
-        step: Math.min(4, state.step + 1),
+        step: Math.min(5, state.step + 1),
       });
       setState(current => ({
         ...current,
@@ -341,10 +342,10 @@ export default function AdjusterCardOnboardingScreen({
     if (state.saving) return;
     setState(current => ({ ...current, saving: true, error: null }));
     try {
-      await saveFieldsFor(PROFILE_STEPS[state.step].id);
+      await saveFieldsFor(steps[state.step].id);
       await saveOnboardingProgress(site, {
         onboarding_action: 'skip_for_now',
-        step: Math.min(4, state.step + 1),
+        step: Math.min(5, state.step + 1),
         display_name: state.values.name || '',
         bio: state.values.bio || '',
       });
@@ -375,7 +376,7 @@ export default function AdjusterCardOnboardingScreen({
       }
       const progress = await saveOnboardingProgress(site, {
         onboarding_action: 'finish',
-        step: 4,
+        step: 5,
         display_name: state.values.name || '',
         bio: state.values.bio || '',
       });
@@ -395,7 +396,7 @@ export default function AdjusterCardOnboardingScreen({
     }
   };
 
-  const stepId = PROFILE_STEPS[state.step]?.id || 'profile';
+  const stepId = steps[state.step]?.id || 'profile';
   const enabled = useMemo(
     () => enabledFieldsForStep(state.card, stepId),
     [state.card, stepId],
@@ -447,12 +448,12 @@ export default function AdjusterCardOnboardingScreen({
             </Text>
           </View>
           <View
-            accessibilityLabel={`Step ${state.step + 1} of ${
-              PROFILE_STEPS.length
-            }: ${PROFILE_STEPS[state.step].title}`}
+            accessibilityLabel={`Step ${state.step + 1} of ${steps.length}: ${
+              steps[state.step].title
+            }`}
             style={styles.progress}
           >
-            {PROFILE_STEPS.map((step, index) => (
+            {steps.map((step, index) => (
               <View
                 key={step.id}
                 style={[
@@ -469,21 +470,21 @@ export default function AdjusterCardOnboardingScreen({
             accessibilityRole="header"
             style={[styles.title, { color: colors.text }]}
           >
-            {PROFILE_STEPS[state.step].title}
+            {steps[state.step].title}
           </Text>
           <Text style={[styles.body, { color: colors.muted }]}>
-            {state.step === 0
+            {stepId === 'profile'
               ? 'Add professional context that helps members know who they are speaking with.'
-              : state.step === 1
+              : stepId === 'licenses'
               ? 'Share licensed states only. License numbers and expiration dates are not collected.'
-              : state.step === 2
+              : stepId === 'experience'
               ? 'Add only the experience fields currently approved for the Network.'
-              : state.step === 3
+              : stepId === 'resume'
               ? 'A résumé is private and never enables recruiter access or member search.'
               : 'Review the member-visible details before finishing.'}
           </Text>
 
-          {state.step === 0 ? (
+          {stepId === 'profile' ? (
             <View style={styles.form}>
               {state.card.photo.enabled ? (
                 <View style={styles.mediaActions}>
@@ -576,10 +577,37 @@ export default function AdjusterCardOnboardingScreen({
                   />
                 </View>
               ) : null}
+              {enabled.includes('base_state') ? (
+                <View style={styles.fieldGroup}>
+                  <FieldLabel detail="Two-letter state abbreviation">
+                    Base state
+                  </FieldLabel>
+                  <EmojiTextInput
+                    accessibilityLabel="Base state"
+                    autoCapitalize="characters"
+                    editable={!state.saving}
+                    maxLength={2}
+                    onChangeText={value =>
+                      updateValue('base_state', value.trim().toUpperCase())
+                    }
+                    placeholder="FL"
+                    placeholderTextColor={colors.muted}
+                    style={[
+                      styles.input,
+                      {
+                        color: colors.text,
+                        backgroundColor: colors.surface,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    value={valueText(state.values.base_state)}
+                  />
+                </View>
+              ) : null}
             </View>
           ) : null}
 
-          {state.step === 1 ? (
+          {stepId === 'licenses' ? (
             enabled.includes('licensed_states') ? (
               <View style={styles.fieldGroup}>
                 <FieldLabel detail="Two-letter abbreviations, separated by commas">
@@ -613,7 +641,7 @@ export default function AdjusterCardOnboardingScreen({
             )
           ) : null}
 
-          {state.step === 2 ? (
+          {stepId === 'experience' ? (
             enabled.length ? (
               <View style={styles.form}>
                 {enabled
@@ -662,7 +690,7 @@ export default function AdjusterCardOnboardingScreen({
             )
           ) : null}
 
-          {state.step === 3 ? (
+          {stepId === 'resume' ? (
             state.card.resume.enabled ? (
               <View style={styles.mediaActions}>
                 <DeferredStep
@@ -701,7 +729,7 @@ export default function AdjusterCardOnboardingScreen({
             )
           ) : null}
 
-          {state.step === 4 ? (
+          {stepId === 'preview' ? (
             <View
               accessibilityLabel="Adjuster Card preview"
               style={[
@@ -746,7 +774,7 @@ export default function AdjusterCardOnboardingScreen({
             </Text>
           ) : null}
           <View style={styles.actions}>
-            {state.step === PROFILE_STEPS.length - 1 ? (
+            {state.step === steps.length - 1 ? (
               <Action
                 disabled={state.saving}
                 icon="check"

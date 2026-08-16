@@ -32,6 +32,7 @@ import {
   visibleConversationPosts,
 } from './topicConversation';
 import { canEditPost, loadEditablePost, savePostEdit } from './topicEditing';
+import { openMemberAdjusterCard } from './memberNavigation';
 
 function readablePost(cooked) {
   return decode(
@@ -508,7 +509,15 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
                   depth > 1 && styles.threadedReply,
                 ]}
               >
-                <View style={styles.identityRow}>
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel={`Open ${memberName(post)} Adjuster Card`}
+                  disabled={!post.username}
+                  onPress={() =>
+                    openMemberAdjusterCard(navigation, post.username)
+                  }
+                  style={styles.identityRow}
+                >
                   {avatar ? (
                     <Image
                       accessibilityLabel={`${memberName(post)} avatar`}
@@ -553,7 +562,7 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
                       </Text>
                     </View>
                   ) : null}
-                </View>
+                </Pressable>
                 {post.reply_to_post_number ? (
                   <Pressable
                     accessibilityRole="button"

@@ -43,6 +43,7 @@ import {
   canAttemptNotificationSetup,
   NOTIFICATION_STATUS,
 } from '../notificationStatus';
+import { openMemberAdjusterCard } from './memberNavigation';
 
 const Screen = ({ children }) => {
   const colors = useProductTheme();
@@ -224,7 +225,14 @@ const topicAvatar = (site, topic) => {
   return path.startsWith('http') ? path : `${site.url}${path}`;
 };
 
-const TopicCard = ({ topic, site, openUrl, category, featured = false }) => {
+const TopicCard = ({
+  topic,
+  site,
+  openUrl,
+  navigation,
+  category,
+  featured = false,
+}) => {
   const colors = useProductTheme();
   const replies = Math.max(0, (topic.posts_count || 1) - 1);
   const lastActivity = topic.last_posted_at
@@ -248,11 +256,23 @@ const TopicCard = ({ topic, site, openUrl, category, featured = false }) => {
         },
       ]}
     >
-      <Avatar
-        label={topic.last_poster_username || 'Member'}
-        size={38}
-        uri={topicAvatar(site, topic)}
-      />
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel={`Open ${
+          topic.last_poster_username || 'member'
+        } Adjuster Card`}
+        disabled={!topic.last_poster_username}
+        onPress={event => {
+          event.stopPropagation();
+          openMemberAdjusterCard(navigation, topic.last_poster_username);
+        }}
+      >
+        <Avatar
+          label={topic.last_poster_username || 'Member'}
+          size={38}
+          uri={topicAvatar(site, topic)}
+        />
+      </Pressable>
       <View style={styles.topicCopy}>
         <View style={styles.topicContext}>
           {category ? (
@@ -277,7 +297,18 @@ const TopicCard = ({ topic, site, openUrl, category, featured = false }) => {
         </Text>
         <View style={styles.topicMetadata}>
           <Metadata accent>Open conversation ·</Metadata>
-          <Metadata>{topic.last_poster_username || 'Network member'}</Metadata>
+          <Pressable
+            accessibilityRole="link"
+            disabled={!topic.last_poster_username}
+            onPress={event => {
+              event.stopPropagation();
+              openMemberAdjusterCard(navigation, topic.last_poster_username);
+            }}
+          >
+            <Metadata>
+              {topic.last_poster_username || 'Network member'}
+            </Metadata>
+          </Pressable>
           <Metadata>·</Metadata>
           <Metadata>
             {replies === 1 ? '1 reply' : `${replies} replies`}
@@ -411,6 +442,7 @@ export function FloorScreen({ navigation, screenProps }) {
               topic={topic}
               site={site}
               openUrl={screenProps.openUrl}
+              navigation={navigation}
               category={data.categories.find(
                 category => category.id === topic.category_id,
               )}
@@ -525,6 +557,7 @@ export function DiscussionsScreen({ navigation, screenProps }) {
             topic={topic}
             site={site}
             openUrl={screenProps.openUrl}
+            navigation={navigation}
             category={data.categories.find(
               category => category.id === topic.category_id,
             )}
@@ -848,7 +881,11 @@ export function ProfileScreen({ navigation, screenProps }) {
         .then(([profilePayload, userPayload]) => {
           if (mounted) {
             setAdjusterCard(parseAdjusterCard(profilePayload));
-            setAvatarTemplate(userPayload?.user?.avatar_template || null);
+            setAvatarTemplate(
+              profilePayload?.core?.avatar_template ||
+                userPayload?.user?.avatar_template ||
+                null,
+            );
           }
         })
         .catch(() => {});
@@ -930,6 +967,32 @@ export function ProfileScreen({ navigation, screenProps }) {
                 </View>
               ))}
           </View>
+          {adjusterCard?.values.base_state ? (
+            <Text style={[styles.identityDetail, { color: colors.muted }]}>
+              Based in {adjusterCard.values.base_state}
+            </Text>
+          ) : null}
+          {[
+            ['Adjuster type', adjusterCard?.values.adjuster_type],
+            ['Experience', adjusterCard?.values.years_experience],
+            ['CAT experience', adjusterCard?.values.cat_experience],
+            ['Work mode', adjusterCard?.values.work_mode],
+          ]
+            .filter(([, value]) => value)
+            .map(([label, value]) => (
+              <Text
+                key={label}
+                style={[styles.identityDetail, { color: colors.muted }]}
+              >
+                {label}: {String(value).replaceAll('_', ' ')}
+              </Text>
+            ))}
+          {Array.isArray(adjusterCard?.values.specialties) &&
+          adjusterCard.values.specialties.length ? (
+            <Text style={[styles.identityDetail, { color: colors.muted }]}>
+              Specialties: {adjusterCard.values.specialties.join(', ')}
+            </Text>
+          ) : null}
         </View>
       </View>
       <SectionTitle
@@ -978,10 +1041,12 @@ export function ProfileScreen({ navigation, screenProps }) {
         danger
         onPress={() => screenProps.siteManager.remove(site)}
       />
-      <Text style={[styles.finePrint, { color: colors.muted }]}>
-        Your Adjuster Card shows only fields enabled by the Network. Private
-        résumé data is never displayed here or exposed to recruiter search.
-      </Text>
+      {adjusterCard?.resume?.enabled ? (
+        <Text style={[styles.finePrint, { color: colors.muted }]}>
+          Private résumé data is never displayed to Network members or exposed
+          to recruiter search.
+        </Text>
+      ) : null}
     </Screen>
   );
 }
@@ -1372,6 +1437,7 @@ const styles = StyleSheet.create({
   identityName: { fontSize: 24, lineHeight: 30, fontWeight: '820' },
   identityEyebrow: { ...type.label, marginBottom: spacing.xs },
   identityBio: { ...type.body, marginTop: spacing.xs },
+  identityDetail: { ...type.meta, marginTop: spacing.xs },
   identityTags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
