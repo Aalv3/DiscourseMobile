@@ -45,35 +45,32 @@ export const pushTransport = Object.freeze({
   },
   token() {
     if (currentToken) return Promise.resolve(currentToken);
-    return Promise.resolve(DiscourseKeyboardShortcuts?.consumeAPNSToken?.()).then(
-      pendingToken => {
-        if (pendingToken) {
-          currentToken = pendingToken;
-          return pendingToken;
-        }
-        return new Promise((resolve, reject) => {
-      const waiter = {
-        resolve: token => {
-          clearTimeout(timeout);
-          resolve(token);
-        },
-        reject: error => {
-          clearTimeout(timeout);
-          reject(error);
-        },
-      };
-      const timeout = setTimeout(
-        () => {
+    return Promise.resolve(
+      DiscourseKeyboardShortcuts?.consumeAPNSToken?.(),
+    ).then(pendingToken => {
+      if (pendingToken) {
+        currentToken = pendingToken;
+        return pendingToken;
+      }
+      return new Promise((resolve, reject) => {
+        const waiter = {
+          resolve: token => {
+            clearTimeout(timeout);
+            resolve(token);
+          },
+          reject: error => {
+            clearTimeout(timeout);
+            reject(error);
+          },
+        };
+        const timeout = setTimeout(() => {
           tokenWaiters = tokenWaiters.filter(item => item !== waiter);
           reject(new Error('push_token_timeout'));
-        },
-        15000,
-      );
-      tokenWaiters.push(waiter);
-      PushNotificationIOS.registerForRemoteNotifications();
-        });
-      },
-    );
+        }, 15000);
+        tokenWaiters.push(waiter);
+        PushNotificationIOS.registerForRemoteNotifications();
+      });
+    });
   },
   onTokenRefresh(handler) {
     PushNotificationIOS.addEventListener('register', handler);

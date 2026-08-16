@@ -63,6 +63,8 @@ describe('topic conversation ordering', () => {
     ];
     const visible = visibleConversationPosts(posts);
     expect(visible.map(post => post.id)).toEqual([1, 3]);
-    expect(conversationOrder(visible).map(item => item.post.id)).toEqual([1, 3]);
+    expect(conversationOrder(visible).map(item => item.post.id)).toEqual([
+      1, 3,
+    ]);
   });
 });

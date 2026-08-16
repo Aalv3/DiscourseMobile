@@ -16,7 +16,9 @@ describe('Guardian-authorized topic editing', () => {
   });
 
   test('loads canonical raw content only for an editable post', async () => {
-    const site = { jsonApi: jest.fn().mockResolvedValue({ raw: 'Saved body' }) };
+    const site = {
+      jsonApi: jest.fn().mockResolvedValue({ raw: 'Saved body' }),
+    };
     await expect(
       loadEditablePost(site, { id: 42, can_edit: true }),
     ).resolves.toBe('Saved body');

@@ -52,7 +52,9 @@ describe('native member utility surfaces', () => {
   test('member search uses only contract-returned professional metadata', () => {
     const helper = read('product/memberUtilities.js');
     expect(helper).toContain("payload?.schema !== 'an.member-search.v1'");
-    expect(helper).toContain('professional_headline: metadata.professional_headline');
+    expect(helper).toContain(
+      'professional_headline: metadata.professional_headline',
+    );
     expect(helper).toContain('licensed_states: metadata.licensed_states');
     expect(helper).not.toContain('metadata.email');
     expect(helper).not.toContain('metadata.phone');

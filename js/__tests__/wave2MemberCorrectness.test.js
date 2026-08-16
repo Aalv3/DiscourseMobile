@@ -35,7 +35,8 @@ describe('Wave 2 member correctness helpers', () => {
           {
             username: 'qa_test',
             display_name: 'QA Test Adjuster',
-            avatar_template: '/user_avatar/adjusternetwork.org/qa_test/{size}/1.png',
+            avatar_template:
+              '/user_avatar/adjusternetwork.org/qa_test/{size}/1.png',
             professional_metadata: {
               professional_headline: 'Property adjuster',
               base_state: 'OH',
