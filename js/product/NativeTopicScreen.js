@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import FontAwesome5 from '@react-native-vector-icons/fontawesome5';
 import { decode } from 'html-entities';
 import { activeMemberSite } from './ProductData';
 import {
@@ -436,6 +437,20 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
               {conversation.length}{' '}
               {conversation.length === 1 ? 'contribution' : 'contributions'}
             </Text>
+            <View style={styles.topicRule}>
+              <View
+                style={[
+                  styles.topicRuleAccent,
+                  { backgroundColor: colors.brandAccent },
+                ]}
+              />
+              <View
+                style={[
+                  styles.topicRuleRest,
+                  { backgroundColor: colors.border },
+                ]}
+              />
+            </View>
           </View>
           {creatorDelete.allowed ? (
             <View style={styles.topicManagement}>
@@ -478,6 +493,8 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
                     backgroundColor:
                       highlightedPost === post.post_number
                         ? colors.accentSoft
+                        : index === 0
+                        ? colors.surfaceWarm
                         : colors.canvas,
                     borderColor:
                       highlightedPost === post.post_number
@@ -517,9 +534,25 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
                     </Text>
                     <Text style={[styles.postMeta, { color: colors.muted }]}>
                       @{post.username || 'member'} · {postTime(post.created_at)}
-                      {index === 0 ? ' · Topic starter' : ''}
                     </Text>
                   </View>
+                  {index === 0 ? (
+                    <View
+                      style={[
+                        styles.starterBadge,
+                        { backgroundColor: colors.brandAccentSoft },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.starterBadgeText,
+                          { color: colors.brandAccent },
+                        ]}
+                      >
+                        STARTER
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
                 {post.reply_to_post_number ? (
                   <Pressable
@@ -566,6 +599,12 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
                       onPress={() => openComposer(post.post_number)}
                       style={styles.postReply}
                     >
+                      <FontAwesome5
+                        name="reply"
+                        size={12}
+                        color={colors.accent}
+                        iconStyle="solid"
+                      />
                       <Text
                         style={[styles.postReplyText, { color: colors.accent }]}
                       >
@@ -582,6 +621,12 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
                       onPress={() => openEditor(post)}
                       style={styles.postReply}
                     >
+                      <FontAwesome5
+                        name="pen"
+                        size={12}
+                        color={colors.accent}
+                        iconStyle="solid"
+                      />
                       <Text
                         style={[styles.postReplyText, { color: colors.accent }]}
                       >
@@ -597,9 +642,21 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
                     onPress={() => toggleBookmark(post)}
                     style={styles.postReply}
                   >
+                    <FontAwesome5
+                      name="bookmark"
+                      size={12}
+                      color={colors.accent}
+                      iconStyle="solid"
+                    />
                     <Text
                       style={[styles.postReplyText, { color: colors.accent }]}
                     >
+                      <FontAwesome5
+                        name="trash"
+                        size={12}
+                        color={colors.danger}
+                        iconStyle="solid"
+                      />
                       {post.bookmarked ? 'Saved' : 'Save'}
                     </Text>
                   </Pressable>
@@ -784,12 +841,15 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   topicHeader: {
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.sm,
     marginBottom: spacing.md,
-    borderBottomWidth: 2,
+    borderBottomWidth: 0,
   },
   topicKicker: type.label,
   topicSummary: { ...type.metadata, marginTop: spacing.xs },
+  topicRule: { flexDirection: 'row', height: 2, marginTop: spacing.md },
+  topicRuleAccent: { width: 52 },
+  topicRuleRest: { flex: 1 },
   post: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     paddingVertical: 14,
@@ -797,10 +857,10 @@ const styles = StyleSheet.create({
   },
   originalPost: {
     borderLeftWidth: 3,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 0,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.md,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
   },
   threadedReply: {
     marginLeft: 24,
@@ -813,6 +873,12 @@ const styles = StyleSheet.create({
   avatarInitial: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
   identityCopy: { flex: 1 },
   author: { fontSize: 15, fontWeight: '800' },
+  starterBadge: {
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xxs,
+  },
+  starterBadgeText: { ...type.label, fontSize: 9 },
   postMeta: { fontSize: 12, lineHeight: 17, marginTop: 1 },
   body: { fontSize: 16, lineHeight: 24, marginTop: spacing.sm },
   replyContext: {
@@ -824,14 +890,21 @@ const styles = StyleSheet.create({
   },
   replyingTo: { fontSize: 13, lineHeight: 18, fontWeight: '750' },
   contextExcerpt: { fontSize: 13, lineHeight: 18, marginTop: 2 },
-  postActions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.lg },
+  postActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.lg,
+    marginTop: spacing.xs,
+  },
   primaryReply: { alignItems: 'flex-start', marginBottom: spacing.md },
   unavailable: { fontSize: 14, lineHeight: 20, marginBottom: spacing.md },
   postReply: {
     alignSelf: 'flex-start',
     minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
     justifyContent: 'center',
-    marginTop: spacing.sm,
   },
   postReplyText: { fontSize: 15, fontWeight: '700' },
   composer: { flex: 1 },

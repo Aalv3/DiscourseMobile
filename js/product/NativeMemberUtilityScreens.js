@@ -37,6 +37,14 @@ const Shell = ({ title, navigation, children }) => {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.canvas }]}>
       <NestedHeader title={title} onBack={() => navigation.goBack()} />
+      <View style={styles.utilityIdentity}>
+        <Text style={[styles.utilityEyebrow, { color: colors.brandAccent }]}>
+          MEMBER WORKSPACE
+        </Text>
+        <Text style={[styles.utilityTitle, { color: colors.text }]}>
+          {title}
+        </Text>
+      </View>
       {children}
     </SafeAreaView>
   );
@@ -54,7 +62,7 @@ const Row = ({ title, detail, selected = false, onPress }) => {
       style={({ pressed }) => [
         styles.row,
         {
-          backgroundColor: colors.surface,
+          backgroundColor: selected ? colors.accentSoft : 'transparent',
           borderColor: selected ? colors.accent : colors.border,
           opacity: pressed ? 0.72 : 1,
         },
@@ -566,6 +574,25 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     padding: spacing.md,
     paddingBottom: spacing.xl,
+  },
+  utilityIdentity: {
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+  },
+  utilityEyebrow: {
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '800',
+    letterSpacing: 1.05,
+  },
+  utilityTitle: {
+    fontSize: 25,
+    lineHeight: 31,
+    fontWeight: '820',
+    marginTop: spacing.xxs,
   },
   intro: { fontSize: 15, lineHeight: 22, marginBottom: spacing.md },
   heading: {

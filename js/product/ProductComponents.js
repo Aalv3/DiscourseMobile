@@ -38,7 +38,7 @@ export const NestedHeader = ({ onBack, title = 'Member page' }) => {
     <View
       style={[
         styles.nestedHeader,
-        { backgroundColor: colors.canvas, borderBottomColor: colors.border },
+        { backgroundColor: colors.surface, borderBottomColor: colors.border },
       ]}
     >
       <Pressable
@@ -47,7 +47,10 @@ export const NestedHeader = ({ onBack, title = 'Member page' }) => {
         accessibilityHint="Returns to the previous Adjuster Network screen"
         hitSlop={8}
         onPress={onBack}
-        style={styles.backButton}
+        style={({ pressed }) => [
+          styles.backButton,
+          pressed && { backgroundColor: colors.surfaceAlt },
+        ]}
       >
         <FontAwesome5
           name="chevron-left"
@@ -74,6 +77,13 @@ export const PageHeader = ({ eyebrow, title, action }) => {
   const colors = useProductTheme();
   return (
     <View style={[styles.header, { borderBottomColor: colors.border }]}>
+      <View
+        accessibilityElementsHidden
+        style={[
+          styles.headerBrandRule,
+          { backgroundColor: colors.brandAccent },
+        ]}
+      />
       <View style={styles.headerCopy}>
         <View style={styles.brandRow}>
           <BrandMark />
@@ -165,8 +175,9 @@ export const Action = ({
         {
           backgroundColor: secondary ? colors.surface : colors.accent,
           borderColor: colors.accent,
-          opacity: disabled ? 0.45 : pressed ? 0.8 : 1,
+          opacity: disabled ? 0.45 : pressed ? 0.88 : 1,
         },
+        pressed && !disabled ? styles.actionPressed : null,
       ]}
     >
       {icon ? (
@@ -244,16 +255,20 @@ export const Pill = ({ label, selected, onPress }) => {
       accessibilityRole="button"
       accessibilityState={{ selected }}
       onPress={onPress}
-      style={[
+      style={({ pressed }) => [
         styles.pill,
         {
-          backgroundColor: selected ? colors.accent : colors.surface,
-          borderColor: selected ? colors.accent : colors.border,
+          backgroundColor: selected ? colors.text : 'transparent',
+          borderColor: selected ? colors.text : colors.borderStrong,
+          opacity: pressed ? 0.72 : 1,
         },
       ]}
     >
       <Text
-        style={{ color: selected ? '#FFFFFF' : colors.text, fontWeight: '600' }}
+        style={{
+          color: selected ? colors.canvas : colors.text,
+          fontWeight: '650',
+        }}
       >
         {label}
       </Text>
@@ -380,30 +395,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
+    paddingTop: spacing.xs,
     paddingBottom: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
+    position: 'relative',
+  },
+  headerBrandRule: {
+    position: 'absolute',
+    left: spacing.md,
+    bottom: -1,
+    width: 42,
+    height: 2,
   },
   headerCopy: { flex: 1 },
   brandRow: {
     minHeight: 26,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 2,
     overflow: 'hidden',
   },
   brandMarkViewport: {
-    width: 42,
-    height: 30,
+    width: 38,
+    height: 27,
     overflow: 'hidden',
     flexShrink: 0,
   },
   brandMark: {
     position: 'absolute',
-    width: 68,
-    height: 49,
-    left: -13,
-    top: -6,
+    width: 62,
+    height: 44,
+    left: -12,
+    top: -5,
   },
   eyebrow: {
     flex: 1,
@@ -425,6 +448,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.xs,
+    marginLeft: -spacing.xs,
   },
   backLabel: { fontSize: 16, fontWeight: '650' },
   nestedTitle: {
@@ -434,7 +460,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginHorizontal: spacing.sm,
   },
-  pageTitle: type.display,
+  pageTitle: { ...type.display, fontSize: 29, lineHeight: 34 },
   card: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radius.md,
@@ -450,12 +476,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  actionPressed: { transform: [{ scale: 0.985 }] },
   actionText: { fontSize: 16, fontWeight: '750' },
   sectionTitle: {
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
     paddingBottom: spacing.xs,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 0,
   },
   sectionHeading: type.heading,
   detail: { fontSize: 14, marginTop: 3, lineHeight: 20 },
@@ -478,9 +505,9 @@ const styles = StyleSheet.create({
   stateTitle: { fontSize: 16, fontWeight: '700' },
   stateBody: { fontSize: 14, lineHeight: 20, marginTop: 4 },
   pill: {
-    minHeight: 40,
-    paddingHorizontal: 14,
-    borderRadius: 20,
+    minHeight: 36,
+    paddingHorizontal: 12,
+    borderRadius: radius.pill,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',

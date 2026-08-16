@@ -224,7 +224,7 @@ const topicAvatar = (site, topic) => {
   return path.startsWith('http') ? path : `${site.url}${path}`;
 };
 
-const TopicCard = ({ topic, site, openUrl, category }) => {
+const TopicCard = ({ topic, site, openUrl, category, featured = false }) => {
   const colors = useProductTheme();
   const replies = Math.max(0, (topic.posts_count || 1) - 1);
   const lastActivity = topic.last_posted_at
@@ -240,9 +240,10 @@ const TopicCard = ({ topic, site, openUrl, category }) => {
       onPress={() => openUrl(`${site.url}${topicPath(topic)}`)}
       style={({ pressed }) => [
         styles.topic,
+        featured && styles.topicFeatured,
         {
-          backgroundColor: colors.surface,
-          borderColor: colors.border,
+          backgroundColor: featured ? colors.surfaceWarm : 'transparent',
+          borderColor: featured ? colors.brandAccent : colors.border,
           opacity: pressed ? 0.7 : 1,
         },
       ]}
@@ -276,6 +277,8 @@ const TopicCard = ({ topic, site, openUrl, category }) => {
         </Text>
         <View style={styles.topicMetadata}>
           <Metadata accent>Open conversation ·</Metadata>
+          <Metadata>{topic.last_poster_username || 'Network member'}</Metadata>
+          <Metadata>·</Metadata>
           <Metadata>
             {replies === 1 ? '1 reply' : `${replies} replies`}
           </Metadata>
@@ -402,7 +405,7 @@ export function FloorScreen({ navigation, screenProps }) {
       ) : data.topics.length ? (
         data.topics
           .slice(0, 4)
-          .map(topic => (
+          .map((topic, index) => (
             <TopicCard
               key={topic.id}
               topic={topic}
@@ -411,6 +414,7 @@ export function FloorScreen({ navigation, screenProps }) {
               category={data.categories.find(
                 category => category.id === topic.category_id,
               )}
+              featured={index === 0}
             />
           ))
       ) : (
@@ -476,6 +480,14 @@ export function DiscussionsScreen({ navigation, screenProps }) {
           />
         ))}
       </ScrollView>
+      <View style={styles.feedIntroduction}>
+        <Text style={[styles.feedEyebrow, { color: colors.brandAccent }]}>
+          MEMBER EXCHANGE
+        </Text>
+        <Text style={[styles.feedIntroductionCopy, { color: colors.muted }]}>
+          Current questions, field perspective, and durable working knowledge.
+        </Text>
+      </View>
       {selectedCategory ? (
         <View style={styles.categoryDiscovery}>
           <Text style={[styles.categoryDescription, { color: colors.muted }]}>
@@ -768,7 +780,7 @@ export function IntelligenceScreen({ navigation, screenProps }) {
           knowledge published for Network members.
         </Text>
       </View>
-      {rows.map(row => (
+      {rows.map((row, index) => (
         <Pressable
           key={row.title}
           accessibilityRole="link"
@@ -782,6 +794,9 @@ export function IntelligenceScreen({ navigation, screenProps }) {
             },
           ]}
         >
+          <Text style={[styles.deskNumber, { color: colors.brandAccent }]}>
+            {String(index + 1).padStart(2, '0')}
+          </Text>
           <View
             style={[styles.intelIcon, { backgroundColor: colors.accentSoft }]}
           >
@@ -851,7 +866,12 @@ export function ProfileScreen({ navigation, screenProps }) {
           <HeaderActions navigation={navigation} screenProps={screenProps} />
         }
       />
-      <View style={[styles.identity, { borderColor: colors.border }]}>
+      <View
+        style={[
+          styles.identity,
+          { borderColor: colors.border, borderLeftColor: colors.brandAccent },
+        ]}
+      >
         {avatarTemplate ? (
           <Image
             accessibilityLabel={`${username} profile photo`}
@@ -870,6 +890,9 @@ export function ProfileScreen({ navigation, screenProps }) {
           </View>
         )}
         <View style={styles.identityCopy}>
+          <Text style={[styles.identityEyebrow, { color: colors.brandAccent }]}>
+            PROFESSIONAL IDENTITY
+          </Text>
           <Text style={[styles.identityName, { color: colors.text }]}>
             {adjusterCard?.values.name || username}
           </Text>
@@ -1127,7 +1150,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 4,
   },
-  hero: { borderRadius: radius.lg, padding: spacing.lg, marginTop: 8 },
+  hero: {
+    borderRadius: radius.sm,
+    borderLeftWidth: 4,
+    borderLeftColor: '#B3262D',
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+  },
   heroKicker: {
     color: '#82CEDC',
     fontSize: 12,
@@ -1148,9 +1178,13 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.sm,
   },
-  pulseItem: { flex: 1, alignItems: 'center' },
+  pulseItem: {
+    flex: 1,
+    alignItems: 'flex-start',
+    paddingHorizontal: spacing.sm,
+  },
   pulseDivider: { width: StyleSheet.hairlineWidth, height: 32 },
-  pulseValue: { fontSize: 20, lineHeight: 24, fontWeight: '850' },
+  pulseValue: type.numeric,
   pulseLabel: { ...type.label, fontSize: 10, marginTop: 2 },
   twoCol: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 12 },
   deskStrip: {
@@ -1158,7 +1192,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     borderTopWidth: StyleSheet.hairlineWidth,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
   deskItem: {
     flex: 1,
@@ -1175,23 +1209,36 @@ const styles = StyleSheet.create({
     minHeight: 82,
     borderBottomWidth: StyleSheet.hairlineWidth,
     paddingVertical: 13,
-    paddingHorizontal: spacing.xs,
+    paddingHorizontal: spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  topicFeatured: {
+    borderLeftWidth: 3,
+    borderBottomWidth: 0,
+    borderRadius: radius.sm,
+    marginBottom: spacing.xs,
   },
   topicCopy: { flex: 1 },
   topicContext: { flexDirection: 'row', alignItems: 'center', minHeight: 17 },
   topicCategory: { ...type.label, fontSize: 10 },
   unreadDot: { width: 7, height: 7, borderRadius: 4, marginLeft: spacing.xs },
-  topicTitle: { fontSize: 16, lineHeight: 21, fontWeight: '720', marginTop: 2 },
+  topicTitle: { ...type.topic, marginTop: 2 },
   topicMetadata: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 5,
     marginTop: 5,
   },
-  pills: { gap: 8, paddingBottom: spacing.md },
+  pills: { gap: 7, paddingTop: spacing.sm, paddingBottom: spacing.sm },
+  feedIntroduction: {
+    paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(120, 128, 130, 0.28)',
+  },
+  feedEyebrow: type.label,
+  feedIntroductionCopy: { ...type.body, marginTop: 2 },
   categoryDiscovery: { alignItems: 'flex-start', marginBottom: spacing.md },
   categoryDescription: {
     fontSize: 14,
@@ -1249,6 +1296,9 @@ const styles = StyleSheet.create({
     gap: 14,
     alignItems: 'flex-start',
     borderWidth: 0,
+    borderLeftWidth: 3,
+    borderLeftColor: '#176B87',
+    borderRadius: radius.sm,
   },
   safetyCopy: { flex: 1 },
   categoryGrid: {
@@ -1267,7 +1317,9 @@ const styles = StyleSheet.create({
   categoryTitle: { fontSize: 15, fontWeight: '750' },
   intro: { fontSize: 16, lineHeight: 24, marginBottom: spacing.md },
   intelligenceIntro: {
-    borderRadius: radius.lg,
+    borderRadius: radius.sm,
+    borderLeftWidth: 4,
+    borderLeftColor: '#B3262D',
     padding: spacing.lg,
     marginBottom: spacing.md,
   },
@@ -1283,15 +1335,16 @@ const styles = StyleSheet.create({
   intel: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xs,
+    paddingHorizontal: spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
   },
+  deskNumber: { ...type.label, width: 24 },
   intelIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
+    width: 42,
+    height: 42,
+    borderRadius: radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1300,20 +1353,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    backgroundColor: 'transparent',
+    borderTopWidth: 0,
     borderBottomWidth: StyleSheet.hairlineWidth,
+    borderLeftWidth: 3,
     paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
   },
   identityCopy: { flex: 1 },
   avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: { color: '#FFF', fontSize: 22, fontWeight: '800' },
   identityName: { fontSize: 24, lineHeight: 30, fontWeight: '820' },
+  identityEyebrow: { ...type.label, marginBottom: spacing.xs },
   identityBio: { ...type.body, marginTop: spacing.xs },
   identityTags: {
     flexDirection: 'row',

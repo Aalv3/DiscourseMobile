@@ -918,22 +918,23 @@ class Discourse extends React.Component {
                       tabBarStyle: {
                         position: 'absolute',
                         borderTopWidth: StyleSheet.hairlineWidth,
-                        borderTopColor: shellColors.border,
+                        borderTopColor: shellColors.borderStrong,
                         backgroundColor: shellColors.tab,
                         minHeight: this.state.largerUI ? 74 : 62,
-                        paddingTop: 5,
+                        paddingTop: 6,
                       },
                       tabBarLabelStyle: {
                         fontSize: this.state.largerUI ? 16 : 12,
-                        fontWeight: '650',
+                        fontWeight: '700',
                         paddingBottom: 3,
                       },
                       // Bottom tabs have fixed-width slots. Letting Dynamic Type
                       // scale six labels makes the destinations overlap and clip;
                       // the tab buttons still expose their full titles to VoiceOver.
                       tabBarAllowFontScaling: false,
-                      tabBarActiveTintColor: shellColors.accent,
+                      tabBarActiveTintColor: shellColors.brandAccent,
                       tabBarInactiveTintColor: shellColors.muted,
+                      tabBarActiveBackgroundColor: shellColors.brandAccentSoft,
                       tabBarBackground: () => this._blurView(theme.name),
                     }}
                   >

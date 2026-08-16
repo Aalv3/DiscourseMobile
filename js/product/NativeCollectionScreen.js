@@ -76,6 +76,9 @@ export default function NativeCollectionScreen({
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
+          <Text style={[styles.eyebrow, { color: colors.brandAccent }]}>
+            NETWORK INTELLIGENCE
+          </Text>
           <Text
             accessibilityRole="header"
             style={[styles.heading, { color: colors.text }]}
@@ -122,7 +125,10 @@ export default function NativeCollectionScreen({
             <View
               style={[
                 styles.empty,
-                { backgroundColor: colors.surface, borderColor: colors.border },
+                {
+                  backgroundColor: colors.surfaceWarm,
+                  borderLeftColor: colors.brandAccent,
+                },
               ]}
             >
               <Text style={[styles.emptyTitle, { color: colors.text }]}>
@@ -158,6 +164,12 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   heading: { fontSize: 26, lineHeight: 33, fontWeight: '800' },
+  eyebrow: {
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '800',
+    letterSpacing: 1.05,
+  },
   intro: {
     fontSize: 15,
     lineHeight: 22,
@@ -178,7 +190,8 @@ const styles = StyleSheet.create({
   topicTitle: { fontSize: 16, lineHeight: 22, fontWeight: '700' },
   meta: { fontSize: 12, marginTop: spacing.xs },
   empty: {
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 0,
+    borderLeftWidth: 3,
     borderRadius: radius.sm,
     padding: spacing.lg,
     alignItems: 'center',

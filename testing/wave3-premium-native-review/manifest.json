@@ -1,0 +1,27 @@
+{
+  "baseline_sha": "babbec6a4372066fe6827ce900fabe6189ddffe0",
+  "review_sha": "repository commit containing this review package",
+  "simulator": {
+    "name": "iPhone 17 Pro",
+    "ios": "26.5",
+    "udid": "E281C0FD-BC09-46DB-B0C3-FF55F6EED966",
+    "dimensions": "1206x2622"
+  },
+  "runtime": "an-ios-android-1.0.0-native-2",
+  "native_dependencies_added": 0,
+  "captures": [
+    { "state": "Floor", "before": "before/floor-light.png", "after": "after/floor-light.png", "theme": "light", "text_size": "medium" },
+    { "state": "Discussions", "before": "before/discussions-light.png", "after": "after/discussions-light.png", "theme": "light", "text_size": "medium" },
+    { "state": "Topic", "before": "before/topic-light.png", "after": "after/topic-light.png", "theme": "light", "text_size": "medium" },
+    { "state": "Lounge", "before": "before/lounge-light.png", "after": "after/lounge-light.png", "theme": "light", "text_size": "medium" },
+    { "state": "Ask", "before": "before/ask-light.png", "after": "after/ask-light.png", "theme": "light", "text_size": "medium" },
+    { "state": "Intelligence", "before": "before/intelligence-light.png", "after": "after/intelligence-light.png", "theme": "light", "text_size": "medium" },
+    { "state": "You / Adjuster Card", "before": "before/you-light.png", "after": "after/you-light.png", "theme": "light", "text_size": "medium" },
+    { "state": "Search", "before": "before/search-light.png", "after": "after/search-light.png", "theme": "light", "text_size": "medium" },
+    { "state": "Settings", "before": "before/settings-light.png", "after": "after/settings-light.png", "theme": "light", "text_size": "medium" },
+    { "state": "Floor", "before": "before/floor-dark.png", "after": "after/floor-dark.png", "theme": "dark", "text_size": "medium" },
+    { "state": "Floor accessibility", "before": "before/you-accessibility-extra-large.png", "after": "after/floor-accessibility-large-dark.png", "theme": "dark", "text_size": "accessibility-large", "notes": "Representative accessibility comparison uses different content surfaces" }
+  ],
+  "capture_method": "xcrun simctl io screenshot",
+  "owner_subjective_approval": "pending"
+}
