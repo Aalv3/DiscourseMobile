@@ -4,6 +4,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
+  Image,
   Linking,
   Pressable,
   ScrollView,
@@ -28,9 +29,11 @@ import {
 } from '../notificationStatus';
 import {
   bookmarkDeletePath,
+  memberSearchResults,
   searchResults,
   supportedNotificationPreferences,
 } from './memberUtilities';
+import { optionLabel, stateLabel } from './adjusterCardPresentation';
 
 const Shell = ({ title, navigation, children }) => {
   const colors = useProductTheme();
@@ -97,6 +100,88 @@ const Status = ({ children }) => {
   const colors = useProductTheme();
   return (
     <Text style={[styles.status, { color: colors.muted }]}>{children}</Text>
+  );
+};
+
+const memberAvatarUrl = (site, template) => {
+  if (!template) return null;
+  const path = template.replace('{size}', '96');
+  return path.startsWith('http') ? path : `${site.url}${path}`;
+};
+
+const MemberSearchResult = ({ member, site, onPress }) => {
+  const colors = useProductTheme();
+  const metadata = member.professionalMetadata || {};
+  const headline =
+    typeof metadata.professional_headline === 'string'
+      ? metadata.professional_headline.trim()
+      : '';
+  const location =
+    typeof metadata.base_state === 'string' && metadata.base_state
+      ? stateLabel(metadata.base_state)
+      : '';
+  const licenses = Array.isArray(metadata.licensed_states)
+    ? metadata.licensed_states.filter(Boolean).slice(0, 4)
+    : [];
+  const specialties = Array.isArray(metadata.specialties)
+    ? metadata.specialties
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(value => optionLabel('specialties', value))
+    : [];
+  const details = [
+    location ? `Based in ${location}` : null,
+    licenses.length ? `Licensed: ${licenses.join(', ')}` : null,
+    specialties.length ? specialties.join(' · ') : null,
+  ].filter(Boolean);
+  const avatar = memberAvatarUrl(site, member.avatarTemplate);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${member.title} Adjuster Card`}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.memberResult,
+        {
+          borderBottomColor: colors.border,
+          backgroundColor: pressed ? colors.accentSoft : 'transparent',
+        },
+      ]}
+    >
+      {avatar ? (
+        <Image source={{ uri: avatar }} style={styles.memberAvatar} />
+      ) : (
+        <View style={[styles.memberAvatar, { backgroundColor: colors.accent }]}>
+          <Text style={styles.memberAvatarInitial}>
+            {(member.title || member.username).slice(0, 1).toUpperCase()}
+          </Text>
+        </View>
+      )}
+      <View style={styles.flex}>
+        <Text style={[styles.memberName, { color: colors.text }]}>
+          {member.title}
+        </Text>
+        <Text style={[styles.memberUsername, { color: colors.muted }]}>
+          @{member.username}
+        </Text>
+        {headline ? (
+          <Text style={[styles.memberHeadline, { color: colors.accent }]}>
+            {headline}
+          </Text>
+        ) : null}
+        {details.length ? (
+          <Text style={[styles.memberMetadata, { color: colors.muted }]}>
+            {details.join(' · ')}
+          </Text>
+        ) : null}
+      </View>
+      <FontAwesome5
+        name="chevron-right"
+        iconStyle="solid"
+        size={13}
+        color={colors.muted}
+      />
+    </Pressable>
   );
 };
 
@@ -371,35 +456,78 @@ export function NativeSearchScreen({ navigation, screenProps }) {
   const colors = useProductTheme();
   const site = activeMemberSite(screenProps.siteManager);
   const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState('all');
   const [state, setState] = useState({
     loading: false,
     searched: false,
-    results: [],
-    error: null,
+    contentResults: [],
+    memberResults: [],
+    contentError: null,
+    memberError: null,
   });
   const search = async () => {
     const term = query.trim();
     if (!term) return;
-    setState({ loading: true, searched: true, results: [], error: null });
-    try {
-      const payload = await site.jsonApi(
-        `/search.json?q=${encodeURIComponent(term)}`,
-      );
-      setState({
-        loading: false,
-        searched: true,
-        results: searchResults(payload),
-        error: null,
-      });
-    } catch {
-      setState({
-        loading: false,
-        searched: true,
-        results: [],
-        error: 'Search could not be completed.',
-      });
+    setState({
+      loading: true,
+      searched: true,
+      contentResults: [],
+      memberResults: [],
+      contentError: null,
+      memberError: null,
+    });
+    const [contentResponse, memberResponse] = await Promise.allSettled([
+      site.jsonApi(`/search.json?q=${encodeURIComponent(term)}`),
+      site.jsonApi(
+        `/native/v1/member-search?q=${encodeURIComponent(term)}&limit=10`,
+      ),
+    ]);
+    let contentResults = [];
+    let memberResults = [];
+    let contentError = null;
+    let memberError = null;
+    if (contentResponse.status === 'fulfilled') {
+      try {
+        contentResults = searchResults(contentResponse.value).filter(
+          result => result.kind !== 'user',
+        );
+      } catch {
+        contentError = 'Discussion search returned an unsupported response.';
+      }
+    } else {
+      contentError = 'Discussion search is temporarily unavailable.';
     }
+    if (memberResponse.status === 'fulfilled') {
+      try {
+        memberResults = memberSearchResults(memberResponse.value);
+      } catch {
+        memberError = 'Member search returned an unsupported response.';
+      }
+    } else {
+      memberError = 'Member search is temporarily unavailable.';
+    }
+    setState({
+      loading: false,
+      searched: true,
+      contentResults,
+      memberResults,
+      contentError,
+      memberError,
+    });
   };
+  const showContent = filter !== 'members';
+  const showMembers = filter !== 'discussions';
+  const visibleCount =
+    (showContent ? state.contentResults.length : 0) +
+    (showMembers ? state.memberResults.length : 0);
+  const visibleError =
+    (showContent && state.contentError) || (showMembers && state.memberError);
+  const emptyMessage =
+    filter === 'members'
+      ? 'No matching Network members were found.'
+      : filter === 'discussions'
+      ? 'No matching discussions were found.'
+      : 'No matching members or discussions were found.';
   return (
     <Shell title="Search" navigation={navigation}>
       <View style={styles.searchBar}>
@@ -425,35 +553,93 @@ export function NativeSearchScreen({ navigation, screenProps }) {
           onPress={search}
           disabled={!query.trim() || state.loading}
         />
+        <View
+          accessibilityRole="tablist"
+          style={[styles.searchFilters, { borderColor: colors.border }]}
+        >
+          {[
+            ['all', 'All'],
+            ['discussions', 'Discussions'],
+            ['members', 'Members'],
+          ].map(([value, label]) => {
+            const selected = filter === value;
+            return (
+              <Pressable
+                key={value}
+                accessibilityRole="tab"
+                accessibilityState={{ selected }}
+                accessibilityLabel={`${label} search results`}
+                onPress={() => setFilter(value)}
+                style={[
+                  styles.searchFilter,
+                  { backgroundColor: selected ? colors.text : 'transparent' },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.searchFilterText,
+                    { color: selected ? colors.canvas : colors.muted },
+                  ]}
+                >
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
       <ScrollView
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.content}
       >
-        {state.loading ? (
-          <ContentSkeleton rows={4} />
-        ) : (
-          state.results.map(result => (
-            <Row
-              key={result.key}
-              title={result.title}
-              detail={result.detail}
-              onPress={() => screenProps.openUrl(`${site.url}${result.path}`)}
-            />
-          ))
-        )}
-        {!state.loading &&
-        state.searched &&
-        !state.results.length &&
-        !state.error ? (
-          <Status>No matching member content was found.</Status>
+        {state.loading ? <ContentSkeleton rows={4} /> : null}
+        {!state.loading && showMembers && state.memberResults.length ? (
+          <View>
+            <Text style={[styles.resultSection, { color: colors.brandAccent }]}>
+              MEMBERS
+            </Text>
+            {state.memberResults.map(member => (
+              <MemberSearchResult
+                key={member.key}
+                member={member}
+                site={site}
+                onPress={() => screenProps.openUrl(`${site.url}${member.path}`)}
+              />
+            ))}
+          </View>
         ) : null}
-        {state.error ? (
+        {!state.loading && showContent && state.contentResults.length ? (
+          <View>
+            <Text style={[styles.resultSection, { color: colors.brandAccent }]}>
+              DISCUSSIONS
+            </Text>
+            {state.contentResults.map(result => (
+              <Row
+                key={result.key}
+                title={result.title}
+                detail={result.detail}
+                onPress={() => screenProps.openUrl(`${site.url}${result.path}`)}
+              />
+            ))}
+          </View>
+        ) : null}
+        {!state.loading && state.searched && !visibleCount && !visibleError ? (
+          <Status>{emptyMessage}</Status>
+        ) : null}
+        {!state.loading && showMembers && state.memberError ? (
           <Text
             accessibilityRole="alert"
             style={[styles.error, { color: colors.danger }]}
           >
-            {state.error}
+            {state.memberError}
+          </Text>
+        ) : null}
+        {!state.loading && showContent && state.contentError ? (
+          <Text
+            accessibilityRole="alert"
+            style={[styles.error, { color: colors.danger }]}
+          >
+            {state.contentError}
           </Text>
         ) : null}
       </ScrollView>
@@ -620,6 +806,56 @@ const styles = StyleSheet.create({
   },
   error: { fontSize: 14, lineHeight: 20, marginVertical: spacing.md },
   searchBar: { padding: spacing.md, gap: spacing.sm },
+  searchFilters: {
+    minHeight: 42,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.pill,
+    padding: 3,
+    flexDirection: 'row',
+    gap: 2,
+  },
+  searchFilter: {
+    flex: 1,
+    minHeight: 34,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchFilterText: { fontSize: 13, lineHeight: 17, fontWeight: '750' },
+  resultSection: {
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '800',
+    letterSpacing: 1.05,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  memberResult: {
+    minHeight: 88,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  memberAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  memberAvatarInitial: { color: '#FFF', fontSize: 20, fontWeight: '800' },
+  memberName: { fontSize: 16, lineHeight: 21, fontWeight: '800' },
+  memberUsername: { fontSize: 13, lineHeight: 17, marginTop: 1 },
+  memberHeadline: {
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  memberMetadata: { fontSize: 12, lineHeight: 17, marginTop: 3 },
   input: {
     minHeight: 48,
     borderWidth: StyleSheet.hairlineWidth,

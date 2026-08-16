@@ -3,6 +3,7 @@
 
 import {
   bookmarkDeletePath,
+  memberSearchResults,
   searchResults,
   supportedNotificationPreferences,
 } from '../product/memberUtilities';
@@ -24,6 +25,50 @@ describe('Wave 2 member correctness helpers', () => {
       expect.objectContaining({ kind: 'post', path: '/t/wind/7/2' }),
       expect.objectContaining({ kind: 'user', path: '/u/alex' }),
     ]);
+  });
+
+  test('member discovery accepts only the narrow v1 contract and canonical identity fields', () => {
+    expect(
+      memberSearchResults({
+        schema: 'an.member-search.v1',
+        results: [
+          {
+            username: 'qa_test',
+            display_name: 'QA Test Adjuster',
+            avatar_template: '/user_avatar/adjusternetwork.org/qa_test/{size}/1.png',
+            professional_metadata: {
+              professional_headline: 'Property adjuster',
+              base_state: 'OH',
+              licensed_states: ['OH'],
+              specialties: ['property_residential'],
+              email: 'must-not-pass-through@example.test',
+              resume: { url: 'must-not-pass-through' },
+            },
+            destination: {
+              type: 'member_adjuster_card',
+              path: '/native/v1/profiles/qa_test',
+            },
+          },
+          { username: 'QA_TEST', display_name: 'Duplicate' },
+        ],
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        key: 'member-qa_test',
+        username: 'qa_test',
+        title: 'QA Test Adjuster',
+        path: '/u/qa_test',
+        professionalMetadata: {
+          professional_headline: 'Property adjuster',
+          base_state: 'OH',
+          licensed_states: ['OH'],
+          specialties: ['property_residential'],
+        },
+      }),
+    ]);
+    expect(() => memberSearchResults({ results: [] })).toThrow(
+      'Invalid member-search response',
+    );
   });
 
   test('notification fields are capability-derived from the returned payload', () => {

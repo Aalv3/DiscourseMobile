@@ -21,7 +21,7 @@ describe('native topic participation', () => {
       'reply_to_post_number: composer.replyToPostNumber',
     );
     expect(siteManagerSource).toContain(
-      "'read,write,notifications,session_info,one_time_password'",
+      "'read,write,notifications,session_info,one_time_password,adjuster-network-renaissance:member_discovery'",
     );
   });
 

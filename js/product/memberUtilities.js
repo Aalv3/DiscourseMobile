@@ -39,6 +39,44 @@ export const searchResults = payload => {
   ];
 };
 
+export const memberSearchResults = payload => {
+  if (
+    payload?.schema !== 'an.member-search.v1' ||
+    !Array.isArray(payload?.results)
+  ) {
+    throw new Error('Invalid member-search response');
+  }
+
+  const usernames = new Set();
+  return payload.results.reduce((results, candidate) => {
+    const username = candidate?.username?.trim();
+    if (!username || usernames.has(username.toLowerCase())) return results;
+    usernames.add(username.toLowerCase());
+    const metadata = candidate?.professional_metadata;
+    results.push({
+      key: `member-${username.toLowerCase()}`,
+      kind: 'member',
+      username,
+      title: candidate.display_name?.trim() || username,
+      avatarTemplate:
+        typeof candidate.avatar_template === 'string'
+          ? candidate.avatar_template
+          : null,
+      professionalMetadata:
+        metadata && typeof metadata === 'object' && !Array.isArray(metadata)
+          ? {
+              professional_headline: metadata.professional_headline,
+              base_state: metadata.base_state,
+              licensed_states: metadata.licensed_states,
+              specialties: metadata.specialties,
+            }
+          : {},
+      path: `/u/${encodeURIComponent(username)}`,
+    });
+    return results;
+  }, []);
+};
+
 export const supportedNotificationPreferences = userOption => [
   ...(Number.isInteger(userOption?.email_level)
     ? [

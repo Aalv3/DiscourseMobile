@@ -40,9 +40,23 @@ describe('native member utility surfaces', () => {
     expect(source).toContain('`/search.json?q=${encodeURIComponent(term)}`');
     expect(source).toContain('/activity/bookmarks.json`');
     expect(source).toContain('screenProps.openUrl(');
-    expect(source).toContain('searchResults(payload)');
+    expect(source).toContain('searchResults(contentResponse.value)');
+    expect(source).toContain('/native/v1/member-search?q=');
+    expect(source).toContain('memberSearchResults(memberResponse.value)');
+    expect(source).toContain("['members', 'Members']");
+    expect(source).toContain('Open ${member.title} Adjuster Card');
     expect(source).toContain('bookmarkDeletePath(item.id)');
     expect(source).not.toContain('WebView');
+  });
+
+  test('member search uses only contract-returned professional metadata', () => {
+    const helper = read('product/memberUtilities.js');
+    expect(helper).toContain("payload?.schema !== 'an.member-search.v1'");
+    expect(helper).toContain('professional_headline: metadata.professional_headline');
+    expect(helper).toContain('licensed_states: metadata.licensed_states');
+    expect(helper).not.toContain('metadata.email');
+    expect(helper).not.toContain('metadata.phone');
+    expect(helper).not.toContain('metadata.resume');
   });
 
   test('privacy actions are confirmed and use authenticated export plus reviewed deletion', () => {

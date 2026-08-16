@@ -487,9 +487,10 @@ class SiteManager {
           // Native member participation uses the supported Discourse
           // POST /posts.json contract. Keep write narrowly scoped within the
           // same User API Key authorization rather than falling back to web
-          // cookies or a PWA session.
+          // cookies or a PWA session. Member discovery is separately scoped
+          // and production-authorized so profile search remains read-only.
           let scopes =
-            'read,write,notifications,session_info,one_time_password';
+            'read,write,notifications,session_info,one_time_password,adjuster-network-renaissance:member_discovery';
 
           let params = {
             scopes: scopes,

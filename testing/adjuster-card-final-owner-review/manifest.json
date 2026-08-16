@@ -1,5 +1,5 @@
 {
-  "nativeBaseline": "af5a79a72803f60a03643cc9415234546141a2d4",
+  "nativeBaseline": "78f037915bab363f22a1341477b86078aff4140e",
   "capturedAt": "2026-08-16",
   "device": {
     "name": "iPhone 17 Pro",
@@ -31,22 +31,34 @@
       "file": "screenshots/005-member-card.png",
       "state": "Canonical member Adjuster Card",
       "result": "captured"
-    }
-  ],
-  "omissions": [
-    {
-      "state": "Other-member card with SELF field omitted",
-      "reason": "Issued ordinary-member account/session returned HTTP 403 for profile/onboarding hydration."
     },
     {
-      "state": "Other-member card with NETWORK field shown",
-      "reason": "Issued ordinary-member account/session returned HTTP 403 for profile/onboarding hydration."
+      "file": "screenshots/006-second-member-licensed-states-hidden.png",
+      "state": "Ordinary second-member view with licensed states set to Only me",
+      "result": "captured; licensed states absent"
     },
     {
-      "state": "Dark other-member card",
-      "reason": "Cross-member session was unavailable; no evidence was fabricated."
+      "file": "screenshots/007-second-member-licensed-states-visible.png",
+      "state": "Ordinary second-member view with licensed states set to Network members",
+      "result": "captured; licensed states visible"
+    },
+    {
+      "file": "screenshots/008-populated-qa-card-dark.png",
+      "state": "Populated qa_test Adjuster Card in dark mode",
+      "result": "captured"
+    },
+    {
+      "file": "screenshots/009-member-search-qa-test.png",
+      "state": "Member discovery result for qa_test",
+      "result": "captured; Network-visible identity only"
+    },
+    {
+      "file": "screenshots/010-member-search-adjuster-card.png",
+      "state": "Native qa_test Adjuster Card opened from member search",
+      "result": "captured; native route"
     }
   ],
+  "omissions": [],
   "privacy": {
     "rawTokensIncluded": false,
     "rawApiPayloadsIncluded": false,
