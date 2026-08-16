@@ -72,4 +72,21 @@ describe('authenticated member shell', () => {
     expect(source).toContain('translucent={false}');
     expect(source).toContain('tabBarHideOnKeyboard: true');
   });
+
+  test('member account rows use supported semantic glyphs', () => {
+    const source = read('product/ProductScreens.js');
+    const glyphs = require('../../node_modules/@react-native-vector-icons/fontawesome5/glyphmaps/FontAwesome5_solid.json');
+
+    expect(glyphs.cog).toBeDefined();
+    expect(source).toContain('icon="cog"');
+    expect(source).not.toContain('icon="gear"');
+    expect(source).not.toContain('? Back');
+  });
+
+  test('successful notification preference restores through registration', () => {
+    const source = read('Discourse.js');
+    expect(source).toMatch(/this\._pushFoundation\s*\.status\(\)/);
+    expect(source).toContain("if (preference !== 'enabled') return;");
+    expect(source).toContain('this._pushFoundation.enable(site)');
+  });
 });

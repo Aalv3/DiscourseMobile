@@ -921,7 +921,7 @@ export function ProfileScreen({ navigation, screenProps }) {
         onPress={() => screenProps.openUrl(`${site.url}/u/${username}`)}
       />
       <ProfileLink
-        icon="gear"
+        icon="cog"
         label="Account & preferences"
         onPress={() =>
           screenProps.openUrl(`${site.url}/u/${username}/preferences/account`)
@@ -967,7 +967,9 @@ const NotificationEducation = ({ status, onEnable }) => {
   const failed = typeof status === 'string' && status.includes('_');
   const temporarilyUnavailable = status === 'push_temporarily_unavailable';
   return (
-    <Card style={styles.notificationEducation}>
+    <View
+      style={[styles.notificationEducation, { borderColor: colors.border }]}
+    >
       <View style={styles.notificationEducationHeader}>
         <FontAwesome5
           name="bell"
@@ -1004,7 +1006,7 @@ const NotificationEducation = ({ status, onEnable }) => {
           </Text>
         </Pressable>
       ) : null}
-    </Card>
+    </View>
   );
 };
 
@@ -1326,7 +1328,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   profileLabel: { fontSize: 16, fontWeight: '650' },
-  notificationEducation: { marginBottom: spacing.md },
+  notificationEducation: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.xs,
+  },
   notificationEducationHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1334,10 +1341,8 @@ const styles = StyleSheet.create({
   },
   notificationEnable: {
     minHeight: 44,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'center',
-    marginTop: spacing.md,
+    marginTop: spacing.xs,
   },
 });

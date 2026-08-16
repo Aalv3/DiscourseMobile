@@ -137,6 +137,8 @@ class Discourse extends React.Component {
 
   _onboardingLoadGeneration = 0;
 
+  _pushRestoreSessionId = null;
+
   constructor(props) {
     super(props);
     this._siteManager = new SiteManager();
@@ -407,6 +409,25 @@ class Discourse extends React.Component {
       }
 
       const sessionId = onboardingSessionId(site);
+      if (this._pushRestoreSessionId !== sessionId) {
+        this._pushRestoreSessionId = sessionId;
+        this._pushFoundation
+          .status()
+          .then(async preference => {
+            this.setState({ pushStatus: preference });
+            if (preference !== 'enabled') return;
+            this.setState({ pushStatus: 'working' });
+            try {
+              const status = await this._pushFoundation.enable(site);
+              this.setState({ pushStatus: status });
+            } catch {
+              this.setState({ pushStatus: 'push_registration_failed' });
+            }
+          })
+          .catch(() =>
+            this.setState({ pushStatus: 'push_registration_failed' }),
+          );
+      }
       if (
         !this.state.signedIn ||
         this.state.onboardingSessionId !== sessionId

@@ -41,7 +41,9 @@ export function nativeCollectionRoute(value, authenticated) {
     if (tag) {
       return {
         kind: 'tag',
-        endpoint: `/tag/${encodeURIComponent(tag[1])}.json`,
+        endpoint: `/search.json?q=${encodeURIComponent(
+          `tags:${tag[1]} order:latest`,
+        )}`,
         slug: tag[1],
         url: url.toString(),
       };
