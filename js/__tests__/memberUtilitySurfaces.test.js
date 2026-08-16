@@ -19,11 +19,15 @@ describe('native member utility surfaces', () => {
     expect(source).toContain("navigation.navigate('PrivacyAccount')");
   });
 
-  test('appearance supports persisted system, light, and dark choices', () => {
+  test('appearance defaults to light and supports persisted system, light, and dark choices', () => {
     const root = read('Discourse.js');
+    const contracts = read('adjusterNetworkContracts.js');
     const screens = read('product/NativeMemberUtilityScreens.js');
     expect(root).toContain('@AdjusterNetwork.themePreference');
     expect(root).toContain("['system', 'light', 'dark']");
+    expect(root).toContain("themePreference: 'light'");
+    expect(root).toContain(": 'light';");
+    expect(contracts).toContain("default: 'light'");
     expect(screens).toContain("['system', 'light', 'dark'].map");
     expect(screens).toContain('accessibilityState=');
   });

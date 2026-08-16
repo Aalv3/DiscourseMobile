@@ -56,8 +56,8 @@ export const nativeContracts = Object.freeze({
     ]),
   }),
   appearance: Object.freeze({
-    source: 'system',
-    modes: Object.freeze(['light', 'dark']),
+    default: 'light',
+    modes: Object.freeze(['system', 'light', 'dark']),
   }),
   adjusterCard: Object.freeze({
     profile: Object.freeze({

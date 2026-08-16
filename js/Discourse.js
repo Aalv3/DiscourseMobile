@@ -213,7 +213,6 @@ class Discourse extends React.Component {
       );
     }
 
-    const colorScheme = Appearance.getColorScheme();
     const largerUI =
       DeviceInfo.getDeviceType() === 'Tablet' ||
       DeviceInfo.getDeviceType() === 'Desktop';
@@ -221,8 +220,8 @@ class Discourse extends React.Component {
     this.state = {
       deviceId: DeviceInfo.getDeviceId(),
       largerUI: largerUI,
-      theme: colorScheme === 'dark' ? themes.dark : themes.light,
-      themePreference: 'system',
+      theme: themes.light,
+      themePreference: 'light',
       privacyShield: false,
       signedIn: false,
       onboardingReady: false,
@@ -245,7 +244,7 @@ class Discourse extends React.Component {
     AsyncStorage.getItem('@AdjusterNetwork.themePreference').then(value => {
       const preference = ['system', 'light', 'dark'].includes(value)
         ? value
-        : 'system';
+        : 'light';
       const resolved =
         preference === 'system' ? Appearance.getColorScheme() : preference;
       this.setState({
