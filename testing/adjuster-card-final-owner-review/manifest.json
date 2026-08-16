@@ -1,0 +1,55 @@
+{
+  "nativeBaseline": "af5a79a72803f60a03643cc9415234546141a2d4",
+  "capturedAt": "2026-08-16",
+  "device": {
+    "name": "iPhone 17 Pro",
+    "runtime": "iOS 26.5",
+    "udid": "E281C0FD-BC09-46DB-B0C3-FF55F6EED966"
+  },
+  "captures": [
+    {
+      "file": "screenshots/001-populated-you.png",
+      "state": "Populated You / Adjuster Card",
+      "result": "captured"
+    },
+    {
+      "file": "screenshots/002-edit-profile-top.png",
+      "state": "Edit Profile photo, identity, licenses, and visibility",
+      "result": "captured"
+    },
+    {
+      "file": "screenshots/003-licenses-editor.png",
+      "state": "Licensed-state selector",
+      "result": "captured"
+    },
+    {
+      "file": "screenshots/004-experience-specialties.png",
+      "state": "Experience and specialties controls",
+      "result": "captured"
+    },
+    {
+      "file": "screenshots/005-member-card.png",
+      "state": "Canonical member Adjuster Card",
+      "result": "captured"
+    }
+  ],
+  "omissions": [
+    {
+      "state": "Other-member card with SELF field omitted",
+      "reason": "Issued ordinary-member account/session returned HTTP 403 for profile/onboarding hydration."
+    },
+    {
+      "state": "Other-member card with NETWORK field shown",
+      "reason": "Issued ordinary-member account/session returned HTTP 403 for profile/onboarding hydration."
+    },
+    {
+      "state": "Dark other-member card",
+      "reason": "Cross-member session was unavailable; no evidence was fabricated."
+    }
+  ],
+  "privacy": {
+    "rawTokensIncluded": false,
+    "rawApiPayloadsIncluded": false,
+    "privateResumeDataIncluded": false
+  }
+}

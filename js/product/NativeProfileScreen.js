@@ -12,8 +12,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
+import FontAwesome5 from '@react-native-vector-icons/fontawesome5';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
@@ -28,7 +30,14 @@ import {
   useProductTheme,
 } from './ProductComponents';
 import { radius, spacing } from './DesignSystem';
-import EmojiTextInput from './EmojiTextInput';
+import {
+  FIELD_LABELS,
+  optionLabel,
+  SPECIALTY_OPTIONS,
+  stateLabel,
+  US_STATES,
+  visibilityLabel,
+} from './adjusterCardPresentation';
 import { loadMemberProfileData } from './memberProfileData';
 import {
   deletePrivateResume,
@@ -75,8 +84,8 @@ export default function NativeProfileScreen({
     professional_headline: '',
     bio: '',
     base_state: '',
-    licensed_states: '',
-    specialties: '',
+    licensed_states: [],
+    specialties: [],
     adjuster_type: '',
     years_experience: '',
     cat_experience: '',
@@ -89,6 +98,7 @@ export default function NativeProfileScreen({
     submitting: false,
     error: null,
   });
+  const [selectionField, setSelectionField] = useState(null);
 
   const load = useCallback(async () => {
     if (!site?.authToken)
@@ -138,8 +148,8 @@ export default function NativeProfileScreen({
       professional_headline: state.card?.values.professional_headline || '',
       bio: state.card?.values.bio || '',
       base_state: state.card?.values.base_state || '',
-      licensed_states: (state.card?.values.licensed_states || []).join(', '),
-      specialties: (state.card?.values.specialties || []).join(', '),
+      licensed_states: [...(state.card?.values.licensed_states || [])],
+      specialties: [...(state.card?.values.specialties || [])],
       adjuster_type: state.card?.values.adjuster_type || '',
       years_experience: state.card?.values.years_experience || '',
       cat_experience: state.card?.values.cat_experience || '',
@@ -166,19 +176,8 @@ export default function NativeProfileScreen({
           professional_headline: editor.professional_headline.trim(),
           bio: editor.bio.trim(),
           base_state: editor.base_state.trim().toUpperCase(),
-          licensed_states: editor.licensed_states
-            .split(',')
-            .map(value => value.trim().toUpperCase())
-            .filter(Boolean),
-          specialties: editor.specialties
-            .split(',')
-            .map(value =>
-              value
-                .trim()
-                .toLowerCase()
-                .replace(/[^a-z0-9_-]+/g, '_'),
-            )
-            .filter(Boolean),
+          licensed_states: editor.licensed_states,
+          specialties: editor.specialties,
           adjuster_type: editor.adjuster_type,
           years_experience: editor.years_experience,
           cat_experience: editor.cat_experience,
@@ -357,6 +356,202 @@ export default function NativeProfileScreen({
     ...editableFieldsForStep(card, 'licenses'),
     ...editableFieldsForStep(card, 'experience'),
   ];
+  const canSetVisibility = field => {
+    const options = card?.capabilities?.[field]?.visibilityOptions || [];
+    return options.includes('members') && options.includes('self');
+  };
+  const renderVisibility = field =>
+    canSetVisibility(field) ? (
+      <View style={styles.visibilityRow}>
+        <Text style={[styles.visibilityLabel, { color: colors.muted }]}>
+          Visibility
+        </Text>
+        {[
+          ['members', 'users'],
+          ['self', 'lock'],
+        ].map(([value, icon]) => {
+          const selected = (editor.visibility[field] || 'self') === value;
+          return (
+            <Pressable
+              key={value}
+              accessibilityRole="radio"
+              accessibilityLabel={`${
+                FIELD_LABELS[field]
+              } visibility: ${visibilityLabel(value)}`}
+              accessibilityState={{ checked: selected }}
+              disabled={editor.submitting}
+              onPress={() =>
+                setEditor(current => ({
+                  ...current,
+                  visibility: { ...current.visibility, [field]: value },
+                }))
+              }
+              style={[
+                styles.visibilityChoice,
+                {
+                  backgroundColor: selected ? colors.accentSoft : colors.canvas,
+                  borderColor: selected ? colors.accent : colors.border,
+                },
+              ]}
+            >
+              <FontAwesome5
+                name={icon}
+                size={12}
+                color={selected ? colors.accent : colors.muted}
+                iconStyle="solid"
+              />
+              <Text
+                style={[
+                  styles.visibilityChoiceText,
+                  { color: selected ? colors.accent : colors.muted },
+                ]}
+              >
+                {visibilityLabel(value)}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    ) : null;
+  const renderTextField = (field, options = {}) =>
+    editableFields.includes(field) ? (
+      <View key={field} style={styles.fieldGroup}>
+        <Text style={[styles.fieldLabel, { color: colors.text }]}>
+          {FIELD_LABELS[field]}
+        </Text>
+        <TextInput
+          accessibilityLabel={FIELD_LABELS[field]}
+          editable={!editor.submitting}
+          multiline={options.multiline === true}
+          onChangeText={value =>
+            setEditor(current => ({ ...current, [field]: value, error: null }))
+          }
+          placeholder={options.placeholder}
+          placeholderTextColor={colors.muted}
+          style={[
+            styles.input,
+            options.multiline && styles.bioInput,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              color: colors.text,
+            },
+          ]}
+          textAlignVertical={options.multiline ? 'top' : 'center'}
+          value={editor[field]}
+        />
+        {renderVisibility(field)}
+      </View>
+    ) : null;
+  const renderTokenField = field => {
+    if (!editableFields.includes(field)) return null;
+    const values = editor[field] || [];
+    const display = value =>
+      field === 'licensed_states' ? value : optionLabel('specialties', value);
+    return (
+      <View key={field} style={styles.fieldGroup}>
+        <Text style={[styles.fieldLabel, { color: colors.text }]}>
+          {FIELD_LABELS[field]}
+        </Text>
+        <View style={styles.valueChips}>
+          {values.map(value => (
+            <View
+              key={value}
+              style={[styles.valueChip, { backgroundColor: colors.accentSoft }]}
+            >
+              <Text style={[styles.valueChipText, { color: colors.accent }]}>
+                {display(value)}
+              </Text>
+            </View>
+          ))}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Edit ${FIELD_LABELS[field].toLowerCase()}`}
+            disabled={editor.submitting}
+            onPress={() => setSelectionField(field)}
+            style={[styles.addChoice, { borderColor: colors.border }]}
+          >
+            <FontAwesome5
+              name="plus"
+              size={12}
+              color={colors.accent}
+              iconStyle="solid"
+            />
+            <Text style={[styles.addChoiceText, { color: colors.accent }]}>
+              {values.length ? 'Edit' : 'Add'}
+            </Text>
+          </Pressable>
+        </View>
+        {renderVisibility(field)}
+      </View>
+    );
+  };
+  const renderOptionField = (field, options) =>
+    editableFields.includes(field) ? (
+      <View key={field} style={styles.fieldGroup}>
+        <Text style={[styles.fieldLabel, { color: colors.text }]}>
+          {FIELD_LABELS[field]}
+        </Text>
+        <View style={styles.optionRow}>
+          {options.map(([value, label]) => {
+            const selected = editor[field] === value;
+            return (
+              <Pressable
+                key={value}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: selected }}
+                disabled={editor.submitting}
+                onPress={() =>
+                  setEditor(current => ({
+                    ...current,
+                    [field]: value,
+                    error: null,
+                  }))
+                }
+                style={[
+                  styles.option,
+                  {
+                    backgroundColor: selected
+                      ? colors.accentSoft
+                      : colors.surface,
+                    borderColor: selected ? colors.accent : colors.border,
+                  },
+                ]}
+              >
+                <Text style={[styles.optionText, { color: colors.text }]}>
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {renderVisibility(field)}
+      </View>
+    ) : null;
+  const selectionChoices =
+    selectionField === 'specialties' ? SPECIALTY_OPTIONS : US_STATES;
+  const selectionIsMultiple =
+    selectionField === 'licensed_states' || selectionField === 'specialties';
+  const selectionContains = value =>
+    selectionIsMultiple
+      ? (editor[selectionField] || []).includes(value)
+      : editor[selectionField] === value;
+  const updateSelection = value => {
+    if (!selectionIsMultiple) {
+      setEditor(current => ({ ...current, [selectionField]: value }));
+      setSelectionField(null);
+      return;
+    }
+    setEditor(current => {
+      const present = (current[selectionField] || []).includes(value);
+      return {
+        ...current,
+        [selectionField]: present
+          ? current[selectionField].filter(item => item !== value)
+          : [...current[selectionField], value],
+      };
+    });
+  };
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.canvas }]}>
       <NestedHeader title="Member profile" onBack={() => navigation.goBack()} />
@@ -415,11 +610,6 @@ export default function NativeProfileScreen({
               {card.values.professional_headline}
             </Text>
           ) : null}
-          {card?.values.base_state ? (
-            <Text style={[styles.detail, { color: colors.muted }]}>
-              Based in {card.values.base_state}
-            </Text>
-          ) : null}
           {plainText(card?.values.bio) ? (
             <Text style={[styles.bio, { color: colors.text }]}>
               {plainText(card.values.bio)}
@@ -429,33 +619,82 @@ export default function NativeProfileScreen({
               This member has not added a bio.
             </Text>
           )}
-          {Array.isArray(card?.values.licensed_states) &&
-          card.values.licensed_states.length ? (
-            <Text style={[styles.detail, { color: colors.muted }]}>
-              Licensed: {card.values.licensed_states.join(', ')}
-            </Text>
-          ) : null}
-          {Array.isArray(card?.values.specialties) &&
-          card.values.specialties.length ? (
-            <Text style={[styles.detail, { color: colors.muted }]}>
-              Specialties: {card.values.specialties.join(', ')}
-            </Text>
-          ) : null}
-          {[
-            card?.values.adjuster_type,
-            card?.values.years_experience,
-            card?.values.cat_experience,
-            card?.values.work_mode,
-          ]
-            .filter(Boolean)
-            .map(value => (
-              <Text
-                key={value}
-                style={[styles.detail, { color: colors.muted }]}
-              >
-                {String(value).replaceAll('_', ' ')}
+          {card?.values.base_state || card?.values.licensed_states?.length ? (
+            <View style={styles.profileSection}>
+              <Text style={[styles.profileEyebrow, { color: colors.muted }]}>
+                AT A GLANCE
               </Text>
-            ))}
+              {card?.values.base_state ? (
+                <Text style={[styles.profileFact, { color: colors.text }]}>
+                  Based in {stateLabel(card.values.base_state)}
+                </Text>
+              ) : null}
+              {card?.values.licensed_states?.length ? (
+                <View style={styles.valueChips}>
+                  {card.values.licensed_states.map(value => (
+                    <View
+                      key={value}
+                      style={[
+                        styles.valueChip,
+                        { backgroundColor: colors.accentSoft },
+                      ]}
+                    >
+                      <Text
+                        style={[styles.valueChipText, { color: colors.accent }]}
+                      >
+                        {value}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+          {card?.values.specialties?.length ||
+          card?.values.adjuster_type ||
+          card?.values.years_experience ||
+          card?.values.cat_experience ||
+          card?.values.work_mode ? (
+            <View style={styles.profileSection}>
+              <Text style={[styles.profileEyebrow, { color: colors.muted }]}>
+                EXPERIENCE
+              </Text>
+              {card?.values.specialties?.length ? (
+                <View style={styles.valueChips}>
+                  {card.values.specialties.map(value => (
+                    <View
+                      key={value}
+                      style={[
+                        styles.valueChip,
+                        { backgroundColor: colors.surfaceAlt },
+                      ]}
+                    >
+                      <Text
+                        style={[styles.valueChipText, { color: colors.text }]}
+                      >
+                        {optionLabel('specialties', value)}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+              {[
+                ['adjuster_type', card?.values.adjuster_type],
+                ['years_experience', card?.values.years_experience],
+                ['cat_experience', card?.values.cat_experience],
+                ['work_mode', card?.values.work_mode],
+              ]
+                .filter(([, value]) => value)
+                .map(([field, value]) => (
+                  <Text
+                    key={field}
+                    style={[styles.profileFact, { color: colors.text }]}
+                  >
+                    {FIELD_LABELS[field]}: {optionLabel(field, value)}
+                  </Text>
+                ))}
+            </View>
+          ) : null}
           {canEdit ? (
             <View style={styles.edit}>
               <Action
@@ -518,203 +757,134 @@ export default function NativeProfileScreen({
               contentContainerStyle={styles.content}
               keyboardShouldPersistTaps="handled"
             >
-              {[
-                ['Name', 'name'],
-                ['Professional headline', 'professional_headline'],
-                ['Base state', 'base_state'],
-                ['Licensed states', 'licensed_states'],
-                ['Specialties', 'specialties'],
-              ]
-                .filter(([, field]) => editableFields.includes(field))
-                .map(([label, field]) => (
-                  <EmojiTextInput
-                    key={field}
-                    accessibilityLabel={label}
-                    editable={!editor.submitting}
-                    placeholder={label}
-                    placeholderTextColor={colors.muted}
-                    value={editor[field]}
-                    onChangeText={value =>
-                      setEditor(current => ({
-                        ...current,
-                        [field]: value,
-                        error: null,
-                      }))
-                    }
-                    style={[
-                      styles.input,
-                      {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.border,
-                        color: colors.text,
-                      },
-                    ]}
-                  />
-                ))}
-              {editableFields.includes('bio') ? (
-                <EmojiTextInput
-                  accessibilityLabel="Bio"
-                  editable={!editor.submitting}
-                  multiline
-                  placeholder="About you"
-                  placeholderTextColor={colors.muted}
-                  value={editor.bio}
-                  onChangeText={bio =>
-                    setEditor(current => ({ ...current, bio, error: null }))
-                  }
+              {card?.photo.enabled ? (
+                <View
                   style={[
-                    styles.input,
-                    styles.bioInput,
+                    styles.photoEditor,
                     {
                       backgroundColor: colors.surface,
                       borderColor: colors.border,
-                      color: colors.text,
                     },
                   ]}
-                  textAlignVertical="top"
-                />
-              ) : null}
-              {Object.entries(FIELD_OPTIONS)
-                .filter(([field]) => editableFields.includes(field))
-                .map(([field, options]) => (
-                  <View key={field} style={styles.optionGroup}>
-                    <Text style={[styles.optionLabel, { color: colors.text }]}>
-                      {field.replaceAll('_', ' ')}
-                    </Text>
-                    <View style={styles.optionRow}>
-                      {options.map(([value, label]) => {
-                        const selected = editor[field] === value;
-                        return (
-                          <Pressable
-                            key={value}
-                            accessibilityRole="radio"
-                            accessibilityState={{ checked: selected }}
-                            disabled={editor.submitting}
-                            onPress={() =>
-                              setEditor(current => ({
-                                ...current,
-                                [field]: value,
-                                error: null,
-                              }))
-                            }
-                            style={[
-                              styles.option,
-                              {
-                                backgroundColor: selected
-                                  ? colors.accentSoft
-                                  : colors.surface,
-                                borderColor: selected
-                                  ? colors.accent
-                                  : colors.border,
-                              },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.optionText,
-                                { color: colors.text },
-                              ]}
-                            >
-                              {label}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  </View>
-                ))}
-              {editableFields
-                .filter(
-                  field =>
-                    card?.capabilities?.[field]?.visibilityOptions?.includes(
-                      'members',
-                    ) &&
-                    card?.capabilities?.[field]?.visibilityOptions?.includes(
-                      'self',
-                    ),
-                )
-                .map(field => (
-                  <View key={`visibility-${field}`} style={styles.optionGroup}>
-                    <Text style={[styles.optionLabel, { color: colors.text }]}>
-                      {field.replaceAll('_', ' ')} visibility
-                    </Text>
-                    <View style={styles.optionRow}>
-                      {[
-                        ['members', 'Network members'],
-                        ['self', 'Only me'],
-                      ].map(([value, label]) => {
-                        const selected =
-                          (editor.visibility[field] || 'self') === value;
-                        return (
-                          <Pressable
-                            key={value}
-                            accessibilityRole="radio"
-                            accessibilityState={{ checked: selected }}
-                            disabled={editor.submitting}
-                            onPress={() =>
-                              setEditor(current => ({
-                                ...current,
-                                visibility: {
-                                  ...current.visibility,
-                                  [field]: value,
-                                },
-                              }))
-                            }
-                            style={[
-                              styles.option,
-                              {
-                                backgroundColor: selected
-                                  ? colors.accentSoft
-                                  : colors.surface,
-                                borderColor: selected
-                                  ? colors.accent
-                                  : colors.border,
-                              },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.optionText,
-                                { color: colors.text },
-                              ]}
-                            >
-                              {label}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  </View>
-                ))}
-              {card?.photo.enabled ? (
-                <View style={styles.mediaAction}>
-                  {editor.photoPreviewUri ? (
+                >
+                  {editor.photoPreviewUri ||
+                  avatarUrl(site, card.avatarTemplate) ? (
                     <Image
-                      accessibilityLabel="Selected profile photo preview"
-                      source={{ uri: editor.photoPreviewUri }}
-                      style={styles.photoPreview}
+                      accessibilityLabel="Current profile photo"
+                      source={{
+                        uri:
+                          editor.photoPreviewUri ||
+                          avatarUrl(site, card.avatarTemplate),
+                      }}
+                      style={styles.photoEditorAvatar}
                     />
-                  ) : null}
-                  <Action
-                    disabled={editor.submitting || !card.photo.editable}
-                    label={
-                      card.avatarTemplate
-                        ? 'Replace profile photo'
-                        : 'Choose profile photo'
-                    }
-                    onPress={choosePhoto}
-                    secondary
-                  />
-                  {card.avatarTemplate ? (
-                    <Action
+                  ) : (
+                    <View
+                      style={[
+                        styles.photoEditorAvatar,
+                        styles.photoFallback,
+                        { backgroundColor: colors.accentSoft },
+                      ]}
+                    >
+                      <FontAwesome5
+                        name="user"
+                        size={28}
+                        color={colors.accent}
+                        iconStyle="solid"
+                      />
+                    </View>
+                  )}
+                  <View style={styles.photoActions}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Change profile photo"
                       disabled={editor.submitting || !card.photo.editable}
-                      label="Remove profile photo"
-                      onPress={removePhoto}
-                      secondary
-                    />
-                  ) : null}
+                      onPress={choosePhoto}
+                      style={styles.compactAction}
+                    >
+                      <Text
+                        style={[
+                          styles.compactActionText,
+                          { color: colors.accent },
+                        ]}
+                      >
+                        Change photo
+                      </Text>
+                    </Pressable>
+                    {card.avatarTemplate ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Remove profile photo"
+                        disabled={editor.submitting || !card.photo.editable}
+                        onPress={removePhoto}
+                        style={styles.compactAction}
+                      >
+                        <Text
+                          style={[
+                            styles.compactActionText,
+                            { color: colors.danger },
+                          ]}
+                        >
+                          Remove photo
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
                 </View>
               ) : null}
+              {renderTextField('name', { placeholder: 'How members know you' })}
+              {renderTextField('professional_headline', {
+                placeholder: 'Your role or focus',
+              })}
+              {editableFields.includes('base_state') ? (
+                <View style={styles.fieldGroup}>
+                  <Text style={[styles.fieldLabel, { color: colors.text }]}>
+                    Base state
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Base state: ${
+                      stateLabel(editor.base_state) || 'Not selected'
+                    }`}
+                    onPress={() => setSelectionField('base_state')}
+                    style={[
+                      styles.selector,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.selectorText,
+                        {
+                          color: editor.base_state ? colors.text : colors.muted,
+                        },
+                      ]}
+                    >
+                      {stateLabel(editor.base_state) ||
+                        'Select your base state'}
+                    </Text>
+                    <FontAwesome5
+                      name="chevron-down"
+                      size={13}
+                      color={colors.muted}
+                      iconStyle="solid"
+                    />
+                  </Pressable>
+                  {renderVisibility('base_state')}
+                </View>
+              ) : null}
+              {renderTokenField('licensed_states')}
+              {renderTextField('bio', {
+                multiline: true,
+                placeholder: 'Share your professional background',
+              })}
+              {Object.entries(FIELD_OPTIONS).map(([field, options]) =>
+                renderOptionField(field, options),
+              )}
+              {renderTokenField('specialties')}
               {card?.resume.enabled ? (
                 <View style={styles.mediaAction}>
                   <Text style={[styles.detail, { color: colors.muted }]}>
@@ -758,6 +928,81 @@ export default function NativeProfileScreen({
                 />
               </View>
             </ScrollView>
+            <Modal
+              animationType="slide"
+              presentationStyle="pageSheet"
+              visible={selectionField != null}
+              onRequestClose={() => setSelectionField(null)}
+            >
+              <SafeAreaView
+                style={[styles.safe, { backgroundColor: colors.canvas }]}
+              >
+                <NestedHeader
+                  title={FIELD_LABELS[selectionField] || 'Choose'}
+                  onBack={() => setSelectionField(null)}
+                />
+                <ScrollView contentContainerStyle={styles.selectionContent}>
+                  {selectionChoices.map(([value, label]) => {
+                    const selected = selectionContains(value);
+                    return (
+                      <Pressable
+                        key={value}
+                        accessibilityRole={
+                          selectionIsMultiple ? 'checkbox' : 'radio'
+                        }
+                        accessibilityState={
+                          selectionIsMultiple
+                            ? { checked: selected }
+                            : { checked: selected }
+                        }
+                        onPress={() => updateSelection(value)}
+                        style={[
+                          styles.selectionRow,
+                          { borderBottomColor: colors.border },
+                        ]}
+                      >
+                        <View>
+                          <Text
+                            style={[
+                              styles.selectionName,
+                              { color: colors.text },
+                            ]}
+                          >
+                            {label}
+                          </Text>
+                          {selectionField !== 'specialties' ? (
+                            <Text
+                              style={[
+                                styles.selectionCode,
+                                { color: colors.muted },
+                              ]}
+                            >
+                              {value}
+                            </Text>
+                          ) : null}
+                        </View>
+                        {selected ? (
+                          <FontAwesome5
+                            name="check"
+                            size={15}
+                            color={colors.accent}
+                            iconStyle="solid"
+                          />
+                        ) : null}
+                      </Pressable>
+                    );
+                  })}
+                  {selectionIsMultiple ? (
+                    <View style={styles.selectionDone}>
+                      <Action
+                        label="Done"
+                        onPress={() => setSelectionField(null)}
+                      />
+                    </View>
+                  ) : null}
+                </ScrollView>
+              </SafeAreaView>
+            </Modal>
           </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
@@ -810,6 +1055,22 @@ const styles = StyleSheet.create({
   },
   bio: { fontSize: 16, lineHeight: 24, marginTop: spacing.md },
   detail: { fontSize: 14, lineHeight: 20, marginTop: spacing.xs },
+  profileSection: { marginTop: spacing.lg, gap: spacing.sm },
+  profileEyebrow: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  profileFact: { fontSize: 15, lineHeight: 21, fontWeight: '550' },
+  valueChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  valueChip: {
+    minHeight: 32,
+    justifyContent: 'center',
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+  },
+  valueChipText: { fontSize: 13, lineHeight: 17, fontWeight: '700' },
   edit: { alignItems: 'flex-start', marginTop: spacing.md },
   section: {
     fontSize: 19,
@@ -830,17 +1091,34 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: spacing.md,
     fontSize: 16,
-    marginBottom: spacing.sm,
   },
-  bioInput: { minHeight: 150 },
-  optionGroup: { marginBottom: spacing.md },
-  optionLabel: {
+  bioInput: { minHeight: 116 },
+  fieldGroup: { marginBottom: spacing.lg, gap: spacing.xs },
+  fieldLabel: {
     fontSize: 15,
     lineHeight: 20,
     fontWeight: '700',
-    textTransform: 'capitalize',
-    marginBottom: spacing.xs,
   },
+  selector: {
+    minHeight: 50,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  selectorText: { fontSize: 16, lineHeight: 22 },
+  addChoice: {
+    minHeight: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+  },
+  addChoiceText: { fontSize: 13, fontWeight: '700' },
   optionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   option: {
     minHeight: 44,
@@ -851,6 +1129,61 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   optionText: { fontSize: 14, fontWeight: '650' },
+  visibilityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  visibilityLabel: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '650',
+    marginRight: spacing.xs,
+  },
+  visibilityChoice: {
+    minHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+  },
+  visibilityChoiceText: { fontSize: 12, lineHeight: 16, fontWeight: '700' },
+  photoEditor: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  photoEditorAvatar: { width: 72, height: 72, borderRadius: 36 },
+  photoFallback: { alignItems: 'center', justifyContent: 'center' },
+  photoActions: { flex: 1, alignItems: 'flex-start', gap: spacing.sm },
+  compactAction: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xs,
+  },
+  compactActionText: { fontSize: 14, lineHeight: 19, fontWeight: '750' },
   mediaAction: { gap: spacing.sm, marginBottom: spacing.md },
-  photoPreview: { width: 88, height: 88, borderRadius: 44 },
+  selectionContent: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xl,
+  },
+  selectionRow: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: spacing.sm,
+  },
+  selectionName: { fontSize: 16, lineHeight: 21, fontWeight: '650' },
+  selectionCode: { fontSize: 12, lineHeight: 16, marginTop: 2 },
+  selectionDone: { alignItems: 'flex-start', marginTop: spacing.lg },
 });

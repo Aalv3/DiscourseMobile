@@ -44,6 +44,7 @@ import {
   NOTIFICATION_STATUS,
 } from '../notificationStatus';
 import { openMemberAdjusterCard } from './memberNavigation';
+import { optionLabel, stateLabel } from './adjusterCardPresentation';
 
 const Screen = ({ children }) => {
   const colors = useProductTheme();
@@ -969,7 +970,7 @@ export function ProfileScreen({ navigation, screenProps }) {
           </View>
           {adjusterCard?.values.base_state ? (
             <Text style={[styles.identityDetail, { color: colors.muted }]}>
-              Based in {adjusterCard.values.base_state}
+              Based in {stateLabel(adjusterCard.values.base_state)}
             </Text>
           ) : null}
           {[
@@ -984,13 +985,26 @@ export function ProfileScreen({ navigation, screenProps }) {
                 key={label}
                 style={[styles.identityDetail, { color: colors.muted }]}
               >
-                {label}: {String(value).replaceAll('_', ' ')}
+                {label}:{' '}
+                {optionLabel(
+                  label === 'Adjuster type'
+                    ? 'adjuster_type'
+                    : label === 'Experience'
+                    ? 'years_experience'
+                    : label === 'CAT experience'
+                    ? 'cat_experience'
+                    : 'work_mode',
+                  value,
+                )}
               </Text>
             ))}
           {Array.isArray(adjusterCard?.values.specialties) &&
           adjusterCard.values.specialties.length ? (
             <Text style={[styles.identityDetail, { color: colors.muted }]}>
-              Specialties: {adjusterCard.values.specialties.join(', ')}
+              Specialties:{' '}
+              {adjusterCard.values.specialties
+                .map(value => optionLabel('specialties', value))
+                .join(', ')}
             </Text>
           ) : null}
         </View>
