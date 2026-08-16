@@ -157,7 +157,7 @@ check(
 );
 
 if (archivePath) {
-  const embeddedHermes = `${archivePath}/Products/Applications/Discourse.app/Frameworks/hermes.framework/hermes`;
+  const embeddedHermes = `${archivePath}/Products/Applications/AdjusterNetwork.app/Frameworks/hermes.framework/hermes`;
   const archivedDwarf = `${archivePath}/dSYMs/hermes.framework.dSYM/Contents/Resources/DWARF/hermes`;
   const uuid = path =>
     execFileSync('dwarfdump', ['--uuid', path], { encoding: 'utf8' }).match(
