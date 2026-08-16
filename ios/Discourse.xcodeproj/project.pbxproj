@@ -237,6 +237,7 @@
 				A30A0A012E4B000100000001 /* Configure OTA channel */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				BD9F666823F5B02C001001B3 /* Embed App Extensions */,
+				A30A0A132E4B000100000001 /* Prepare Hermes Framework Metadata */,
 				76F0B67DB1686AF6FA39E8E4 /* [CP] Embed Pods Frameworks */,
 				A30A0A122E4B000100000001 /* Generate Hermes dSYM */,
 				C4D0DE796E7D7DB770C5F3D3 /* [CP] Copy Pods Resources */,
@@ -397,6 +398,24 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "set -e\nHERMES_BINARY=\"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework/hermes\"\nHERMES_DSYM=\"${DWARF_DSYM_FOLDER_PATH}/hermes.framework.dSYM\"\nHERMES_DWARF=\"${HERMES_DSYM}/Contents/Resources/DWARF/hermes\"\nif [ \"${DEBUG_INFORMATION_FORMAT}\" = \"dwarf-with-dsym\" ] && [ -f \"${HERMES_BINARY}\" ]; then\n  rm -rf \"${HERMES_DSYM}\"\n  xcrun dsymutil \"${HERMES_BINARY}\" -o \"${HERMES_DSYM}\"\n  test -s \"${HERMES_DWARF}\"\n  xcrun llvm-dwarfdump --show-section-sizes \"${HERMES_DWARF}\" | awk '$1 == \"__debug_info\" && $2 + 0 > 0 { found = 1 } END { exit !found }'\nfi\n";
+			showEnvVarsInLog = 0;
+		};
+		A30A0A132E4B000100000001 /* Prepare Hermes Framework Metadata */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(PODS_ROOT)/hermes-engine/destroot/Library/Frameworks/ios/hermes.framework/Info.plist",
+			);
+			name = "Prepare Hermes Framework Metadata";
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/hermes-framework-metadata-$(CONFIGURATION).txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\nHERMES_INFO=\"${PODS_ROOT}/hermes-engine/destroot/Library/Frameworks/ios/hermes.framework/Info.plist\"\n/usr/libexec/PlistBuddy -c \"Set :MinimumOSVersion ${IPHONEOS_DEPLOYMENT_TARGET}\" \"${HERMES_INFO}\" 2>/dev/null || /usr/libexec/PlistBuddy -c \"Add :MinimumOSVersion string ${IPHONEOS_DEPLOYMENT_TARGET}\" \"${HERMES_INFO}\"\nprintf '%s\\n' \"${IPHONEOS_DEPLOYMENT_TARGET}\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
 		BFE12B46C2D9D6A07EC74E45 /* [CP] Check Pods Manifest.lock */ = {
