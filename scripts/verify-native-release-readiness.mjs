@@ -119,10 +119,10 @@ check(
   'release version',
   androidGradle.includes('versionCode 1') &&
     iosProject.includes('MARKETING_VERSION = 1.0.0;') &&
-    iosProject.includes('CURRENT_PROJECT_VERSION = 4;')
+    iosProject.includes('CURRENT_PROJECT_VERSION = 5;')
     ? 'PASS'
     : 'FAIL',
-  'Owner-approved iOS release is version 1.0.0 build 4',
+  'Owner-approved iOS release is version 1.0.0 build 5',
 );
 check(
   'iOS ATS',
