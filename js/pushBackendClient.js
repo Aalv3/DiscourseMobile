@@ -1,12 +1,23 @@
 /* @flow */
 'use strict';
 
+import {
+  PUSH_HTTP_STATUS_CLASS,
+  PUSH_REGISTRATION_CATEGORY,
+  PUSH_REGISTRATION_STAGE,
+  pushHttpStatusClass,
+  pushRegistrationFailure,
+} from './pushRegistrationResult';
+
 function endpoint(origin, installationId, suffix = '') {
   let url;
   try {
     url = new URL(origin);
   } catch {
-    throw new Error('push_backend_unconfigured');
+    throw pushRegistrationFailure(
+      PUSH_REGISTRATION_STAGE.BACKEND_TRANSPORT,
+      PUSH_REGISTRATION_CATEGORY.BACKEND_REJECTION,
+    );
   }
   if (
     url.protocol !== 'https:' ||
@@ -15,7 +26,10 @@ function endpoint(origin, installationId, suffix = '') {
       url.hostname.endsWith('.adjusternetwork.org')
     )
   ) {
-    throw new Error('push_backend_unconfigured');
+    throw pushRegistrationFailure(
+      PUSH_REGISTRATION_STAGE.BACKEND_TRANSPORT,
+      PUSH_REGISTRATION_CATEGORY.BACKEND_REJECTION,
+    );
   }
   return `${url.origin}/native/v1/push/registrations/${encodeURIComponent(
     installationId,
@@ -24,11 +38,16 @@ function endpoint(origin, installationId, suffix = '') {
 
 async function expectSuccess(response) {
   if (!response || response.status < 200 || response.status >= 300) {
-    const status = Number.isInteger(response?.status)
-      ? response.status
-      : 'transport';
-    throw new Error(`push_backend_rejected_${status}`);
+    const statusClass = pushHttpStatusClass(response?.status);
+    throw pushRegistrationFailure(
+      PUSH_REGISTRATION_STAGE.BACKEND_RESPONSE,
+      statusClass === PUSH_HTTP_STATUS_CLASS.RATE_LIMITED
+        ? PUSH_REGISTRATION_CATEGORY.BACKEND_RATE_LIMITED
+        : PUSH_REGISTRATION_CATEGORY.BACKEND_REJECTION,
+      statusClass,
+    );
   }
+  return pushHttpStatusClass(response.status);
 }
 
 export class PushBackendClient {
@@ -39,21 +58,41 @@ export class PushBackendClient {
   }
 
   async request(url, method, authToken, authClientId, body) {
-    const nonce = await this.nonceFactory?.();
-    if (typeof nonce !== 'string' || !/^[A-Za-z0-9_-]{16,80}$/.test(nonce)) {
-      throw new Error('push_backend_nonce_unavailable');
+    let nonce;
+    try {
+      nonce = await this.nonceFactory?.();
+    } catch {
+      throw pushRegistrationFailure(
+        PUSH_REGISTRATION_STAGE.NONCE_GENERATION,
+        PUSH_REGISTRATION_CATEGORY.NONCE_FAILURE,
+      );
     }
-    return this.fetchImpl(url, {
-      method,
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        'User-Api-Key': authToken,
-        'User-Api-Client-Id': authClientId,
-        'X-AN-Push-Nonce': nonce,
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    }).then(expectSuccess);
+    if (typeof nonce !== 'string' || !/^[A-Za-z0-9_-]{16,80}$/.test(nonce)) {
+      throw pushRegistrationFailure(
+        PUSH_REGISTRATION_STAGE.NONCE_GENERATION,
+        PUSH_REGISTRATION_CATEGORY.NONCE_FAILURE,
+      );
+    }
+    let response;
+    try {
+      response = await this.fetchImpl(url, {
+        method,
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'User-Api-Key': authToken,
+          'User-Api-Client-Id': authClientId,
+          'X-AN-Push-Nonce': nonce,
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    } catch {
+      throw pushRegistrationFailure(
+        PUSH_REGISTRATION_STAGE.BACKEND_TRANSPORT,
+        PUSH_REGISTRATION_CATEGORY.NETWORK_FAILURE,
+      );
+    }
+    return expectSuccess(response);
   }
 
   register({ installationId, authToken, authClientId, registration }) {

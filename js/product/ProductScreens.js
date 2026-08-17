@@ -3,7 +3,6 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Linking,
   Pressable,
   Image,
   KeyboardAvoidingView,
@@ -37,16 +36,11 @@ import { adjusterNetwork } from '../adjusterNetworkConfig';
 export { default as LoungeScreen } from './NativeLoungeScreen';
 import EmojiTextInput from './EmojiTextInput';
 import { parseAdjusterCard } from '../adjusterCardClient';
-import {
-  canAttemptNotificationSetup,
-  notificationSetupActionLabel,
-  notificationStatusMessage,
-  NOTIFICATION_STATUS,
-} from '../notificationStatus';
 import { openMemberAdjusterCard } from './memberNavigation';
 import { optionLabel, stateLabel } from './adjusterCardPresentation';
 import AttachmentComposer, { useAttachmentQueue } from './AttachmentComposer';
 import { appendUploadMarkup } from './MediaAttachments';
+import NotificationEducation from './NotificationEducation';
 
 const Screen = ({ children, backgroundColor }) => {
   const colors = useProductTheme();
@@ -1978,6 +1972,7 @@ export function ProfileScreen({ navigation, screenProps }) {
         {adjusterNetwork.features.pushEducation ? (
           <NotificationEducation
             status={screenProps.pushStatus}
+            attemptResult={screenProps.pushAttemptResult}
             onEnable={screenProps.enablePush}
           />
         ) : null}
@@ -2022,52 +2017,6 @@ export function ProfileScreen({ navigation, screenProps }) {
     </Screen>
   );
 }
-
-const NotificationEducation = ({ status, onEnable }) => {
-  const colors = useProductTheme();
-  return (
-    <View
-      style={[styles.notificationEducation, { borderColor: colors.border }]}
-    >
-      <View style={styles.notificationEducationHeader}>
-        <FontAwesome5
-          name="bell"
-          size={18}
-          color={colors.accent}
-          iconStyle="solid"
-        />
-        <Text style={[styles.cardTitle, { color: colors.text }]}>
-          Notifications
-        </Text>
-        {canAttemptNotificationSetup(status) ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={
-              status === NOTIFICATION_STATUS.PERMISSION_DENIED
-                ? 'Open notification settings'
-                : notificationSetupActionLabel(status)
-            }
-            onPress={
-              status === NOTIFICATION_STATUS.PERMISSION_DENIED
-                ? () => Linking.openSettings()
-                : onEnable
-            }
-            style={[styles.notificationEnable, { borderColor: colors.accent }]}
-          >
-            <Text
-              style={[styles.notificationActionText, { color: colors.accent }]}
-            >
-              {notificationSetupActionLabel(status)}
-            </Text>
-          </Pressable>
-        ) : null}
-      </View>
-      <Text style={[styles.cardBody, { color: colors.muted }]}>
-        {notificationStatusMessage(status)}
-      </Text>
-    </View>
-  );
-};
 
 const ProfileQuickAction = ({ icon, label, onPress }) => {
   const colors = useProductTheme();
@@ -3096,4 +3045,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   notificationActionText: { fontSize: 13, lineHeight: 18, fontWeight: '750' },
+  notificationAttempt: {
+    marginTop: spacing.sm,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '650',
+  },
 });

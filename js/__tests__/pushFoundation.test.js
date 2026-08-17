@@ -1,4 +1,10 @@
 import { PushFoundation } from '../pushFoundation';
+import {
+  PUSH_HTTP_STATUS_CLASS,
+  PUSH_REGISTRATION_CATEGORY,
+  PUSH_REGISTRATION_STAGE,
+  pushRegistrationFailure,
+} from '../pushRegistrationResult';
 
 function fixture(permission = 'granted') {
   const store = {
@@ -77,7 +83,10 @@ describe('push foundation lifecycle', () => {
     const deps = fixture();
     deps.foundation.environment = 'production';
     deps.foundation.apsEnvironment = 'production';
-    await expect(deps.foundation.enable(account)).resolves.toBe('enabled');
+    await expect(deps.foundation.enable(account)).resolves.toMatchObject({
+      stage: 'completed',
+      category: 'enabled',
+    });
     expect(deps.client.register).toHaveBeenCalledWith(
       expect.objectContaining({
         registration: expect.objectContaining({ environment: 'production' }),
@@ -87,9 +96,12 @@ describe('push foundation lifecycle', () => {
 
   test('records denial without requesting a token', async () => {
     const deps = fixture('denied');
-    await expect(deps.foundation.enable(account)).resolves.toBe(
-      'permission_denied',
-    );
+    await expect(deps.foundation.enable(account)).rejects.toMatchObject({
+      result: {
+        stage: 'permission_request',
+        category: 'permission_denied',
+      },
+    });
     expect(deps.store.setPreference).toHaveBeenCalledWith('denied');
     expect(deps.transport.token).not.toHaveBeenCalled();
   });
@@ -102,7 +114,10 @@ describe('push foundation lifecycle', () => {
 
   test('registers minimum metadata only after contextual enablement', async () => {
     const deps = fixture();
-    await expect(deps.foundation.enable(account)).resolves.toBe('enabled');
+    await expect(deps.foundation.enable(account)).resolves.toMatchObject({
+      stage: 'completed',
+      category: 'enabled',
+    });
     expect(deps.client.register).toHaveBeenCalledWith({
       installationId: 'installation',
       authToken: account.authToken,
@@ -125,14 +140,21 @@ describe('push foundation lifecycle', () => {
       deps.foundation.enable(account),
       deps.foundation.enable(account),
     ]);
-    expect(attempts).toEqual(['enabled', 'enabled']);
+    expect(attempts).toEqual([
+      expect.objectContaining({ category: 'enabled' }),
+      expect.objectContaining({ category: 'enabled' }),
+    ]);
     expect(deps.client.register).toHaveBeenCalledTimes(1);
   });
 
   test('turns backend rate limiting into a bounded member-safe cooldown', async () => {
     const deps = fixture();
     deps.client.register.mockRejectedValue(
-      new Error('push_backend_rejected_429'),
+      pushRegistrationFailure(
+        PUSH_REGISTRATION_STAGE.BACKEND_RESPONSE,
+        PUSH_REGISTRATION_CATEGORY.BACKEND_RATE_LIMITED,
+        PUSH_HTTP_STATUS_CLASS.RATE_LIMITED,
+      ),
     );
     await expect(deps.foundation.enable(account)).rejects.toThrow(
       'backend_rate_limited',
@@ -195,13 +217,59 @@ describe('push foundation lifecycle', () => {
   });
 
   test.each([
-    ['push_backend_nonce_unavailable', 'nonce_failure'],
-    ['push_backend_rejected_403', 'backend_rejection'],
-    ['push_backend_rejected_transport', 'network_failure'],
-  ])('preserves privacy-safe backend category for %s', async (raw, safe) => {
+    ['nonce_generation', 'nonce_failure', 'none'],
+    ['backend_response', 'backend_rejection', '4xx'],
+    ['backend_transport', 'network_failure', 'none'],
+  ])(
+    'preserves privacy-safe backend category for %s',
+    async (stage, safe, http) => {
+      const deps = fixture();
+      deps.client.register.mockRejectedValue(
+        pushRegistrationFailure(stage, safe, http),
+      );
+      await expect(deps.foundation.enable(account)).rejects.toThrow(safe);
+    },
+  );
+
+  test('classifies permission request rejection at its exact stage', async () => {
     const deps = fixture();
-    deps.client.register.mockRejectedValue(new Error(raw));
-    await expect(deps.foundation.enable(account)).rejects.toThrow(safe);
+    deps.transport.requestPermission.mockRejectedValue(new Error('private'));
+    await expect(deps.foundation.enable(account)).rejects.toMatchObject({
+      result: {
+        stage: 'permission_request',
+        category: 'permission_failure',
+      },
+    });
+  });
+
+  test('reports preference persistence after successful backend registration', async () => {
+    const deps = fixture();
+    deps.client.register.mockResolvedValue('2xx');
+    deps.store.setPreference.mockRejectedValueOnce(new Error('private'));
+    await expect(deps.foundation.enable(account)).rejects.toMatchObject({
+      result: {
+        stage: 'preference_persistence',
+        category: 'preference_persistence_failure',
+        httpStatusClass: '2xx',
+      },
+    });
+    deps.store.setPreference.mockResolvedValue();
+    await expect(deps.foundation.enable(account)).resolves.toMatchObject({
+      stage: 'completed',
+      category: 'enabled',
+    });
+    expect(deps.client.register).toHaveBeenCalledTimes(1);
+  });
+
+  test('manual retry after failure is not poisoned by the prior promise', async () => {
+    const deps = fixture();
+    deps.transport.token.mockRejectedValueOnce(new Error('private'));
+    await expect(deps.foundation.enable(account)).rejects.toThrow(
+      'apns_token_failure',
+    );
+    await expect(deps.foundation.enable(account)).resolves.toMatchObject({
+      category: 'enabled',
+    });
   });
 
   test('refreshes a rotated token and unregisters on logout', async () => {

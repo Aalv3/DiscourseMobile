@@ -44,8 +44,13 @@ import {
 import { BlurView } from '@react-native-community/blur';
 import { PushFoundation } from './pushFoundation';
 import { PushBackendClient } from './pushBackendClient';
-import { classifyPushRegistrationError } from './notificationStatus';
 import { pushInstallationStore } from './pushInstallationStore';
+import { recordPushRegistrationResult } from './pushRegistrationDiagnostics';
+import {
+  PUSH_REGISTRATION_STAGE,
+  resultFromPushError,
+  startedPushRegistration,
+} from './pushRegistrationResult';
 import { pushTransport } from './platforms/push-transport';
 import {
   PendingPushRoute,
@@ -164,6 +169,7 @@ class Discourse extends React.Component {
         origin: adjusterNetwork.push.backendOrigin,
         nonceFactory: () => pushInstallationStore.requestNonce(),
       }),
+      onResult: recordPushRegistrationResult,
     });
     this._siteManager.setPushFoundation(this._pushFoundation);
     this._refresh = this._refresh.bind(this);
@@ -231,6 +237,7 @@ class Discourse extends React.Component {
       onboardingDismissedForSession: false,
       connecting: false,
       pushStatus: 'unknown',
+      pushAttemptResult: null,
       memberContentVersion: 0,
     };
 
@@ -424,19 +431,28 @@ class Discourse extends React.Component {
             if (preference !== 'enabled') return;
             this.setState({ pushStatus: 'working' });
             try {
-              const status = await this._pushFoundation.enable(site);
-              this.setState({ pushStatus: status });
+              const result = await this._pushFoundation.enable(site);
+              this.setState({ pushStatus: result.category || result });
             } catch (error) {
+              const result = resultFromPushError(
+                error,
+                PUSH_REGISTRATION_STAGE.UNKNOWN,
+              );
               this.setState({
-                pushStatus: classifyPushRegistrationError(error),
+                pushStatus: result.category,
               });
             }
           })
-          .catch(error =>
+          .catch(error => {
+            const result = resultFromPushError(
+              error,
+              PUSH_REGISTRATION_STAGE.PERMISSION_CHECK,
+            );
+            recordPushRegistrationResult(result);
             this.setState({
-              pushStatus: classifyPushRegistrationError(error),
-            }),
-          );
+              pushStatus: result.category,
+            });
+          });
       }
       if (
         !this.state.signedIn ||
@@ -791,16 +807,27 @@ class Discourse extends React.Component {
           memberContentVersion: current.memberContentVersion + 1,
         })),
       pushStatus: this.state.pushStatus,
+      pushAttemptResult: this.state.pushAttemptResult,
       enablePush: async () => {
         const site = this._siteManager.activeSite || this._siteManager.sites[0];
         if (!site) return;
-        this.setState({ pushStatus: 'working' });
+        const started = startedPushRegistration();
+        recordPushRegistrationResult(started);
+        this.setState({ pushStatus: 'working', pushAttemptResult: started });
         try {
-          const status = await this._pushFoundation.enable(site);
-          this.setState({ pushStatus: status });
-        } catch (error) {
+          const result = await this._pushFoundation.enable(site);
           this.setState({
-            pushStatus: classifyPushRegistrationError(error),
+            pushStatus: result.category || result,
+            pushAttemptResult: result,
+          });
+        } catch (error) {
+          const result = resultFromPushError(
+            error,
+            PUSH_REGISTRATION_STAGE.UNKNOWN,
+          );
+          this.setState({
+            pushStatus: result.category,
+            pushAttemptResult: result,
           });
         }
       },

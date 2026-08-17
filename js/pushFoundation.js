@@ -2,10 +2,18 @@
 'use strict';
 
 import {
-  classifyPushRegistrationError,
   NOTIFICATION_STATUS,
   pushEnvironmentCompatibility,
 } from './notificationStatus';
+import {
+  completedPushRegistration,
+  PUSH_HTTP_STATUS_CLASS,
+  PUSH_REGISTRATION_CATEGORY,
+  PUSH_REGISTRATION_STAGE,
+  pushRegistrationFailure,
+  resultFromPushError,
+  succeededPushRegistrationStage,
+} from './pushRegistrationResult';
 
 export class PushFoundation {
   constructor({
@@ -18,6 +26,7 @@ export class PushFoundation {
     store,
     transport,
     client,
+    onResult = () => {},
   }) {
     this.enabled = Boolean(enabled);
     this.environment = environment;
@@ -28,10 +37,12 @@ export class PushFoundation {
     this.store = store;
     this.transport = transport;
     this.client = client;
+    this.onResult = onResult;
     this.account = null;
     this.tokenSubscription = null;
     this.enablePromise = null;
     this.registeredIdentity = null;
+    this.lastBackendStatusClass = PUSH_HTTP_STATUS_CLASS.NONE;
     this.retryAfter = 0;
   }
 
@@ -42,15 +53,44 @@ export class PushFoundation {
       this.environment,
     );
     if (compatibility !== 'compatible') return compatibility;
-    const preference = await this.store.preference();
+    let preference;
+    try {
+      preference = await this.store.preference();
+    } catch {
+      throw pushRegistrationFailure(
+        PUSH_REGISTRATION_STAGE.PERMISSION_CHECK,
+        PUSH_REGISTRATION_CATEGORY.PREFERENCE_PERSISTENCE_FAILURE,
+      );
+    }
     if (
       ['enabled', 'denied'].includes(preference) &&
       this.transport.permissionState
     ) {
-      const permission = await this.transport.permissionState();
+      let permission;
+      try {
+        permission = await this.transport.permissionState();
+      } catch {
+        throw pushRegistrationFailure(
+          PUSH_REGISTRATION_STAGE.PERMISSION_CHECK,
+          PUSH_REGISTRATION_CATEGORY.PERMISSION_FAILURE,
+        );
+      }
       if (permission === 'denied') {
+        this.emitResult(
+          resultFromPushError(
+            pushRegistrationFailure(
+              PUSH_REGISTRATION_STAGE.PERMISSION_CHECK,
+              PUSH_REGISTRATION_CATEGORY.PERMISSION_DENIED,
+            ),
+          ),
+        );
         return NOTIFICATION_STATUS.PERMISSION_DENIED;
       }
+      this.emitResult(
+        succeededPushRegistrationStage(
+          PUSH_REGISTRATION_STAGE.PERMISSION_CHECK,
+        ),
+      );
     }
     return preference;
   }
@@ -66,9 +106,27 @@ export class PushFoundation {
     };
   }
 
+  emitResult(result) {
+    try {
+      this.onResult(result);
+    } catch {
+      // Diagnostics must never alter registration behavior.
+    }
+  }
+
   async enable(account) {
     if (this.enablePromise) return this.enablePromise;
-    this.enablePromise = this._enable(account);
+    this.enablePromise = this._enable(account)
+      .then(result => {
+        if (result && typeof result === 'object') this.emitResult(result);
+        return result;
+      })
+      .catch(error => {
+        this.emitResult(
+          resultFromPushError(error, PUSH_REGISTRATION_STAGE.UNKNOWN),
+        );
+        throw error;
+      });
     try {
       return await this.enablePromise;
     } finally {
@@ -84,49 +142,124 @@ export class PushFoundation {
     );
     if (compatibility !== 'compatible') return compatibility;
     if (Date.now() < this.retryAfter) {
-      throw new Error(NOTIFICATION_STATUS.BACKEND_RATE_LIMITED);
+      throw pushRegistrationFailure(
+        PUSH_REGISTRATION_STAGE.BACKEND_RESPONSE,
+        PUSH_REGISTRATION_CATEGORY.BACKEND_RATE_LIMITED,
+        PUSH_HTTP_STATUS_CLASS.RATE_LIMITED,
+      );
     }
-    const permission = await this.transport.requestPermission();
+    let permission;
+    try {
+      permission = await this.transport.requestPermission();
+    } catch {
+      throw pushRegistrationFailure(
+        PUSH_REGISTRATION_STAGE.PERMISSION_REQUEST,
+        PUSH_REGISTRATION_CATEGORY.PERMISSION_FAILURE,
+      );
+    }
     if (permission !== 'granted') {
-      await this.store.setPreference('denied');
-      return NOTIFICATION_STATUS.PERMISSION_DENIED;
+      try {
+        await this.store.setPreference('denied');
+      } catch {
+        throw pushRegistrationFailure(
+          PUSH_REGISTRATION_STAGE.PREFERENCE_PERSISTENCE,
+          PUSH_REGISTRATION_CATEGORY.PREFERENCE_PERSISTENCE_FAILURE,
+        );
+      }
+      throw pushRegistrationFailure(
+        PUSH_REGISTRATION_STAGE.PERMISSION_REQUEST,
+        PUSH_REGISTRATION_CATEGORY.PERMISSION_DENIED,
+      );
     }
+    this.emitResult(
+      succeededPushRegistrationStage(
+        PUSH_REGISTRATION_STAGE.PERMISSION_REQUEST,
+      ),
+    );
     let token;
     try {
       token = await this.transport.token();
     } catch {
-      throw new Error(NOTIFICATION_STATUS.APNS_TOKEN_FAILURE);
+      throw pushRegistrationFailure(
+        PUSH_REGISTRATION_STAGE.APNS_TOKEN,
+        PUSH_REGISTRATION_CATEGORY.APNS_TOKEN_FAILURE,
+      );
     }
+    this.emitResult(
+      succeededPushRegistrationStage(PUSH_REGISTRATION_STAGE.APNS_TOKEN),
+    );
     let installationId;
     try {
       installationId = await this.store.installationId();
     } catch {
-      throw new Error(NOTIFICATION_STATUS.INSTALLATION_IDENTITY_FAILURE);
+      throw pushRegistrationFailure(
+        PUSH_REGISTRATION_STAGE.INSTALLATION_IDENTITY,
+        PUSH_REGISTRATION_CATEGORY.INSTALLATION_IDENTITY_FAILURE,
+      );
     }
+    this.emitResult(
+      succeededPushRegistrationStage(
+        PUSH_REGISTRATION_STAGE.INSTALLATION_IDENTITY,
+      ),
+    );
     try {
       const identity = `${installationId}:${token}:${account.clientId}`;
-      if (this.registeredIdentity === identity) return 'enabled';
-      await this.client.register({
-        installationId,
-        authToken: account.authToken,
-        authClientId: account.clientId,
-        registration: this.registration(token),
-      });
+      if (this.registeredIdentity !== identity) {
+        const httpStatusClass = await this.client.register({
+          installationId,
+          authToken: account.authToken,
+          authClientId: account.clientId,
+          registration: this.registration(token),
+        });
+        this.lastBackendStatusClass =
+          httpStatusClass || PUSH_HTTP_STATUS_CLASS.SUCCESS;
+        this.registeredIdentity = identity;
+        this.emitResult(
+          succeededPushRegistrationStage(
+            PUSH_REGISTRATION_STAGE.BACKEND_RESPONSE,
+            this.lastBackendStatusClass,
+          ),
+        );
+      }
     } catch (error) {
-      const category = classifyPushRegistrationError(error);
-      if (category === NOTIFICATION_STATUS.BACKEND_RATE_LIMITED) {
+      const result = resultFromPushError(
+        error,
+        PUSH_REGISTRATION_STAGE.BACKEND_TRANSPORT,
+      );
+      if (result.category === PUSH_REGISTRATION_CATEGORY.BACKEND_RATE_LIMITED) {
         this.retryAfter = Date.now() + 60 * 1000;
       }
-      throw new Error(category);
+      throw pushRegistrationFailure(
+        result.stage,
+        result.category,
+        result.httpStatusClass,
+      );
     }
-    this.registeredIdentity = `${installationId}:${token}:${account.clientId}`;
     this.account = account;
-    await this.store.setPreference('enabled');
+    try {
+      await this.store.setPreference('enabled');
+    } catch {
+      // The backend registration is valid. Keep the in-memory identity so a
+      // retry is idempotent, while reporting only the local persistence stage.
+      throw pushRegistrationFailure(
+        PUSH_REGISTRATION_STAGE.PREFERENCE_PERSISTENCE,
+        PUSH_REGISTRATION_CATEGORY.PREFERENCE_PERSISTENCE_FAILURE,
+        this.lastBackendStatusClass || PUSH_HTTP_STATUS_CLASS.SUCCESS,
+      );
+    }
+    this.emitResult(
+      succeededPushRegistrationStage(
+        PUSH_REGISTRATION_STAGE.PREFERENCE_PERSISTENCE,
+        this.lastBackendStatusClass || PUSH_HTTP_STATUS_CLASS.SUCCESS,
+      ),
+    );
     this.tokenSubscription?.remove?.();
     this.tokenSubscription = this.transport.onTokenRefresh(nextToken =>
       this.rotate(nextToken),
     );
-    return 'enabled';
+    return completedPushRegistration(
+      this.lastBackendStatusClass || PUSH_HTTP_STATUS_CLASS.SUCCESS,
+    );
   }
 
   async rotate(token) {

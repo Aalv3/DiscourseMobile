@@ -46,7 +46,12 @@ describe('A3 push backend client', () => {
     });
     await expect(
       client.unregister({ installationId: 'id', authToken: 'key' }),
-    ).rejects.toThrow('push_backend_unconfigured');
+    ).rejects.toMatchObject({
+      result: {
+        stage: 'backend_transport',
+        category: 'backend_rejection',
+      },
+    });
   });
 
   test('reports only a rejected HTTP status', async () => {
@@ -62,7 +67,13 @@ describe('A3 push backend client', () => {
         authClientId: 'client',
         registration: {},
       }),
-    ).rejects.toThrow('push_backend_rejected_403');
+    ).rejects.toMatchObject({
+      result: {
+        stage: 'backend_response',
+        category: 'backend_rejection',
+        httpStatusClass: '4xx',
+      },
+    });
   });
 
   test('rejects a non-A3 HTTPS backend', async () => {
@@ -73,7 +84,76 @@ describe('A3 push backend client', () => {
     });
     await expect(
       client.unregister({ installationId: 'id', authToken: 'key' }),
-    ).rejects.toThrow('push_backend_unconfigured');
+    ).rejects.toMatchObject({
+      result: {
+        stage: 'backend_transport',
+        category: 'backend_rejection',
+      },
+    });
+  });
+
+  test.each([
+    [429, 'backend_rate_limited', '429'],
+    [500, 'backend_rejection', '5xx'],
+  ])(
+    'preserves safe HTTP classification for %s',
+    async (status, category, httpStatusClass) => {
+      const client = new PushBackendClient({
+        origin: 'https://adjusternetwork.org',
+        fetchImpl: jest.fn(() => Promise.resolve({ status })),
+        nonceFactory: () => Promise.resolve('nonce_0123456789abcdef'),
+      });
+      await expect(
+        client.register({
+          installationId: 'id',
+          authToken: 'key',
+          authClientId: 'client',
+          registration: {},
+        }),
+      ).rejects.toMatchObject({
+        result: { stage: 'backend_response', category, httpStatusClass },
+      });
+    },
+  );
+
+  test('distinguishes transport failure from an HTTP rejection', async () => {
+    const client = new PushBackendClient({
+      origin: 'https://adjusternetwork.org',
+      fetchImpl: jest.fn(() => Promise.reject(new TypeError('private'))),
+      nonceFactory: () => Promise.resolve('nonce_0123456789abcdef'),
+    });
+    await expect(
+      client.register({
+        installationId: 'id',
+        authToken: 'key',
+        authClientId: 'client',
+        registration: {},
+      }),
+    ).rejects.toMatchObject({
+      result: {
+        stage: 'backend_transport',
+        category: 'network_failure',
+        httpStatusClass: 'none',
+      },
+    });
+  });
+
+  test('classifies a rejected nonce generator without exposing its error', async () => {
+    const client = new PushBackendClient({
+      origin: 'https://adjusternetwork.org',
+      fetchImpl: jest.fn(),
+      nonceFactory: () => Promise.reject(new Error('private')),
+    });
+    await expect(
+      client.register({
+        installationId: 'id',
+        authToken: 'key',
+        authClientId: 'client',
+        registration: {},
+      }),
+    ).rejects.toMatchObject({
+      result: { stage: 'nonce_generation', category: 'nonce_failure' },
+    });
   });
 
   test('fails closed when a fresh request nonce is unavailable', async () => {
@@ -89,6 +169,11 @@ describe('A3 push backend client', () => {
         authClientId: 'client',
         registration: {},
       }),
-    ).rejects.toThrow('push_backend_nonce_unavailable');
+    ).rejects.toMatchObject({
+      result: {
+        stage: 'nonce_generation',
+        category: 'nonce_failure',
+      },
+    });
   });
 });

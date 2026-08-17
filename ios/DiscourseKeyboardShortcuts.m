@@ -1,6 +1,7 @@
 #import "DiscourseKeyboardShortcuts.h"
 #import <Security/Security.h>
 #import <TargetConditionals.h>
+#import <os/log.h>
 
 @implementation DiscourseKeyboardShortcuts
 
@@ -87,6 +88,35 @@ RCT_EXPORT_METHOD(updateFileMenu:(NSArray *)menuItems)
 {
   // Update menu items when adding/deleting/reordering sites in React Native
   [[NSUserDefaults standardUserDefaults] setObject:menuItems forKey:@"menuItems"];
+}
+
+RCT_EXPORT_METHOD(recordPushRegistrationResult:(NSDictionary *)result)
+{
+  static NSSet<NSString *> *stages;
+  static NSSet<NSString *> *categories;
+  static NSSet<NSString *> *statusClasses;
+  static NSSet<NSString *> *outcomes;
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    stages = [NSSet setWithArray:@[@"permission_check", @"permission_request", @"apns_token",
+      @"installation_identity", @"nonce_generation", @"backend_transport", @"backend_response",
+      @"preference_persistence", @"completed", @"unknown"]];
+    categories = [NSSet setWithArray:@[@"started", @"stage_succeeded", @"enabled", @"permission_denied", @"permission_failure",
+      @"apns_token_failure", @"installation_identity_failure", @"nonce_failure", @"network_failure",
+      @"backend_rejection", @"backend_rate_limited", @"preference_persistence_failure",
+      @"unknown_registration_failure"]];
+    statusClasses = [NSSet setWithArray:@[@"2xx", @"4xx", @"429", @"5xx", @"none"]];
+    outcomes = [NSSet setWithArray:@[@"started", @"succeeded", @"failed"]];
+  });
+  NSString *stage = result[@"stage"];
+  NSString *category = result[@"category"];
+  NSString *statusClass = result[@"httpStatusClass"];
+  NSString *outcome = result[@"outcome"];
+  if (![stages containsObject:stage] || ![categories containsObject:category] ||
+      ![statusClasses containsObject:statusClass] || ![outcomes containsObject:outcome]) return;
+  os_log_with_type(OS_LOG_DEFAULT, OS_LOG_TYPE_INFO,
+    "ANPushRegistration stage=%{public}@ category=%{public}@ http=%{public}@ outcome=%{public}@",
+    stage, category, statusClass, outcome);
 }
 
 RCT_REMAP_METHOD(consumeAPNSToken,

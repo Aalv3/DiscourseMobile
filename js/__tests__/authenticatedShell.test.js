@@ -87,9 +87,9 @@ describe('authenticated member shell', () => {
 
   test('startup and manual push registration preserve safe failure categories', () => {
     const source = read('Discourse.js');
-    expect(
-      source.match(/classifyPushRegistrationError\(error\)/g),
-    ).toHaveLength(3);
+    expect(source.match(/resultFromPushError\(/g)).toHaveLength(3);
+    expect(source).toContain('pushAttemptResult: started');
+    expect(source).toContain('recordPushRegistrationResult(started)');
     expect(source).not.toContain(
       "this.setState({ pushStatus: 'push_registration_failed' })",
     );

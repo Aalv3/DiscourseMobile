@@ -5,6 +5,7 @@ export const NOTIFICATION_STATUS = Object.freeze({
   ENABLED: 'enabled',
   DISABLED_BY_USER: 'denied',
   PERMISSION_DENIED: 'permission_denied',
+  PERMISSION_FAILURE: 'permission_failure',
   SETUP_REQUIRED: 'unknown',
   DEVELOPMENT_BUILD_LIMITATION: 'development_build_limitation',
   TEMPORARY_ERROR: 'push_registration_failed',
@@ -15,6 +16,7 @@ export const NOTIFICATION_STATUS = Object.freeze({
   NONCE_FAILURE: 'nonce_failure',
   NETWORK_FAILURE: 'network_failure',
   UNKNOWN_REGISTRATION_FAILURE: 'unknown_registration_failure',
+  PREFERENCE_PERSISTENCE_FAILURE: 'preference_persistence_failure',
 });
 
 const SAFE_FAILURES = new Set([
@@ -25,6 +27,8 @@ const SAFE_FAILURES = new Set([
   NOTIFICATION_STATUS.NONCE_FAILURE,
   NOTIFICATION_STATUS.NETWORK_FAILURE,
   NOTIFICATION_STATUS.UNKNOWN_REGISTRATION_FAILURE,
+  NOTIFICATION_STATUS.PERMISSION_FAILURE,
+  NOTIFICATION_STATUS.PREFERENCE_PERSISTENCE_FAILURE,
 ]);
 
 export function classifyPushRegistrationError(error) {
@@ -108,6 +112,8 @@ export function notificationStatusMessage(status) {
       return 'Notifications are off. You can keep using every member feature.';
     case NOTIFICATION_STATUS.PERMISSION_DENIED:
       return 'Notifications are blocked in iOS Settings. You can change this at any time.';
+    case NOTIFICATION_STATUS.PERMISSION_FAILURE:
+      return 'iOS notification access could not be checked right now.';
     case NOTIFICATION_STATUS.APNS_TOKEN_FAILURE:
       return 'This device could not finish notification setup. Try again in a moment.';
     case NOTIFICATION_STATUS.INSTALLATION_IDENTITY_FAILURE:
@@ -120,9 +126,21 @@ export function notificationStatusMessage(status) {
     case NOTIFICATION_STATUS.NETWORK_FAILURE:
       return 'Notification setup needs a network connection. Try again when connected.';
     case NOTIFICATION_STATUS.UNKNOWN_REGISTRATION_FAILURE:
+      return 'Notification setup encountered an unexpected problem.';
+    case NOTIFICATION_STATUS.PREFERENCE_PERSISTENCE_FAILURE:
+      return 'This device registered, but its notification setting could not be saved.';
     case NOTIFICATION_STATUS.TEMPORARY_ERROR:
       return 'This device is not registered for alerts right now.';
     default:
       return 'Choose whether this device may alert you to important member activity. No marketing.';
   }
+}
+
+export function notificationAttemptMessage(result) {
+  if (!result) return null;
+  if (result.outcome === 'started') return 'Trying notification setup…';
+  if (result.outcome === 'succeeded') return 'Notifications are now enabled.';
+  return `Try again did not complete. ${notificationStatusMessage(
+    result.category,
+  )}`;
 }

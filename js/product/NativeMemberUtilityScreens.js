@@ -26,6 +26,7 @@ import {
 import { radius, spacing } from './DesignSystem';
 import {
   canAttemptNotificationSetup,
+  notificationAttemptMessage,
   notificationSetupActionLabel,
   NOTIFICATION_STATUS,
 } from '../notificationStatus';
@@ -382,6 +383,26 @@ export function NotificationSettingsScreen({ navigation, screenProps }) {
               : undefined
           }
         />
+        {screenProps.pushAttemptResult ? (
+          <Text
+            accessibilityRole={
+              screenProps.pushAttemptResult.outcome === 'failed'
+                ? 'alert'
+                : 'status'
+            }
+            style={[
+              styles.error,
+              {
+                color:
+                  screenProps.pushAttemptResult.outcome === 'failed'
+                    ? colors.danger
+                    : colors.text,
+              },
+            ]}
+          >
+            {notificationAttemptMessage(screenProps.pushAttemptResult)}
+          </Text>
+        ) : null}
         {state.saving ? <Status>Saving…</Status> : null}
         {state.error ? (
           <Text
