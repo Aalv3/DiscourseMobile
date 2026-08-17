@@ -10,6 +10,7 @@ function fixture(permission = 'granted') {
   const remove = jest.fn();
   const transport = {
     platform: 'ios',
+    permissionState: jest.fn(() => Promise.resolve(permission)),
     requestPermission: jest.fn(() => Promise.resolve(permission)),
     token: jest.fn(() => Promise.resolve('transport-token')),
     onTokenRefresh: jest.fn(handler => {
@@ -86,9 +87,17 @@ describe('push foundation lifecycle', () => {
 
   test('records denial without requesting a token', async () => {
     const deps = fixture('denied');
-    await expect(deps.foundation.enable(account)).resolves.toBe('denied');
+    await expect(deps.foundation.enable(account)).resolves.toBe(
+      'permission_denied',
+    );
     expect(deps.store.setPreference).toHaveBeenCalledWith('denied');
     expect(deps.transport.token).not.toHaveBeenCalled();
+  });
+
+  test('status detects when iOS permission was revoked after registration', async () => {
+    const deps = fixture('denied');
+    deps.store.preference.mockResolvedValue('enabled');
+    await expect(deps.foundation.status()).resolves.toBe('permission_denied');
   });
 
   test('registers minimum metadata only after contextual enablement', async () => {
@@ -126,10 +135,10 @@ describe('push foundation lifecycle', () => {
       new Error('push_backend_rejected_429'),
     );
     await expect(deps.foundation.enable(account)).rejects.toThrow(
-      'push_temporarily_unavailable',
+      'backend_rate_limited',
     );
     await expect(deps.foundation.enable(account)).rejects.toThrow(
-      'push_temporarily_unavailable',
+      'backend_rate_limited',
     );
     expect(deps.client.register).toHaveBeenCalledTimes(1);
   });
@@ -165,9 +174,9 @@ describe('push foundation lifecycle', () => {
   );
 
   test.each([
-    ['token', 'push_token_failed'],
-    ['installation', 'push_installation_failed'],
-    ['backend', 'push_backend_failed'],
+    ['token', 'apns_token_failure'],
+    ['installation', 'installation_identity_failure'],
+    ['backend', 'unknown_registration_failure'],
   ])('reports only the safe %s failure stage', async (stage, expected) => {
     const deps = fixture();
     if (stage === 'token') {
@@ -183,6 +192,16 @@ describe('push foundation lifecycle', () => {
     }
 
     await expect(deps.foundation.enable(account)).rejects.toThrow(expected);
+  });
+
+  test.each([
+    ['push_backend_nonce_unavailable', 'nonce_failure'],
+    ['push_backend_rejected_403', 'backend_rejection'],
+    ['push_backend_rejected_transport', 'network_failure'],
+  ])('preserves privacy-safe backend category for %s', async (raw, safe) => {
+    const deps = fixture();
+    deps.client.register.mockRejectedValue(new Error(raw));
+    await expect(deps.foundation.enable(account)).rejects.toThrow(safe);
   });
 
   test('refreshes a rotated token and unregisters on logout', async () => {

@@ -90,7 +90,8 @@ describe('Wave 2 member correctness helpers', () => {
   test('all categories and real profile avatars are exposed without fake controls', () => {
     const screens = source('product/ProductScreens.js');
     const profile = source('product/NativeProfileScreen.js');
-    expect(screens).toContain('...data.categories.map');
+    expect(screens).toContain('rankedCategories.filter');
+    expect(screens).toContain('showAllCategories || index < 5');
     expect(screens).not.toContain('data.categories.slice(0, 5)');
     expect(screens).toContain('avatarTemplate.replace');
     expect(profile).toContain('card?.photo.enabled');

@@ -8,24 +8,19 @@ const read = relativePath =>
   fs.readFileSync(path.join(__dirname, '..', relativePath), 'utf8');
 
 describe('authenticated member shell', () => {
-  test('all six primary destinations use the shared branded page header', () => {
+  test('all six primary destinations use the branded member shell', () => {
     const source = [
       read('product/ProductScreens.js'),
       read('product/NativeLoungeScreen.js'),
     ].join('\n');
-    const titles = [
-      'The Floor',
-      'Discussions',
-      'The Lounge',
-      'Ask the Network',
-      'Intelligence',
-      'You',
-    ];
-
-    titles.forEach(title => {
-      expect(source).toContain(`title="${title}"`);
+    expect(source).toContain('title="Lounge"');
+    ['Ask the Network', 'Intelligence', 'You'].forEach(title => {
+      expect(source).toContain(title);
     });
-    expect((source.match(/<PageHeader/g) || []).length).toBe(6);
+    expect((source.match(/<FloorHeader/g) || []).length).toBe(5);
+    expect(source).toContain('<V2BrandHeader');
+    expect(source).toContain('>\n          Discussions\n        </Text>');
+    expect(source).toContain('adjuster-network-logo.png');
   });
 
   test('shared header uses the canonical mark and bounded type scaling', () => {
@@ -43,8 +38,8 @@ describe('authenticated member shell', () => {
     const primary = read('product/ProductScreens.js');
     const lounge = read('product/NativeLoungeScreen.js');
     const root = read('Discourse.js');
-    expect((primary.match(/<HeaderActions/g) || []).length).toBe(5);
-    expect(lounge).toContain('<NotificationBell');
+    expect((primary.match(/<FloorHeader/g) || []).length).toBe(5);
+    expect(lounge).toContain('onNotifications={() =>');
     expect(root).toContain('name="NotificationCenter"');
     expect(root).toContain('nativeMemberShell');
   });
@@ -88,5 +83,15 @@ describe('authenticated member shell', () => {
     expect(source).toMatch(/this\._pushFoundation\s*\.status\(\)/);
     expect(source).toContain("if (preference !== 'enabled') return;");
     expect(source).toContain('this._pushFoundation.enable(site)');
+  });
+
+  test('startup and manual push registration preserve safe failure categories', () => {
+    const source = read('Discourse.js');
+    expect(
+      source.match(/classifyPushRegistrationError\(error\)/g),
+    ).toHaveLength(3);
+    expect(source).not.toContain(
+      "this.setState({ pushStatus: 'push_registration_failed' })",
+    );
   });
 });

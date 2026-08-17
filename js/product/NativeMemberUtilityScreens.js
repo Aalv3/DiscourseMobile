@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Image,
+  Keyboard,
   Linking,
   Pressable,
   ScrollView,
@@ -19,12 +20,13 @@ import { activeMemberSite } from './ProductData';
 import {
   Action,
   ContentSkeleton,
-  NestedHeader,
+  V2BrandHeader,
   useProductTheme,
 } from './ProductComponents';
 import { radius, spacing } from './DesignSystem';
 import {
   canAttemptNotificationSetup,
+  notificationSetupActionLabel,
   NOTIFICATION_STATUS,
 } from '../notificationStatus';
 import {
@@ -39,15 +41,17 @@ const Shell = ({ title, navigation, children }) => {
   const colors = useProductTheme();
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.canvas }]}>
-      <NestedHeader title={title} onBack={() => navigation.goBack()} />
-      <View style={styles.utilityIdentity}>
-        <Text style={[styles.utilityEyebrow, { color: colors.brandAccent }]}>
-          MEMBER WORKSPACE
-        </Text>
-        <Text style={[styles.utilityTitle, { color: colors.text }]}>
-          {title}
-        </Text>
-      </View>
+      <V2BrandHeader
+        title={title}
+        subtitle={
+          title === 'Search'
+            ? 'Find discussions, knowledge, and Network members.'
+            : title === 'Notifications'
+            ? 'Choose how Adjuster Network keeps you informed.'
+            : 'Member tools and account preferences.'
+        }
+        onBack={() => navigation.goBack()}
+      />
       {children}
     </SafeAreaView>
   );
@@ -172,6 +176,60 @@ const MemberSearchResult = ({ member, site, onPress }) => {
         {details.length ? (
           <Text style={[styles.memberMetadata, { color: colors.muted }]}>
             {details.join(' · ')}
+          </Text>
+        ) : null}
+      </View>
+      <FontAwesome5
+        name="chevron-right"
+        iconStyle="solid"
+        size={13}
+        color={colors.muted}
+      />
+    </Pressable>
+  );
+};
+
+const SearchDiscussionResult = ({ result, onPress }) => {
+  const colors = useProductTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Open discussion ${result.title}`}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.searchResultRow,
+        {
+          borderBottomColor: colors.border,
+          backgroundColor: pressed ? colors.accentSoft : 'transparent',
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.searchResultIcon,
+          { backgroundColor: colors.accentSoft },
+        ]}
+      >
+        <FontAwesome5
+          name={result.kind === 'post' ? 'comment-alt' : 'comments'}
+          iconStyle="solid"
+          size={15}
+          color={colors.accent}
+        />
+      </View>
+      <View style={styles.flex}>
+        <Text
+          numberOfLines={2}
+          style={[styles.searchResultTitle, { color: colors.text }]}
+        >
+          {result.title}
+        </Text>
+        {result.detail ? (
+          <Text
+            numberOfLines={2}
+            style={[styles.searchResultDetail, { color: colors.muted }]}
+          >
+            {result.detail}
           </Text>
         ) : null}
       </View>
@@ -313,11 +371,13 @@ export function NotificationSettingsScreen({ navigation, screenProps }) {
               : screenProps.pushStatus ===
                 NOTIFICATION_STATUS.DEVELOPMENT_BUILD_LIMITATION
               ? 'Unavailable in development build'
-              : 'Enable notifications'
+              : notificationSetupActionLabel(screenProps.pushStatus)
           }
           detail="Uses this device's secure notification permission"
           onPress={
-            canAttemptNotificationSetup(screenProps.pushStatus)
+            screenProps.pushStatus === NOTIFICATION_STATUS.PERMISSION_DENIED
+              ? () => Linking.openSettings()
+              : canAttemptNotificationSetup(screenProps.pushStatus)
               ? screenProps.enablePush
               : undefined
           }
@@ -468,6 +528,7 @@ export function NativeSearchScreen({ navigation, screenProps }) {
   const search = async () => {
     const term = query.trim();
     if (!term) return;
+    Keyboard.dismiss();
     setState({
       loading: true,
       searched: true,
@@ -531,28 +592,88 @@ export function NativeSearchScreen({ navigation, screenProps }) {
   return (
     <Shell title="Search" navigation={navigation}>
       <View style={styles.searchBar}>
-        <TextInput
-          accessibilityLabel="Search the Network"
-          placeholder="Search discussions and members"
-          placeholderTextColor={colors.muted}
-          returnKeyType="search"
-          value={query}
-          onChangeText={setQuery}
-          onSubmitEditing={search}
+        <View
           style={[
-            styles.input,
+            styles.searchInputWrap,
             {
-              color: colors.text,
               borderColor: colors.border,
-              backgroundColor: colors.surface,
+              backgroundColor: colors.surfaceRaised,
             },
           ]}
-        />
-        <Action
-          label="Search"
-          onPress={search}
-          disabled={!query.trim() || state.loading}
-        />
+        >
+          <FontAwesome5
+            name="search"
+            iconStyle="solid"
+            size={17}
+            color={colors.muted}
+          />
+          <TextInput
+            accessibilityLabel="Search the Network"
+            placeholder="Search Adjuster Network"
+            placeholderTextColor={colors.muted}
+            returnKeyType="search"
+            value={query}
+            onChangeText={setQuery}
+            onSubmitEditing={search}
+            style={[styles.input, styles.searchInput, { color: colors.text }]}
+          />
+          {query ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Clear search"
+              hitSlop={8}
+              onPress={() => {
+                setQuery('');
+                setState(current => ({
+                  ...current,
+                  searched: false,
+                  contentResults: [],
+                  memberResults: [],
+                  contentError: null,
+                  memberError: null,
+                }));
+              }}
+              style={styles.searchInputAction}
+            >
+              <FontAwesome5
+                name="times-circle"
+                iconStyle="solid"
+                size={17}
+                color={colors.muted}
+              />
+            </Pressable>
+          ) : (
+            <View style={styles.searchInputAction} />
+          )}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Submit search"
+            accessibilityState={{
+              disabled: !query.trim() || state.loading,
+            }}
+            disabled={!query.trim() || state.loading}
+            onPress={search}
+            style={({ pressed }) => [
+              styles.searchSubmit,
+              {
+                backgroundColor:
+                  query.trim() && !state.loading
+                    ? colors.hero
+                    : colors.surfaceAlt,
+                opacity: pressed ? 0.72 : 1,
+              },
+            ]}
+          >
+            <FontAwesome5
+              name="arrow-right"
+              iconStyle="solid"
+              size={14}
+              color={
+                query.trim() && !state.loading ? colors.onHero : colors.muted
+              }
+            />
+          </Pressable>
+        </View>
         <View
           accessibilityRole="tablist"
           style={[styles.searchFilters, { borderColor: colors.border }]}
@@ -589,23 +710,99 @@ export function NativeSearchScreen({ navigation, screenProps }) {
         </View>
       </View>
       <ScrollView
+        keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
+        style={styles.searchResultsScroll}
         contentContainerStyle={styles.content}
       >
+        {!state.loading && !state.searched ? (
+          <View
+            style={[
+              styles.searchWelcome,
+              {
+                backgroundColor: colors.surfaceRaised,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <View style={styles.searchWelcomeTop}>
+              <View
+                style={[
+                  styles.searchWelcomeIcon,
+                  { backgroundColor: colors.accentSoft },
+                ]}
+              >
+                <FontAwesome5
+                  name="search"
+                  iconStyle="solid"
+                  size={18}
+                  color={colors.accent}
+                />
+              </View>
+              <View style={styles.flex}>
+                <Text
+                  style={[styles.searchWelcomeTitle, { color: colors.text }]}
+                >
+                  Search the whole Network
+                </Text>
+                <Text
+                  style={[styles.searchWelcomeBody, { color: colors.muted }]}
+                >
+                  Find professional discussions and member Adjuster Cards.
+                </Text>
+              </View>
+            </View>
+            <View style={styles.searchScopeRow}>
+              {[
+                ['comments', 'Discussions'],
+                ['user', 'Members'],
+              ].map(([icon, label]) => (
+                <View
+                  key={label}
+                  style={[styles.searchScope, { borderColor: colors.border }]}
+                >
+                  <FontAwesome5
+                    name={icon}
+                    iconStyle="solid"
+                    size={13}
+                    color={colors.accent}
+                  />
+                  <Text
+                    style={[styles.searchScopeText, { color: colors.text }]}
+                  >
+                    {label}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
         {state.loading ? <ContentSkeleton rows={4} /> : null}
         {!state.loading && showMembers && state.memberResults.length ? (
           <View>
             <Text style={[styles.resultSection, { color: colors.brandAccent }]}>
               MEMBERS
             </Text>
-            {state.memberResults.map(member => (
-              <MemberSearchResult
-                key={member.key}
-                member={member}
-                site={site}
-                onPress={() => screenProps.openUrl(`${site.url}${member.path}`)}
-              />
-            ))}
+            <View
+              style={[
+                styles.searchResultsPanel,
+                {
+                  backgroundColor: colors.surfaceRaised,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              {state.memberResults.map(member => (
+                <MemberSearchResult
+                  key={member.key}
+                  member={member}
+                  site={site}
+                  onPress={() =>
+                    screenProps.openUrl(`${site.url}${member.path}`)
+                  }
+                />
+              ))}
+            </View>
           </View>
         ) : null}
         {!state.loading && showContent && state.contentResults.length ? (
@@ -613,18 +810,57 @@ export function NativeSearchScreen({ navigation, screenProps }) {
             <Text style={[styles.resultSection, { color: colors.brandAccent }]}>
               DISCUSSIONS
             </Text>
-            {state.contentResults.map(result => (
-              <Row
-                key={result.key}
-                title={result.title}
-                detail={result.detail}
-                onPress={() => screenProps.openUrl(`${site.url}${result.path}`)}
-              />
-            ))}
+            <View
+              style={[
+                styles.searchResultsPanel,
+                {
+                  backgroundColor: colors.surfaceRaised,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              {state.contentResults.map(result => (
+                <SearchDiscussionResult
+                  key={result.key}
+                  result={result}
+                  onPress={() =>
+                    screenProps.openUrl(`${site.url}${result.path}`)
+                  }
+                />
+              ))}
+            </View>
           </View>
         ) : null}
         {!state.loading && state.searched && !visibleCount && !visibleError ? (
-          <Status>{emptyMessage}</Status>
+          <View
+            style={[
+              styles.searchEmpty,
+              {
+                backgroundColor: colors.surfaceRaised,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.searchWelcomeIcon,
+                { backgroundColor: colors.accentSoft },
+              ]}
+            >
+              <FontAwesome5
+                name="search"
+                iconStyle="solid"
+                size={18}
+                color={colors.accent}
+              />
+            </View>
+            <Text style={[styles.searchEmptyTitle, { color: colors.text }]}>
+              No matches yet
+            </Text>
+            <Text style={[styles.searchEmptyBody, { color: colors.muted }]}>
+              {emptyMessage}
+            </Text>
+          </View>
         ) : null}
         {!state.loading && showMembers && state.memberError ? (
           <Text
@@ -804,8 +1040,77 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginVertical: spacing.lg,
   },
+  searchWelcome: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 16,
+    padding: spacing.md,
+  },
+  searchWelcomeTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  searchWelcomeIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchWelcomeTitle: { fontSize: 18, lineHeight: 23, fontWeight: '800' },
+  searchWelcomeBody: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: spacing.xs,
+  },
+  searchScopeRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  searchScope: {
+    flex: 1,
+    minHeight: 54,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingHorizontal: 4,
+  },
+  searchScopeText: {
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: '750',
+    textAlign: 'center',
+  },
   error: { fontSize: 14, lineHeight: 20, marginVertical: spacing.md },
-  searchBar: { padding: spacing.md, gap: spacing.sm },
+  searchBar: { padding: spacing.md, gap: spacing.md },
+  searchResultsScroll: { flex: 1, marginTop: spacing.sm },
+  searchInputWrap: {
+    flex: 1,
+    minHeight: 56,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 14,
+    paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  searchInput: { flex: 1, borderWidth: 0, paddingHorizontal: 0 },
+  searchInputAction: {
+    width: 36,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchSubmit: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   searchFilters: {
     minHeight: 42,
     borderWidth: StyleSheet.hairlineWidth,
@@ -829,6 +1134,50 @@ const styles = StyleSheet.create({
     letterSpacing: 1.05,
     marginTop: spacing.md,
     marginBottom: spacing.xs,
+  },
+  searchResultsPanel: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  searchResultRow: {
+    minHeight: 76,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  searchResultIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchResultTitle: { fontSize: 15, lineHeight: 20, fontWeight: '780' },
+  searchResultDetail: { fontSize: 12, lineHeight: 17, marginTop: 3 },
+  searchEmpty: {
+    minHeight: 190,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 16,
+    padding: spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchEmptyTitle: {
+    fontSize: 18,
+    lineHeight: 23,
+    fontWeight: '800',
+    marginTop: spacing.md,
+    textAlign: 'center',
+  },
+  searchEmptyBody: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: spacing.xs,
+    textAlign: 'center',
   },
   memberResult: {
     minHeight: 88,

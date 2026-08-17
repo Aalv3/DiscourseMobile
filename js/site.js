@@ -404,21 +404,19 @@ class Site {
   notifications(types, options) {
     if (this._loadingNotifications) {
       // avoid double json
-      return new Promise(resolve => {
+      return new Promise((resolve, reject) => {
         let retries = 100;
         let interval = setInterval(() => {
           retries--;
           if (retries === 0 || this._notifications) {
             clearInterval(interval);
-            this.notifications(types).then(n => {
-              resolve(n);
-            });
+            this.notifications(types, options).then(resolve).catch(reject);
           }
         }, 50);
       });
     }
 
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
       if (!this.authToken) {
         resolve([]);
         return;
@@ -468,8 +466,12 @@ class Site {
             n => resolve(n),
           );
         })
-        .catch(() => {
-          resolve([]);
+        .catch(error => {
+          if (options?.surfaceErrors === true) {
+            reject(error);
+          } else {
+            resolve([]);
+          }
         })
         .finally(() => {
           this._loadingNotifications = false;

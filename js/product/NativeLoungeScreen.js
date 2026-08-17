@@ -23,13 +23,15 @@ import {
   Action,
   ContentSkeleton,
   InlineState,
-  NotificationBell,
-  PageHeader,
+  V2BrandHeader,
   useProductTheme,
 } from './ProductComponents';
 import { activeMemberSite } from './ProductData';
 import { radius, spacing, type } from './DesignSystem';
 import EmojiTextInput from './EmojiTextInput';
+import AttachmentComposer, { useAttachmentQueue } from './AttachmentComposer';
+import { successfulUploadIds } from './MediaAttachments';
+import DiscourseMedia, { chatMedia } from './DiscourseMedia';
 import {
   canSendToLounge,
   canDeleteOwnLoungeMessage,
@@ -45,6 +47,7 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
   const colors = useProductTheme();
   const tabBarHeight = useBottomTabBarHeight();
   const site = activeMemberSite(screenProps.siteManager);
+  const attachmentQueue = useAttachmentQueue(site, 'chat-composer');
   const listRef = useRef(null);
   const loadingOlder = useRef(false);
   const didInitialScroll = useRef(false);
@@ -170,7 +173,12 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
 
   const submitMessage = async () => {
     const message = composer.message.trim();
-    if (!message || !chat.channel?.id || !site?.authToken) return;
+    if (
+      (!message && !attachmentQueue.attachments.length) ||
+      !chat.channel?.id ||
+      !site?.authToken
+    )
+      return;
     setComposer(current => ({ ...current, submitting: true, error: null }));
     try {
       if (!chat.channel.current_user_membership) {
@@ -179,8 +187,13 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
           'POST',
         );
       }
-      await site.jsonApi(`/chat/${chat.channel.id}.json`, 'POST', { message });
+      const attachments = await attachmentQueue.uploadAll();
+      await site.jsonApi(`/chat/${chat.channel.id}.json`, 'POST', {
+        message,
+        upload_ids: successfulUploadIds(attachments),
+      });
       setComposer({ message: '', submitting: false, error: null });
+      attachmentQueue.clear();
       await refreshMessages();
       globalThis.requestAnimationFrame(() =>
         listRef.current?.scrollToEnd({ animated: true }),
@@ -248,7 +261,12 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
       .replace(/\s+/g, ' ')
       .trim();
     return (
-      <View style={styles.message}>
+      <View
+        style={[
+          styles.message,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+        ]}
+      >
         <Pressable
           accessibilityRole="link"
           accessibilityLabel={`Open ${
@@ -287,6 +305,7 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
           <Text selectable style={[styles.body, { color: colors.text }]}>
             {body}
           </Text>
+          <DiscourseMedia media={chatMedia(item, site)} site={site} compact />
           {canDeleteOwnLoungeMessage(item, site.username) ? (
             <Pressable
               accessibilityRole="button"
@@ -295,6 +314,12 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
               onPress={() => deleteMessage(item)}
               style={styles.messageAction}
             >
+              <FontAwesome5
+                name="trash-alt"
+                size={10}
+                color={colors.muted}
+                iconStyle="solid"
+              />
               <Text style={[styles.messageActionText, { color: colors.muted }]}>
                 Delete
               </Text>
@@ -313,23 +338,68 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
       edges={['top', 'left', 'right']}
       style={[styles.safe, { backgroundColor: colors.canvas }]}
     >
-      <PageHeader
-        eyebrow="Members"
-        title="The Lounge"
-        action={
-          <NotificationBell
-            count={screenProps.siteManager.totalUnread()}
-            onPress={() => navigation.navigate('NotificationCenter')}
-          />
-        }
+      <V2BrandHeader
+        title="Lounge"
+        subtitle="Take a break. Connect off duty."
+        onSearch={() => navigation.navigate('Search')}
+        onNotifications={() => navigation.navigate('NotificationCenter')}
+        notificationCount={screenProps.siteManager.totalUnread()}
       />
-      <Text style={[styles.subtitle, { color: colors.muted }]}>
-        Open conversation for Network members.
-      </Text>
-      <View style={[styles.liveRule, { backgroundColor: colors.accentSoft }]}>
-        <View style={[styles.liveDot, { backgroundColor: colors.success }]} />
-        <Text style={[styles.liveLabel, { color: colors.accent }]}>
-          SHARED MEMBER CHANNEL
+      {!keyboardVisible ? (
+        <View style={[styles.spotlight, { backgroundColor: colors.hero }]}>
+          <View style={styles.spotlightCopy}>
+            <View
+              style={[styles.liveRule, { backgroundColor: colors.accentSoft }]}
+            >
+              <View
+                style={[styles.liveDot, { backgroundColor: colors.success }]}
+              />
+              <Text style={[styles.liveLabel, { color: colors.accent }]}>
+                OPEN MEMBER CHANNEL
+              </Text>
+            </View>
+            <Text style={styles.spotlightTitle}>
+              The Network’s off-duty room.
+            </Text>
+            <Text style={styles.spotlightBody}>
+              Share the everyday conversation that keeps a professional
+              community human.
+            </Text>
+            <View style={styles.spotlightStatus}>
+              <FontAwesome5
+                name="comments"
+                size={13}
+                color="#FFFFFF"
+                iconStyle="solid"
+              />
+              <Text style={styles.spotlightStatusText}>Conversation open</Text>
+            </View>
+          </View>
+          <View style={styles.spotlightVisual}>
+            <View style={styles.spotlightOrbitLarge}>
+              <View style={styles.spotlightIcon}>
+                <FontAwesome5
+                  name="comment-dots"
+                  size={28}
+                  color="#FFFFFF"
+                  iconStyle="solid"
+                />
+              </View>
+            </View>
+            <View style={styles.spotlightOrbitSmall} />
+          </View>
+        </View>
+      ) : null}
+      <View style={styles.conversationHeading}>
+        <Text style={[styles.conversationTitle, { color: colors.text }]}>
+          Recent conversation
+        </Text>
+        <Text style={[styles.conversationMeta, { color: colors.muted }]}>
+          {chat.messages.length
+            ? `${chat.messages.length} recent ${
+                chat.messages.length === 1 ? 'message' : 'messages'
+              }`
+            : 'Shared member channel'}
         </Text>
       </View>
       <KeyboardAvoidingView
@@ -341,23 +411,33 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
             <ContentSkeleton rows={5} />
           </View>
         ) : chat.error ? (
-          <View style={styles.feed}>
-            <InlineState
-              icon="comments"
-              title={
-                chat.error === 'channel_missing'
-                  ? 'The Lounge is being prepared'
-                  : 'Couldn’t refresh the Lounge'
-              }
-              body={
-                chat.error === 'channel_missing'
-                  ? 'The shared member channel is not available yet.'
-                  : 'Visible messages are preserved when possible. Try the connection again.'
-              }
-              action={
-                <Action label="Try again" onPress={loadLounge} secondary />
-              }
-            />
+          <View style={[styles.feed, styles.feedState]}>
+            <View
+              style={[
+                styles.channelStateCard,
+                {
+                  backgroundColor: colors.surfaceRaised,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <InlineState
+                icon="comments"
+                title={
+                  chat.error === 'channel_missing'
+                    ? 'The Lounge is being prepared'
+                    : 'Couldn’t refresh the Lounge'
+                }
+                body={
+                  chat.error === 'channel_missing'
+                    ? 'The shared member channel is not available yet.'
+                    : 'Visible messages are preserved when possible. Try the connection again.'
+                }
+                action={
+                  <Action label="Try again" onPress={loadLounge} secondary />
+                }
+              />
+            </View>
           </View>
         ) : (
           <FlatList
@@ -402,6 +482,12 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
             renderItem={renderMessage}
           />
         )}
+        <View style={styles.loungeAttachments}>
+          <AttachmentComposer
+            queue={attachmentQueue}
+            disabled={!canSend || composer.submitting}
+          />
+        </View>
         <View
           style={[
             styles.composer,
@@ -435,7 +521,9 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
             accessibilityRole="button"
             accessibilityLabel="Send message"
             disabled={
-              !canSend || composer.submitting || !composer.message.trim()
+              !canSend ||
+              composer.submitting ||
+              (!composer.message.trim() && !attachmentQueue.attachments.length)
             }
             onPress={submitMessage}
             style={({ pressed }) => [
@@ -443,7 +531,10 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
               {
                 backgroundColor: colors.accent,
                 opacity:
-                  !canSend || composer.submitting || !composer.message.trim()
+                  !canSend ||
+                  composer.submitting ||
+                  (!composer.message.trim() &&
+                    !attachmentQueue.attachments.length)
                     ? 0.4
                     : pressed
                     ? 0.75
@@ -484,19 +575,93 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   chatArea: { flex: 1 },
   feedList: { flex: 1 },
-  subtitle: {
-    fontSize: 14,
-    lineHeight: 20,
+  spotlight: {
+    minHeight: 124,
     marginHorizontal: spacing.md,
-    marginTop: -spacing.sm,
-    marginBottom: spacing.sm,
+    marginTop: spacing.sm,
+    borderRadius: 18,
+    overflow: 'hidden',
+    flexDirection: 'row',
   },
+  spotlightCopy: {
+    flex: 1.55,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+    zIndex: 2,
+  },
+  spotlightTitle: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    lineHeight: 21,
+    fontWeight: '850',
+    marginTop: spacing.xs,
+  },
+  spotlightBody: {
+    color: '#C9D7E0',
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: spacing.xxs,
+  },
+  spotlightStatus: {
+    minHeight: 28,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: '#B3262D',
+  },
+  spotlightStatusText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
+  spotlightVisual: {
+    flex: 0.85,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    backgroundColor: '#183C55',
+  },
+  spotlightOrbitLarge: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 9,
+    borderColor: 'rgba(129, 205, 220, 0.13)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  spotlightOrbitSmall: {
+    width: 38,
+    height: 6,
+    borderRadius: 4,
+    backgroundColor: 'rgba(129, 205, 220, 0.11)',
+  },
+  spotlightIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#157A96',
+    borderWidth: 5,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  conversationHeading: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xs,
+  },
+  conversationTitle: { fontSize: 17, lineHeight: 22, fontWeight: '820' },
+  conversationMeta: { fontSize: 12, lineHeight: 17 },
   liveRule: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.xs,
+    marginBottom: 0,
     borderRadius: radius.sm,
     alignSelf: 'flex-start',
     paddingHorizontal: spacing.sm,
@@ -511,6 +676,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
     paddingBottom: spacing.md,
+  },
+  feedState: { flex: 1, justifyContent: 'center', paddingBottom: 120 },
+  channelStateCard: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 16,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   feedEmpty: { flexGrow: 1, justifyContent: 'center' },
   empty: { alignItems: 'center', gap: spacing.sm, padding: spacing.xl },
@@ -533,7 +705,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: spacing.sm,
     paddingVertical: spacing.sm,
-    borderBottomWidth: 0,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginBottom: spacing.xs,
   },
   avatar: { width: 38, height: 38, borderRadius: 19 },
   messageCopy: { flex: 1, minWidth: 0 },
@@ -544,6 +719,9 @@ const styles = StyleSheet.create({
   messageAction: {
     alignSelf: 'flex-start',
     minHeight: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
     justifyContent: 'center',
   },
   messageActionText: { fontSize: 12, lineHeight: 17, fontWeight: '650' },
@@ -559,6 +737,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 10,
     elevation: 4,
+  },
+  loungeAttachments: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xs,
   },
   emojiInput: { flex: 1 },
   input: {

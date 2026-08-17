@@ -23,6 +23,7 @@ import {
   ContentSkeleton,
   InlineState,
   NestedHeader,
+  V2BrandHeader,
   useProductTheme,
 } from './ProductComponents';
 import { radius, spacing, type } from './DesignSystem';
@@ -33,6 +34,9 @@ import {
 } from './topicConversation';
 import { canEditPost, loadEditablePost, savePostEdit } from './topicEditing';
 import { openMemberAdjusterCard } from './memberNavigation';
+import AttachmentComposer, { useAttachmentQueue } from './AttachmentComposer';
+import { appendUploadMarkup } from './MediaAttachments';
+import DiscourseMedia, { cookedMedia } from './DiscourseMedia';
 
 function readablePost(cooked) {
   return decode(
@@ -102,6 +106,7 @@ export function replyErrorMessage(error) {
 export default function NativeTopicScreen({ navigation, route, screenProps }) {
   const colors = useProductTheme();
   const site = activeMemberSite(screenProps.siteManager);
+  const attachmentQueue = useAttachmentQueue(site, 'composer');
   const scrollRef = useRef(null);
   const postPositions = useRef({});
   const [highlightedPost, setHighlightedPost] = useState(null);
@@ -188,8 +193,10 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
     posts.map(post => [post.post_number, post]),
   );
   const conversation = conversationOrder(posts);
+  const replyCount = Math.max(0, conversation.length - 1);
 
-  const openComposer = replyToPostNumber =>
+  const openComposer = replyToPostNumber => {
+    attachmentQueue.clear();
     setComposer({
       visible: true,
       mode: 'reply',
@@ -199,9 +206,11 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
       submitting: false,
       error: null,
     });
+  };
 
   const openEditor = async post => {
     if (!canEditPost(post)) return;
+    attachmentQueue.clear();
     setComposer({
       visible: true,
       mode: 'edit',
@@ -238,15 +247,22 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
 
   const submitComposer = async () => {
     const raw = composer.raw.trim();
-    if (!raw || !state.topic?.id || !site?.authToken) return;
+    if (
+      (!raw && !attachmentQueue.attachments.length) ||
+      !state.topic?.id ||
+      !site?.authToken
+    )
+      return;
     setComposer(current => ({ ...current, submitting: true, error: null }));
     try {
+      const attachments = await attachmentQueue.uploadAll();
+      const submittedRaw = appendUploadMarkup(raw, attachments);
       const editing = composer.mode === 'edit';
       const created = editing
-        ? await savePostEdit(site, composer.postId, raw)
+        ? await savePostEdit(site, composer.postId, submittedRaw)
         : await site.jsonApi('/posts.json', 'POST', {
             topic_id: state.topic.id,
-            raw,
+            raw: submittedRaw,
             ...(composer.replyToPostNumber
               ? { reply_to_post_number: composer.replyToPostNumber }
               : {}),
@@ -256,6 +272,7 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
         visible: false,
         submitting: false,
       }));
+      attachmentQueue.clear();
       await loadTopic();
       setTimeout(() => {
         if (editing) return;
@@ -402,7 +419,7 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.canvas }]}>
-      <NestedHeader title="Topic" onBack={() => navigation.goBack()} />
+      <V2BrandHeader onBack={() => navigation.goBack()} />
       {state.loading ? (
         <View style={styles.content}>
           <ContentSkeleton rows={5} />
@@ -423,9 +440,23 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
           keyboardShouldPersistTaps="handled"
         >
           <View
-            style={[styles.topicHeader, { borderBottomColor: colors.border }]}
+            style={[
+              styles.topicHeader,
+              {
+                backgroundColor: colors.canvas,
+                borderColor: colors.border,
+              },
+            ]}
           >
-            <Text style={[styles.topicKicker, { color: colors.accent }]}>
+            <Text
+              style={[
+                styles.topicKicker,
+                {
+                  backgroundColor: colors.accentSoft,
+                  color: colors.accent,
+                },
+              ]}
+            >
               MEMBER DISCUSSION
             </Text>
             <Text
@@ -463,11 +494,316 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
               />
             </View>
           ) : null}
+          {conversation.map(({ post, depth }, index) => {
+            const parent = post.reply_to_post_number
+              ? postsByNumber[post.reply_to_post_number]
+              : null;
+            const avatar = avatarUrl(site, post);
+            return (
+              <React.Fragment key={post.id}>
+                {index === 1 ? (
+                  <View
+                    style={[
+                      styles.repliesHeader,
+                      { borderBottomColor: colors.border },
+                    ]}
+                  >
+                    <View>
+                      <Text
+                        accessibilityRole="header"
+                        style={[styles.repliesTitle, { color: colors.text }]}
+                      >
+                        Replies
+                      </Text>
+                      <Text
+                        style={[styles.repliesCount, { color: colors.muted }]}
+                      >
+                        {replyCount}{' '}
+                        {replyCount === 1 ? 'response' : 'responses'}
+                      </Text>
+                    </View>
+                    {availability.allowed ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Write a reply"
+                        onPress={() => openComposer(null)}
+                        style={[
+                          styles.replyEntry,
+                          {
+                            backgroundColor: colors.accentSoft,
+                            borderColor: colors.accent,
+                          },
+                        ]}
+                      >
+                        <FontAwesome5
+                          name="reply"
+                          size={12}
+                          color={colors.accent}
+                          iconStyle="solid"
+                        />
+                        <Text
+                          style={[
+                            styles.replyEntryText,
+                            { color: colors.accent },
+                          ]}
+                        >
+                          Reply
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                ) : null}
+                <View
+                  onLayout={event => {
+                    postPositions.current[post.post_number] =
+                      event.nativeEvent.layout.y;
+                  }}
+                  style={[
+                    styles.post,
+                    {
+                      backgroundColor:
+                        highlightedPost === post.post_number
+                          ? colors.accentSoft
+                          : index === 0
+                          ? colors.canvas
+                          : colors.canvas,
+                      borderColor:
+                        highlightedPost === post.post_number
+                          ? colors.accent
+                          : colors.border,
+                    },
+                    index === 0 && [
+                      styles.originalPost,
+                      { borderTopColor: colors.accent },
+                    ],
+                    index > 0 && [
+                      styles.replyPost,
+                      { borderLeftColor: colors.accent },
+                    ],
+                    depth > 1 && styles.threadedReply,
+                  ]}
+                >
+                  <Pressable
+                    accessibilityRole="link"
+                    accessibilityLabel={`Open ${memberName(
+                      post,
+                    )} Adjuster Card`}
+                    disabled={!post.username}
+                    onPress={() =>
+                      openMemberAdjusterCard(navigation, post.username)
+                    }
+                    style={styles.identityRow}
+                  >
+                    {avatar ? (
+                      <Image
+                        accessibilityLabel={`${memberName(post)} avatar`}
+                        source={{ uri: avatar }}
+                        style={styles.postAvatar}
+                      />
+                    ) : (
+                      <View
+                        style={[
+                          styles.postAvatar,
+                          styles.avatarFallback,
+                          { backgroundColor: colors.accent },
+                        ]}
+                      >
+                        <Text style={styles.avatarInitial}>
+                          {memberName(post).slice(0, 1).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={styles.identityCopy}>
+                      <Text style={[styles.author, { color: colors.text }]}>
+                        {memberName(post)}
+                      </Text>
+                      <Text style={[styles.postMeta, { color: colors.muted }]}>
+                        @{post.username || 'member'} ·{' '}
+                        {postTime(post.created_at)}
+                      </Text>
+                    </View>
+                    {index === 0 ? (
+                      <View
+                        style={[
+                          styles.starterBadge,
+                          { backgroundColor: colors.brandAccentSoft },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.starterBadgeText,
+                            { color: colors.brandAccent },
+                          ]}
+                        >
+                          STARTER
+                        </Text>
+                      </View>
+                    ) : null}
+                  </Pressable>
+                  {post.reply_to_post_number ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        parent
+                          ? `Jump to reply from ${memberName(parent)}`
+                          : 'Referenced reply unavailable'
+                      }
+                      disabled={!parent}
+                      onPress={() => jumpToPost(post.reply_to_post_number)}
+                      style={[
+                        styles.replyContext,
+                        {
+                          backgroundColor: colors.surfaceAlt,
+                          borderLeftColor: colors.accent,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[styles.replyingTo, { color: colors.accent }]}
+                      >
+                        ↳ Replying to{' '}
+                        {parent ? memberName(parent) : 'an unavailable post'}
+                      </Text>
+                      {parent ? (
+                        <Text
+                          numberOfLines={2}
+                          style={[
+                            styles.contextExcerpt,
+                            { color: colors.muted },
+                          ]}
+                        >
+                          {compactExcerpt(parent)}
+                        </Text>
+                      ) : null}
+                    </Pressable>
+                  ) : null}
+                  <Text
+                    selectable
+                    style={[styles.body, { color: colors.text }]}
+                  >
+                    {readablePost(post.cooked)}
+                  </Text>
+                  <DiscourseMedia
+                    media={cookedMedia(post.cooked, site)}
+                    site={site}
+                  />
+                  <View style={styles.postActions}>
+                    {availability.allowed ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Reply to ${
+                          post.name || post.username || 'member'
+                        }`}
+                        onPress={() => openComposer(post.post_number)}
+                        style={styles.postReply}
+                      >
+                        <FontAwesome5
+                          name="reply"
+                          size={12}
+                          color={colors.accent}
+                          iconStyle="solid"
+                        />
+                        <Text
+                          style={[
+                            styles.postReplyText,
+                            { color: colors.accent },
+                          ]}
+                        >
+                          Reply
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                    {canEditPost(post) ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Edit your ${
+                          post.post_number === 1 ? 'discussion' : 'reply'
+                        }`}
+                        onPress={() => openEditor(post)}
+                        style={styles.postReply}
+                      >
+                        <FontAwesome5
+                          name="pen"
+                          size={12}
+                          color={colors.accent}
+                          iconStyle="solid"
+                        />
+                        <Text
+                          style={[
+                            styles.postReplyText,
+                            { color: colors.accent },
+                          ]}
+                        >
+                          Edit
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        post.bookmarked ? 'Remove bookmark' : 'Bookmark post'
+                      }
+                      onPress={() => toggleBookmark(post)}
+                      style={styles.postReply}
+                    >
+                      <FontAwesome5
+                        name="bookmark"
+                        size={12}
+                        color={colors.accent}
+                        iconStyle="solid"
+                      />
+                      <Text
+                        style={[styles.postReplyText, { color: colors.accent }]}
+                      >
+                        {post.bookmarked ? 'Saved' : 'Save'}
+                      </Text>
+                    </Pressable>
+                    {post.can_delete ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Delete your reply"
+                        onPress={() => deletePost(post)}
+                        style={styles.postReply}
+                      >
+                        <Text
+                          style={[
+                            styles.postReplyText,
+                            { color: colors.danger },
+                          ]}
+                        >
+                          Delete
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                </View>
+              </React.Fragment>
+            );
+          })}
+          {!replyCount && availability.allowed ? (
+            <View
+              style={[
+                styles.emptyReplies,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <Text style={[styles.emptyRepliesTitle, { color: colors.text }]}>
+                Start the conversation
+              </Text>
+              <Text style={[styles.emptyRepliesBody, { color: colors.muted }]}>
+                Share a useful perspective with the Network.
+              </Text>
+            </View>
+          ) : null}
           {availability.allowed ? (
             <View style={styles.primaryReply}>
               <Action
-                label="Join discussion"
+                label="Write a reply"
                 icon="reply"
+                secondary
                 onPress={() => openComposer(null)}
               />
             </View>
@@ -476,217 +812,6 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
               {availability.reason}
             </Text>
           )}
-          {conversation.map(({ post, depth }, index) => {
-            const parent = post.reply_to_post_number
-              ? postsByNumber[post.reply_to_post_number]
-              : null;
-            const avatar = avatarUrl(site, post);
-            return (
-              <View
-                key={post.id}
-                onLayout={event => {
-                  postPositions.current[post.post_number] =
-                    event.nativeEvent.layout.y;
-                }}
-                style={[
-                  styles.post,
-                  {
-                    backgroundColor:
-                      highlightedPost === post.post_number
-                        ? colors.accentSoft
-                        : index === 0
-                        ? colors.surfaceWarm
-                        : colors.canvas,
-                    borderColor:
-                      highlightedPost === post.post_number
-                        ? colors.accent
-                        : colors.border,
-                  },
-                  index === 0 && [
-                    styles.originalPost,
-                    { borderTopColor: colors.accent },
-                  ],
-                  depth > 1 && styles.threadedReply,
-                ]}
-              >
-                <Pressable
-                  accessibilityRole="link"
-                  accessibilityLabel={`Open ${memberName(post)} Adjuster Card`}
-                  disabled={!post.username}
-                  onPress={() =>
-                    openMemberAdjusterCard(navigation, post.username)
-                  }
-                  style={styles.identityRow}
-                >
-                  {avatar ? (
-                    <Image
-                      accessibilityLabel={`${memberName(post)} avatar`}
-                      source={{ uri: avatar }}
-                      style={styles.postAvatar}
-                    />
-                  ) : (
-                    <View
-                      style={[
-                        styles.postAvatar,
-                        styles.avatarFallback,
-                        { backgroundColor: colors.accent },
-                      ]}
-                    >
-                      <Text style={styles.avatarInitial}>
-                        {memberName(post).slice(0, 1).toUpperCase()}
-                      </Text>
-                    </View>
-                  )}
-                  <View style={styles.identityCopy}>
-                    <Text style={[styles.author, { color: colors.text }]}>
-                      {memberName(post)}
-                    </Text>
-                    <Text style={[styles.postMeta, { color: colors.muted }]}>
-                      @{post.username || 'member'} · {postTime(post.created_at)}
-                    </Text>
-                  </View>
-                  {index === 0 ? (
-                    <View
-                      style={[
-                        styles.starterBadge,
-                        { backgroundColor: colors.brandAccentSoft },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.starterBadgeText,
-                          { color: colors.brandAccent },
-                        ]}
-                      >
-                        STARTER
-                      </Text>
-                    </View>
-                  ) : null}
-                </Pressable>
-                {post.reply_to_post_number ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={
-                      parent
-                        ? `Jump to reply from ${memberName(parent)}`
-                        : 'Referenced reply unavailable'
-                    }
-                    disabled={!parent}
-                    onPress={() => jumpToPost(post.reply_to_post_number)}
-                    style={[
-                      styles.replyContext,
-                      {
-                        backgroundColor: colors.surfaceAlt,
-                        borderLeftColor: colors.accent,
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.replyingTo, { color: colors.accent }]}>
-                      ↳ Replying to{' '}
-                      {parent ? memberName(parent) : 'an unavailable post'}
-                    </Text>
-                    {parent ? (
-                      <Text
-                        numberOfLines={2}
-                        style={[styles.contextExcerpt, { color: colors.muted }]}
-                      >
-                        {compactExcerpt(parent)}
-                      </Text>
-                    ) : null}
-                  </Pressable>
-                ) : null}
-                <Text selectable style={[styles.body, { color: colors.text }]}>
-                  {readablePost(post.cooked)}
-                </Text>
-                <View style={styles.postActions}>
-                  {availability.allowed ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`Reply to ${
-                        post.name || post.username || 'member'
-                      }`}
-                      onPress={() => openComposer(post.post_number)}
-                      style={styles.postReply}
-                    >
-                      <FontAwesome5
-                        name="reply"
-                        size={12}
-                        color={colors.accent}
-                        iconStyle="solid"
-                      />
-                      <Text
-                        style={[styles.postReplyText, { color: colors.accent }]}
-                      >
-                        Reply
-                      </Text>
-                    </Pressable>
-                  ) : null}
-                  {canEditPost(post) ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`Edit your ${
-                        post.post_number === 1 ? 'discussion' : 'reply'
-                      }`}
-                      onPress={() => openEditor(post)}
-                      style={styles.postReply}
-                    >
-                      <FontAwesome5
-                        name="pen"
-                        size={12}
-                        color={colors.accent}
-                        iconStyle="solid"
-                      />
-                      <Text
-                        style={[styles.postReplyText, { color: colors.accent }]}
-                      >
-                        Edit
-                      </Text>
-                    </Pressable>
-                  ) : null}
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={
-                      post.bookmarked ? 'Remove bookmark' : 'Bookmark post'
-                    }
-                    onPress={() => toggleBookmark(post)}
-                    style={styles.postReply}
-                  >
-                    <FontAwesome5
-                      name="bookmark"
-                      size={12}
-                      color={colors.accent}
-                      iconStyle="solid"
-                    />
-                    <Text
-                      style={[styles.postReplyText, { color: colors.accent }]}
-                    >
-                      <FontAwesome5
-                        name="trash"
-                        size={12}
-                        color={colors.danger}
-                        iconStyle="solid"
-                      />
-                      {post.bookmarked ? 'Saved' : 'Save'}
-                    </Text>
-                  </Pressable>
-                  {post.can_delete ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Delete your reply"
-                      onPress={() => deletePost(post)}
-                      style={styles.postReply}
-                    >
-                      <Text
-                        style={[styles.postReplyText, { color: colors.danger }]}
-                      >
-                        Delete
-                      </Text>
-                    </Pressable>
-                  ) : null}
-                </View>
-              </View>
-            );
-          })}
         </ScrollView>
       )}
       <Modal
@@ -781,6 +906,10 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
               textAlignVertical="top"
               value={composer.raw}
             />
+            <AttachmentComposer
+              queue={attachmentQueue}
+              disabled={composer.submitting}
+            />
             {composer.error ? (
               <Text
                 accessibilityRole="alert"
@@ -806,7 +935,10 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
                     ? 'Save changes'
                     : 'Post reply'
                 }
-                disabled={composer.submitting || !composer.raw.trim()}
+                disabled={
+                  composer.submitting ||
+                  (!composer.raw.trim() && !attachmentQueue.attachments.length)
+                }
                 onPress={submitComposer}
               />
             </View>
@@ -840,44 +972,86 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 820,
     alignSelf: 'center',
-    padding: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xs,
     paddingBottom: spacing.xl,
   },
   title: {
-    fontSize: 27,
-    lineHeight: 34,
+    fontSize: 26,
+    lineHeight: 32,
     fontWeight: '820',
     marginTop: spacing.xs,
   },
   topicHeader: {
-    paddingBottom: spacing.sm,
-    marginBottom: spacing.md,
-    borderBottomWidth: 0,
+    paddingHorizontal: 0,
+    paddingVertical: spacing.xs,
+    marginBottom: spacing.sm,
+    borderWidth: 0,
+    borderRadius: 0,
   },
-  topicKicker: type.label,
+  topicKicker: {
+    ...type.label,
+    alignSelf: 'flex-start',
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
   topicSummary: { ...type.metadata, marginTop: spacing.xs },
   topicRule: { flexDirection: 'row', height: 2, marginTop: spacing.md },
   topicRuleAccent: { width: 52 },
   topicRuleRest: { flex: 1 },
   post: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 14,
-    paddingHorizontal: spacing.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 14,
+    paddingVertical: 11,
+    paddingHorizontal: spacing.md,
+    marginBottom: 7,
   },
   originalPost: {
+    borderWidth: 0,
+    borderRadius: 0,
+    paddingHorizontal: 0,
+    paddingBottom: spacing.md,
+    marginBottom: spacing.md,
+  },
+  replyPost: {
     borderLeftWidth: 3,
-    borderBottomWidth: 0,
-    borderRadius: radius.sm,
+  },
+  repliesHeader: {
+    minHeight: 54,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    marginBottom: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  repliesTitle: { ...type.heading, fontSize: 17, lineHeight: 21 },
+  repliesCount: { ...type.metadata, marginTop: 1 },
+  replyEntry: {
+    minHeight: 38,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  replyEntryText: { fontSize: 13, fontWeight: '750' },
+  emptyReplies: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.lg,
+    padding: spacing.md,
     marginBottom: spacing.sm,
   },
+  emptyRepliesTitle: { ...type.heading, fontSize: 16, lineHeight: 21 },
+  emptyRepliesBody: { ...type.body, marginTop: spacing.xs },
   threadedReply: {
-    marginLeft: 24,
+    marginLeft: 18,
     borderLeftWidth: 2,
     paddingLeft: spacing.md,
   },
   identityRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  postAvatar: { width: 38, height: 38, borderRadius: 19 },
+  postAvatar: { width: 36, height: 36, borderRadius: 18 },
   avatarFallback: { alignItems: 'center', justifyContent: 'center' },
   avatarInitial: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
   identityCopy: { flex: 1 },
@@ -889,7 +1063,7 @@ const styles = StyleSheet.create({
   },
   starterBadgeText: { ...type.label, fontSize: 9 },
   postMeta: { fontSize: 12, lineHeight: 17, marginTop: 1 },
-  body: { fontSize: 16, lineHeight: 24, marginTop: spacing.sm },
+  body: { fontSize: 15, lineHeight: 22, marginTop: spacing.sm },
   replyContext: {
     borderLeftWidth: 3,
     borderRadius: radius.sm,
@@ -902,8 +1076,8 @@ const styles = StyleSheet.create({
   postActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.lg,
-    marginTop: spacing.xs,
+    gap: spacing.md,
+    marginTop: 2,
   },
   primaryReply: { alignItems: 'flex-start', marginBottom: spacing.md },
   unavailable: { fontSize: 14, lineHeight: 20, marginBottom: spacing.md },
@@ -915,7 +1089,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     justifyContent: 'center',
   },
-  postReplyText: { fontSize: 15, fontWeight: '700' },
+  postReplyText: { fontSize: 13, fontWeight: '700' },
   composer: { flex: 1 },
   composerContent: { padding: spacing.md, paddingBottom: spacing.xl },
   composerTitle: {

@@ -17,17 +17,19 @@ import { productTheme, radius, spacing, type } from './DesignSystem';
 export const useProductTheme = () =>
   productTheme(useContext(ThemeContext).name);
 
-export const BrandMark = () => (
+export const BrandMark = ({ prominent = false }) => (
   <View
     accessible
     accessibilityRole="image"
     accessibilityLabel="Adjuster Network"
-    style={styles.brandMarkViewport}
+    style={
+      prominent ? styles.brandMarkViewportProminent : styles.brandMarkViewport
+    }
   >
     <Image
       source={require('../../img/adjuster-network-logo.png')}
       resizeMode="contain"
-      style={styles.brandMark}
+      style={prominent ? styles.brandMarkProminent : styles.brandMark}
     />
   </View>
 );
@@ -137,6 +139,91 @@ export const NotificationBell = ({ count = 0, onPress }) => {
         </View>
       ) : null}
     </Pressable>
+  );
+};
+
+export const V2BrandHeader = ({
+  title,
+  subtitle,
+  onBack,
+  onSearch,
+  onNotifications,
+  notificationCount = 0,
+}) => {
+  const colors = useProductTheme();
+  return (
+    <View
+      style={[
+        styles.v2Header,
+        {
+          backgroundColor: colors.surfaceRaised,
+          borderBottomColor: colors.border,
+        },
+      ]}
+    >
+      <View style={styles.v2HeaderTop}>
+        {onBack ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            hitSlop={8}
+            onPress={onBack}
+            style={styles.v2HeaderControl}
+          >
+            <FontAwesome5
+              name="chevron-left"
+              size={17}
+              color={colors.text}
+              iconStyle="solid"
+            />
+          </Pressable>
+        ) : null}
+        <View style={styles.v2BrandLockup}>
+          <BrandMark prominent={!onBack} />
+        </View>
+        <View style={styles.v2HeaderActions}>
+          {onSearch ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Search the Network"
+              hitSlop={8}
+              onPress={onSearch}
+              style={[styles.v2HeaderControl, { borderColor: colors.border }]}
+            >
+              <FontAwesome5
+                name="search"
+                size={16}
+                color={colors.text}
+                iconStyle="solid"
+              />
+            </Pressable>
+          ) : null}
+          {onNotifications ? (
+            <NotificationBell
+              count={notificationCount}
+              onPress={onNotifications}
+            />
+          ) : null}
+        </View>
+      </View>
+      {title ? (
+        <View
+          style={[styles.v2HeaderCopy, onBack && styles.v2HeaderCopyNested]}
+        >
+          <Text
+            accessibilityRole="header"
+            style={[styles.v2HeaderTitle, { color: colors.text }]}
+          >
+            {title}
+          </Text>
+          {subtitle ? (
+            <Text style={[styles.v2HeaderSubtitle, { color: colors.muted }]}>
+              {subtitle}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+    </View>
   );
 };
 
@@ -370,11 +457,47 @@ export const Metadata = ({ children, accent = false }) => {
 };
 
 const styles = StyleSheet.create({
-  notificationBell: {
-    width: 44,
-    height: 44,
+  v2Header: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.md,
+    paddingTop: 2,
+    paddingBottom: spacing.xs,
+  },
+  v2HeaderTop: {
+    minHeight: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  v2BrandLockup: { flex: 1, minWidth: 0 },
+  v2HeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  v2HeaderControl: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
+  v2HeaderCopy: { paddingTop: spacing.xs, paddingBottom: spacing.xxs },
+  v2HeaderCopyNested: { paddingTop: 2 },
+  v2HeaderTitle: { ...type.title, fontSize: 24, lineHeight: 29 },
+  v2HeaderSubtitle: {
+    ...type.body,
+    fontSize: 14,
+    lineHeight: 19,
+    marginTop: 1,
+    maxWidth: 680,
+  },
+  notificationBell: {
+    width: 40,
+    height: 40,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -416,18 +539,22 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   brandMarkViewport: {
-    width: 38,
-    height: 27,
+    width: 58,
+    height: 42,
     overflow: 'hidden',
     flexShrink: 0,
   },
   brandMark: {
-    position: 'absolute',
-    width: 62,
-    height: 44,
-    left: -12,
-    top: -5,
+    width: 58,
+    height: 42,
   },
+  brandMarkViewportProminent: {
+    width: 88,
+    height: 62,
+    overflow: 'hidden',
+    flexShrink: 0,
+  },
+  brandMarkProminent: { width: 88, height: 62 },
   eyebrow: {
     flex: 1,
     fontSize: 11,

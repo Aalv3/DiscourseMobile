@@ -13,14 +13,46 @@ import FontAwesome5 from '@react-native-vector-icons/fontawesome5';
 import DiscourseUtils from '../../DiscourseUtils';
 import { ThemeContext } from '../../ThemeContext';
 import i18n from 'i18n-js';
+import { productTheme, radius, spacing } from '../../product/DesignSystem';
+
+const notificationAge = createdAt => {
+  if (!createdAt) {
+    return null;
+  }
+  const elapsed = Date.now() - new Date(createdAt).getTime();
+  if (!Number.isFinite(elapsed) || elapsed < 0) {
+    return null;
+  }
+  const minutes = Math.floor(elapsed / 60000);
+  if (minutes < 1) {
+    return 'Now';
+  }
+  if (minutes < 60) {
+    return `${minutes}m`;
+  }
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return `${hours}h`;
+  }
+  const days = Math.floor(hours / 24);
+  return days < 7 ? `${days}d` : new Date(createdAt).toLocaleDateString();
+};
 
 class NotificationRow extends React.Component {
   render() {
     const theme = this.context;
 
+    if (this.props.nativeMemberShell) {
+      return this._renderMemberRow(theme);
+    }
+
     const contentView = {
       borderBottomColor: theme.grayBorder,
       borderBottomWidth: StyleSheet.hairlineWidth,
+      marginHorizontal: this.props.nativeMemberShell ? 16 : 0,
+      borderRadius: 0,
+      marginBottom: 0,
+      overflow: 'hidden',
     };
 
     return (
@@ -29,13 +61,90 @@ class NotificationRow extends React.Component {
         underlayColor={theme.yellowUIFeedback}
         onPress={() => this.props.onClick()}
       >
-        <View style={styles.container}>
+        <View
+          style={[
+            styles.container,
+            this.props.nativeMemberShell && styles.memberContainer,
+          ]}
+        >
           {this._iconForNotification(this.props.notification)}
           {this._textForNotification(this.props.notification)}
           <Image
             style={styles.siteIcon}
             source={{ uri: this.props.site.icon }}
           />
+        </View>
+      </TouchableHighlight>
+    );
+  }
+
+  _renderMemberRow(theme) {
+    const colors = productTheme(theme.name);
+    const notification = this.props.notification;
+    const unread = !notification.read;
+    const age = notificationAge(notification.created_at);
+    const iconName = DiscourseUtils.iconNameForNotification(notification);
+
+    return (
+      <TouchableHighlight
+        accessibilityRole="button"
+        accessibilityLabel={`Open notification${unread ? ', unread' : ''}`}
+        onPress={() => this.props.onClick()}
+        style={[
+          styles.memberRow,
+          {
+            backgroundColor: unread
+              ? colors.brandAccentSoft
+              : colors.surfaceRaised,
+            borderBottomColor: colors.border,
+          },
+        ]}
+        underlayColor={colors.accentSoft}
+      >
+        <View style={styles.memberRowContent}>
+          <View
+            style={[
+              styles.memberIcon,
+              {
+                backgroundColor: unread
+                  ? colors.surfaceRaised
+                  : colors.surfaceAlt,
+              },
+            ]}
+          >
+            <FontAwesome5
+              name={iconName}
+              size={17}
+              color={unread ? colors.brandAccent : colors.accent}
+              iconStyle="solid"
+            />
+          </View>
+          <View style={styles.memberCopy}>
+            {this._textForNotification(notification)}
+          </View>
+          <View style={styles.memberMeta}>
+            {age ? (
+              <Text style={[styles.memberAge, { color: colors.muted }]}>
+                {age}
+              </Text>
+            ) : null}
+            {unread ? (
+              <View
+                accessibilityLabel="Unread"
+                style={[
+                  styles.unreadDot,
+                  { backgroundColor: colors.brandAccent },
+                ]}
+              />
+            ) : (
+              <FontAwesome5
+                name="chevron-right"
+                size={12}
+                color={colors.muted}
+                iconStyle="solid"
+              />
+            )}
+          </View>
         </View>
       </TouchableHighlight>
     );
@@ -57,6 +166,7 @@ class NotificationRow extends React.Component {
 
   _textForNotification(notification) {
     const theme = this.context;
+    const productColors = productTheme(theme.name);
     let innerText;
 
     let data = this.props.notification.data;
@@ -79,7 +189,17 @@ class NotificationRow extends React.Component {
     }
 
     const textStyle = {
-      color: theme.grayTitle,
+      color: this.props.nativeMemberShell
+        ? productColors.text
+        : theme.grayTitle,
+      fontWeight: this.props.nativeMemberShell ? '650' : '400',
+      lineHeight: this.props.nativeMemberShell ? 20 : undefined,
+    };
+    const topicStyle = {
+      color: this.props.nativeMemberShell
+        ? productColors.accent
+        : theme.blueUnread,
+      fontWeight: this.props.nativeMemberShell ? '700' : '400',
     };
 
     switch (notification.notification_type) {
@@ -106,7 +226,7 @@ class NotificationRow extends React.Component {
         innerText = (
           <Text style={textStyle}>
             {displayName}
-            <Text style={{ color: theme.blueUnread }}>
+            <Text style={topicStyle}>
               {' '}
               {this.props.notification.data.topic_title}
             </Text>
@@ -190,7 +310,7 @@ class NotificationRow extends React.Component {
         innerText = (
           <Text style={textStyle}>
             {displayName}
-            <Text style={{ color: theme.blueUnread }}>
+            <Text style={topicStyle}>
               {' '}
               {notification.data.topic_title || notification.fancy_title}
             </Text>
@@ -247,7 +367,7 @@ class NotificationRow extends React.Component {
         innerText = (
           <Text style={textStyle}>
             {notification.data.display_username}
-            <Text style={{ color: theme.blueUnread }}>
+            <Text style={topicStyle}>
               {' '}
               {notification.data.topic_title || notification.fancy_title}
             </Text>
@@ -272,7 +392,17 @@ class NotificationRow extends React.Component {
         );
     }
 
-    return <Text style={styles.textContainer}>{innerText}</Text>;
+    return (
+      <Text
+        numberOfLines={this.props.nativeMemberShell ? 3 : undefined}
+        style={[
+          styles.textContainer,
+          this.props.nativeMemberShell && styles.memberText,
+        ]}
+      >
+        {innerText}
+      </Text>
+    );
   }
 
   _backgroundColor() {
@@ -300,6 +430,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     margin: 12,
   },
+  memberContainer: { minHeight: 70, margin: 0, padding: 14 },
+  memberRow: {
+    overflow: 'hidden',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  memberRowContent: {
+    minHeight: 82,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+  },
+  memberIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  memberCopy: { flex: 1, justifyContent: 'center' },
+  memberText: { fontSize: 14, lineHeight: 20 },
+  memberMeta: {
+    minWidth: 34,
+    minHeight: 44,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  memberAge: { fontSize: 11, lineHeight: 15, fontWeight: '650' },
+  unreadDot: { width: 8, height: 8, borderRadius: 4 },
   siteIcon: {
     width: 32,
     height: 32,

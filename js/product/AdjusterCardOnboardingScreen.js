@@ -122,6 +122,7 @@ const DeferredStep = ({ title, body }) => {
 
 export default function AdjusterCardOnboardingScreen({
   onComplete,
+  onReconnect,
   onSkip,
   sessionId,
   site,
@@ -136,11 +137,17 @@ export default function AdjusterCardOnboardingScreen({
     step: 0,
     values: {},
     error: null,
+    errorStatus: null,
   });
   const steps = onboardingSteps(state.card);
 
   const load = useCallback(async () => {
-    setState(current => ({ ...current, loading: true, error: null }));
+    setState(current => ({
+      ...current,
+      loading: true,
+      error: null,
+      errorStatus: null,
+    }));
     try {
       const bundle = await loadAdjusterCardBundle(site);
       setState({
@@ -155,12 +162,17 @@ export default function AdjusterCardOnboardingScreen({
           bio: bundle.card.values.bio || bundle.progress.bio,
         },
         error: null,
+        errorStatus: null,
       });
-    } catch {
+    } catch (error) {
       setState(current => ({
         ...current,
         loading: false,
-        error: 'Your saved profile could not be loaded. Please try again.',
+        error:
+          error?.status === 429
+            ? 'This session needs to reconnect before your saved profile can load.'
+            : 'Your saved profile could not be loaded. Please try again.',
+        errorStatus: error?.status || null,
       }));
     }
   }, [site]);
@@ -422,7 +434,11 @@ export default function AdjusterCardOnboardingScreen({
           <Text accessibilityRole="alert" style={{ color: colors.danger }}>
             {state.error}
           </Text>
-          <Action label="Try again" secondary onPress={load} />
+          {state.errorStatus === 429 && onReconnect ? (
+            <Action label="Reconnect" onPress={onReconnect} />
+          ) : (
+            <Action label="Try again" secondary onPress={load} />
+          )}
         </View>
       </SafeAreaView>
     );

@@ -576,7 +576,7 @@ class SiteManager {
   }
 
   notifications(types, options) {
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
       let promises = [];
       this.sites.forEach(site => {
         let opts = options;
@@ -594,24 +594,26 @@ class SiteManager {
         promises.push(promise);
       });
 
-      Promise.all(promises).then(async results => {
-        const ordered = _.chain(results)
-          .flatten()
-          .orderBy(
-            [
-              o => {
-                return !o.notification.read &&
-                  o.notification.notification_type === 6
-                  ? 0
-                  : 1;
-              },
-              'notification.created_at',
-            ],
-            ['asc', 'desc'],
-          )
-          .value();
-        resolve(await availableNotificationRows(ordered));
-      });
+      Promise.all(promises)
+        .then(async results => {
+          const ordered = _.chain(results)
+            .flatten()
+            .orderBy(
+              [
+                o => {
+                  return !o.notification.read &&
+                    o.notification.notification_type === 6
+                    ? 0
+                    : 1;
+                },
+                'notification.created_at',
+              ],
+              ['asc', 'desc'],
+            )
+            .value();
+          resolve(await availableNotificationRows(ordered));
+        })
+        .catch(reject);
     });
   }
 

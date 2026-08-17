@@ -1,7 +1,11 @@
 /* @flow */
 'use strict';
 
-import { pushEnvironmentCompatibility } from './notificationStatus';
+import {
+  classifyPushRegistrationError,
+  NOTIFICATION_STATUS,
+  pushEnvironmentCompatibility,
+} from './notificationStatus';
 
 export class PushFoundation {
   constructor({
@@ -38,7 +42,17 @@ export class PushFoundation {
       this.environment,
     );
     if (compatibility !== 'compatible') return compatibility;
-    return this.store.preference();
+    const preference = await this.store.preference();
+    if (
+      ['enabled', 'denied'].includes(preference) &&
+      this.transport.permissionState
+    ) {
+      const permission = await this.transport.permissionState();
+      if (permission === 'denied') {
+        return NOTIFICATION_STATUS.PERMISSION_DENIED;
+      }
+    }
+    return preference;
   }
 
   registration(token) {
@@ -70,24 +84,24 @@ export class PushFoundation {
     );
     if (compatibility !== 'compatible') return compatibility;
     if (Date.now() < this.retryAfter) {
-      throw new Error('push_temporarily_unavailable');
+      throw new Error(NOTIFICATION_STATUS.BACKEND_RATE_LIMITED);
     }
     const permission = await this.transport.requestPermission();
     if (permission !== 'granted') {
       await this.store.setPreference('denied');
-      return 'denied';
+      return NOTIFICATION_STATUS.PERMISSION_DENIED;
     }
     let token;
     try {
       token = await this.transport.token();
     } catch {
-      throw new Error('push_token_failed');
+      throw new Error(NOTIFICATION_STATUS.APNS_TOKEN_FAILURE);
     }
     let installationId;
     try {
       installationId = await this.store.installationId();
     } catch {
-      throw new Error('push_installation_failed');
+      throw new Error(NOTIFICATION_STATUS.INSTALLATION_IDENTITY_FAILURE);
     }
     try {
       const identity = `${installationId}:${token}:${account.clientId}`;
@@ -99,17 +113,11 @@ export class PushFoundation {
         registration: this.registration(token),
       });
     } catch (error) {
-      const safeStatus =
-        /^push_backend_rejected_(?:[1-5][0-9]{2}|transport)$/.test(
-          error?.message || '',
-        )
-          ? error.message
-          : 'push_backend_failed';
-      if (safeStatus === 'push_backend_rejected_429') {
+      const category = classifyPushRegistrationError(error);
+      if (category === NOTIFICATION_STATUS.BACKEND_RATE_LIMITED) {
         this.retryAfter = Date.now() + 60 * 1000;
-        throw new Error('push_temporarily_unavailable');
       }
-      throw new Error(safeStatus);
+      throw new Error(category);
     }
     this.registeredIdentity = `${installationId}:${token}:${account.clientId}`;
     this.account = account;

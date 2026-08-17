@@ -21,6 +21,7 @@ export const brand = Object.freeze({
 export const productTheme = name => {
   const dark = name === 'dark';
   return {
+    isDark: dark,
     canvas: dark ? '#0A1219' : '#F4F2ED',
     surface: dark ? '#111D26' : '#FCFBF8',
     surfaceAlt: dark ? '#182731' : '#E9EEED',
@@ -103,4 +104,18 @@ export const elevation = Object.freeze({
     shadowRadius: 8,
     elevation: 2,
   },
+});
+
+// Floor V2 is the first consumer of this denser application vocabulary. Keep
+// these primitives separate from the established product tokens until the
+// founder approves extending the system to the remaining destinations.
+export const floorV2 = Object.freeze({
+  canvas: '#FBFCFD',
+  contentInset: 16,
+  sectionGap: 20,
+  rowGap: 12,
+  cardRadius: 16,
+  controlRadius: 12,
+  headerLogoWidth: 96,
+  headerLogoHeight: 68,
 });

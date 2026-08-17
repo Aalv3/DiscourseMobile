@@ -44,6 +44,7 @@ import {
 import { BlurView } from '@react-native-community/blur';
 import { PushFoundation } from './pushFoundation';
 import { PushBackendClient } from './pushBackendClient';
+import { classifyPushRegistrationError } from './notificationStatus';
 import { pushInstallationStore } from './pushInstallationStore';
 import { pushTransport } from './platforms/push-transport';
 import {
@@ -72,7 +73,7 @@ import {
 } from './product/ProductScreens';
 import OnboardingScreen from './product/AdjusterCardOnboardingScreen';
 import { productTheme } from './product/DesignSystem';
-import { NestedHeader } from './product/ProductComponents';
+import { NestedHeader, V2BrandHeader } from './product/ProductComponents';
 import {
   AccountScreen,
   AppearanceSettingsScreen,
@@ -425,12 +426,16 @@ class Discourse extends React.Component {
             try {
               const status = await this._pushFoundation.enable(site);
               this.setState({ pushStatus: status });
-            } catch {
-              this.setState({ pushStatus: 'push_registration_failed' });
+            } catch (error) {
+              this.setState({
+                pushStatus: classifyPushRegistrationError(error),
+              });
             }
           })
-          .catch(() =>
-            this.setState({ pushStatus: 'push_registration_failed' }),
+          .catch(error =>
+            this.setState({
+              pushStatus: classifyPushRegistrationError(error),
+            }),
           );
       }
       if (
@@ -595,8 +600,10 @@ class Discourse extends React.Component {
 
   async _refresh() {
     clearTimeout(this.refreshTimerId);
-    if (!this._siteManager.activeSite) {
-      // don't run background refresh while user is on a site
+    if (!this.state.signedIn && !this._siteManager.activeSite) {
+      // The native authenticated shell loads bounded collections itself.
+      // Preserve the legacy multi-site refresh only while signed out and no
+      // site is active, otherwise it can continuously extend rate limits.
       await this._siteManager.refreshSites();
     }
     this.refreshTimerId = setTimeout(this._refresh, 30000);
@@ -792,20 +799,9 @@ class Discourse extends React.Component {
           const status = await this._pushFoundation.enable(site);
           this.setState({ pushStatus: status });
         } catch (error) {
-          const safeFailures = [
-            'push_token_timeout',
-            'secure_random_unavailable',
-            'push_backend_rejected',
-            'push_backend_unconfigured',
-            'push_token_failed',
-            'push_installation_failed',
-            'push_backend_failed',
-            'push_temporarily_unavailable',
-          ];
-          const reason = safeFailures.includes(error?.message)
-            ? error.message
-            : 'push_registration_failed';
-          this.setState({ pushStatus: reason });
+          this.setState({
+            pushStatus: classifyPushRegistrationError(error),
+          });
         }
       },
     };
@@ -858,6 +854,14 @@ class Discourse extends React.Component {
               site={this._siteManager
                 .listSites()
                 .find(candidate => candidate.authToken)}
+              onReconnect={() => {
+                const site = this._siteManager
+                  .listSites()
+                  .find(candidate => candidate.authToken);
+                if (site) {
+                  this._siteManager.remove(site);
+                }
+              }}
               onSkip={state =>
                 this.setState(
                   {
@@ -916,14 +920,23 @@ class Discourse extends React.Component {
 
                       tabBarStyle: {
                         position: 'absolute',
-                        borderTopWidth: StyleSheet.hairlineWidth,
-                        borderTopColor: shellColors.borderStrong,
+                        left: 10,
+                        right: 10,
+                        bottom: 8,
+                        borderWidth: StyleSheet.hairlineWidth,
+                        borderColor: shellColors.border,
+                        borderRadius: 28,
                         backgroundColor: shellColors.tab,
-                        minHeight: this.state.largerUI ? 74 : 62,
-                        paddingTop: 6,
+                        height: this.state.largerUI ? 76 : 70,
+                        paddingTop: 7,
+                        shadowColor: '#07131D',
+                        shadowOffset: { width: 0, height: 3 },
+                        shadowOpacity: theme.name === 'dark' ? 0.22 : 0.1,
+                        shadowRadius: 12,
+                        elevation: 6,
                       },
                       tabBarLabelStyle: {
-                        fontSize: this.state.largerUI ? 16 : 12,
+                        fontSize: this.state.largerUI ? 13 : 10,
                         fontWeight: '700',
                         paddingBottom: 3,
                       },
@@ -933,7 +946,6 @@ class Discourse extends React.Component {
                       tabBarAllowFontScaling: false,
                       tabBarActiveTintColor: shellColors.brandAccent,
                       tabBarInactiveTintColor: shellColors.muted,
-                      tabBarActiveBackgroundColor: shellColors.brandAccentSoft,
                       tabBarBackground: () => this._blurView(theme.name),
                     }}
                   >
@@ -980,6 +992,39 @@ class Discourse extends React.Component {
                       )}
                     </Tab.Screen>
                     <Tab.Screen
+                      name="Ask"
+                      options={{
+                        title: 'Ask',
+                        tabBarIcon: () => (
+                          <View
+                            style={{
+                              width: 38,
+                              height: 38,
+                              borderRadius: 19,
+                              marginTop: -6,
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor: shellColors.brandAccent,
+                            }}
+                          >
+                            <FontAwesome5
+                              name="plus"
+                              size={18}
+                              color="#FFFFFF"
+                              iconStyle="solid"
+                            />
+                          </View>
+                        ),
+                      }}
+                    >
+                      {props => (
+                        <AskScreen
+                          {...props}
+                          screenProps={{ ...screenProps }}
+                        />
+                      )}
+                    </Tab.Screen>
+                    <Tab.Screen
                       name="Lounge"
                       options={{
                         title: 'Lounge',
@@ -995,27 +1040,6 @@ class Discourse extends React.Component {
                     >
                       {props => (
                         <LoungeScreen
-                          {...props}
-                          screenProps={{ ...screenProps }}
-                        />
-                      )}
-                    </Tab.Screen>
-                    <Tab.Screen
-                      name="Ask"
-                      options={{
-                        title: 'Ask',
-                        tabBarIcon: ({ color }) => (
-                          <FontAwesome5
-                            name="plus-circle"
-                            size={20}
-                            color={color}
-                            iconStyle="solid"
-                          />
-                        ),
-                      }}
-                    >
-                      {props => (
-                        <AskScreen
                           {...props}
                           screenProps={{ ...screenProps }}
                         />
@@ -1194,8 +1218,9 @@ class Discourse extends React.Component {
                   headerShown: true,
                   header: () => (
                     <SafeAreaView edges={['top']}>
-                      <NestedHeader
+                      <V2BrandHeader
                         title="Notifications"
+                        subtitle="Replies, mentions, and member activity."
                         onBack={() => navigation.goBack()}
                       />
                     </SafeAreaView>

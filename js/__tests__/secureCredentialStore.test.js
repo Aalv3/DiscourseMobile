@@ -33,6 +33,23 @@ describe('secure credential store', () => {
     expect(options.service).toBe('org.adjusternetwork.native.rsa.v1');
   });
 
+  test.each(['not-json', JSON.stringify({ public: 'pub' })])(
+    'discards stale malformed RSA material without exposing it (%s)',
+    async storedValue => {
+      Keychain.getGenericPassword.mockResolvedValueOnce({
+        username: 'adjuster-network',
+        password: storedValue,
+      });
+
+      await expect(credentialStore.readRSAKeys()).resolves.toBeNull();
+      expect(Keychain.resetGenericPassword).toHaveBeenCalledWith(
+        expect.objectContaining({
+          service: 'org.adjusternetwork.native.rsa.v1',
+        }),
+      );
+    },
+  );
+
   test('stores push installation identity separately from account tokens', async () => {
     await credentialStore.storePushInstallationId('synthetic-installation');
     const [, value, options] = Keychain.setGenericPassword.mock.calls[0];

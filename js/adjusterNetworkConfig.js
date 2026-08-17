@@ -41,6 +41,10 @@ export const adjusterNetwork = Object.freeze({
     // Enables device registration with the A3-owned dark backend. Server-side
     // delivery switches remain authoritative and OFF during certification.
     pushDelivery: true,
+    // Build 3 keeps the approved attachment client dormant until the separate
+    // server/storage/media-security certification is complete. The backend
+    // upload allowlist remains the final enforcement boundary.
+    mediaUploads: false,
     publicNativePreview: false,
   }),
   push: Object.freeze({

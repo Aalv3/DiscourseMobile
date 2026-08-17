@@ -13,13 +13,15 @@ const Filter = props => {
       style={{
         flex: 0,
         backgroundColor: theme.background,
-        marginHorizontal: props.marginHorizontal,
+        marginHorizontal: props.nativeMemberShell ? 16 : props.marginHorizontal,
+        marginVertical: props.nativeMemberShell ? 10 : 0,
+        borderRadius: props.nativeMemberShell ? 12 : 0,
       }}
     >
       <SegmentedControl
         values={props.tabs}
         style={{
-          margin: 12,
+          margin: props.nativeMemberShell ? 0 : 12,
           opacity: 0.85,
         }}
         selectedIndex={props.selectedIndex}

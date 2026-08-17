@@ -49,7 +49,23 @@ export const credentialStore = Object.freeze({
   },
   async readRSAKeys() {
     const value = await read(RSA_SERVICE);
-    return value ? JSON.parse(value) : null;
+    if (!value) return null;
+    try {
+      const keys = JSON.parse(value);
+      if (
+        typeof keys?.public === 'string' &&
+        keys.public.length > 0 &&
+        typeof keys?.private === 'string' &&
+        keys.private.length > 0
+      ) {
+        return keys;
+      }
+    } catch {
+      // A Keychain item can outlive an app install. Treat stale or malformed
+      // RSA material as absent so SiteManager can generate a fresh pair.
+    }
+    await remove(RSA_SERVICE).catch(() => {});
+    return null;
   },
   removeRSAKeys() {
     return remove(RSA_SERVICE);

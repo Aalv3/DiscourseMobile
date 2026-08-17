@@ -26,7 +26,7 @@ describe('native topic participation', () => {
   });
 
   test('provides an accessible native composer and refreshes after posting', () => {
-    expect(source).toContain('label="Join discussion"');
+    expect(source).toContain('label="Write a reply"');
     expect(source).toContain('accessibilityLabel="Reply text"');
     expect(source).toContain("'Posting…'");
     expect(source).toContain("'Post reply'");
@@ -73,7 +73,9 @@ describe('native topic participation', () => {
   test('edits only posts Guardian marks editable and refreshes the thread', () => {
     expect(source).toContain('canEditPost(post)');
     expect(source).toContain('loadEditablePost(site, post)');
-    expect(source).toContain('savePostEdit(site, composer.postId, raw)');
+    expect(source).toContain(
+      'savePostEdit(site, composer.postId, submittedRaw)',
+    );
     expect(source).toContain("? 'Save changes'");
     expect(source).toContain('await loadTopic();');
   });
@@ -98,7 +100,8 @@ describe('native topic participation', () => {
       path.join(__dirname, '../product/ProductScreens.js'),
       'utf8',
     );
-    expect(screens).toContain('Open conversation ·');
+    expect(screens).toContain('Math.max(0, (topic.posts_count || 1) - 1)');
+    expect(screens).toContain('`${replies} replies`');
     expect(screens).not.toContain('topic.posts_count || 0} replies');
   });
 });

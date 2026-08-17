@@ -36,4 +36,17 @@ describe('Wave 3 product visual system', () => {
     expect(screens).toContain('borderBottomWidth');
     expect(screens).toContain('Metadata');
   });
+
+  test('Floor uses a real-topic horizontal attention rail instead of the large briefing hero', () => {
+    const fs = require('fs');
+    const screens = fs.readFileSync(
+      require.resolve('../product/ProductScreens'),
+      'utf8',
+    );
+    expect(screens).toContain('Worth your attention');
+    expect(screens).toContain('horizontal');
+    expect(screens).toContain('snapToInterval');
+    expect(screens).toContain('data.topics.slice(0, 5)');
+    expect(screens).not.toContain('FEATURED BRIEFING');
+  });
 });
