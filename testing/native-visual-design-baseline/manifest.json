@@ -1,0 +1,38 @@
+[
+  {
+    "filename": "01-floor.png",
+    "screen": "Floor",
+    "Simulator model": "iPhone 17 Pro",
+    "iOS version": "26.5 (23F77)",
+    "appearance": "Light",
+    "native source SHA/build identity used": "5149072c148bb979d2c94541d5af8a3bcea2558a / 1.0.0 (1); visual source is identical to 7ebf7dc480327ef0a002a6422ecafa27bbe127f6 / 1.0.0 (2), whose only changes are build metadata",
+    "capture timestamp": "2026-08-16T20:10:11-0400"
+  },
+  {
+    "filename": "02-discussions.png",
+    "screen": "Discussions",
+    "Simulator model": "iPhone 17 Pro",
+    "iOS version": "26.5 (23F77)",
+    "appearance": "Light",
+    "native source SHA/build identity used": "5149072c148bb979d2c94541d5af8a3bcea2558a / 1.0.0 (1); visual source is identical to 7ebf7dc480327ef0a002a6422ecafa27bbe127f6 / 1.0.0 (2), whose only changes are build metadata",
+    "capture timestamp": "2026-08-16T20:21:56-0400"
+  },
+  {
+    "filename": "03-topic.png",
+    "screen": "Topic",
+    "Simulator model": "iPhone 17 Pro",
+    "iOS version": "26.5 (23F77)",
+    "appearance": "Light",
+    "native source SHA/build identity used": "5149072c148bb979d2c94541d5af8a3bcea2558a / 1.0.0 (1); visual source is identical to 7ebf7dc480327ef0a002a6422ecafa27bbe127f6 / 1.0.0 (2), whose only changes are build metadata",
+    "capture timestamp": "2026-08-16T20:23:05-0400"
+  },
+  {
+    "filename": "04-you-adjuster-card.png",
+    "screen": "You / Adjuster Card",
+    "Simulator model": "iPhone 17 Pro",
+    "iOS version": "26.5 (23F77)",
+    "appearance": "Light",
+    "native source SHA/build identity used": "5149072c148bb979d2c94541d5af8a3bcea2558a / 1.0.0 (1); visual source is identical to 7ebf7dc480327ef0a002a6422ecafa27bbe127f6 / 1.0.0 (2), whose only changes are build metadata",
+    "capture timestamp": "2026-08-16T20:24:22-0400"
+  }
+]
