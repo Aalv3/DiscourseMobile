@@ -40,6 +40,7 @@ function fixture(permission = 'granted') {
     store,
     transport,
     client,
+    permissionRequestTimeoutMs: 25,
   });
   return {
     foundation,
@@ -92,16 +93,19 @@ describe('push foundation lifecycle', () => {
         registration: expect.objectContaining({ environment: 'production' }),
       }),
     );
+    expect(deps.transport.permissionState).toHaveBeenCalledTimes(1);
+    expect(deps.transport.requestPermission).not.toHaveBeenCalled();
   });
 
-  test('records denial without requesting a token', async () => {
+  test('records existing denial without requesting permission or a token', async () => {
     const deps = fixture('denied');
     await expect(deps.foundation.enable(account)).rejects.toMatchObject({
       result: {
-        stage: 'permission_request',
+        stage: 'permission_check',
         category: 'permission_denied',
       },
     });
+    expect(deps.transport.requestPermission).not.toHaveBeenCalled();
     expect(deps.store.setPreference).toHaveBeenCalledWith('denied');
     expect(deps.transport.token).not.toHaveBeenCalled();
   });
@@ -232,7 +236,7 @@ describe('push foundation lifecycle', () => {
   );
 
   test('classifies permission request rejection at its exact stage', async () => {
-    const deps = fixture();
+    const deps = fixture('not_determined');
     deps.transport.requestPermission.mockRejectedValue(new Error('private'));
     await expect(deps.foundation.enable(account)).rejects.toMatchObject({
       result: {
@@ -240,6 +244,32 @@ describe('push foundation lifecycle', () => {
         category: 'permission_failure',
       },
     });
+    expect(deps.transport.requestPermission).toHaveBeenCalledTimes(1);
+  });
+
+  test('requests permission once only when authorization is not determined', async () => {
+    const deps = fixture('not_determined');
+    deps.transport.requestPermission.mockResolvedValue('granted');
+    await expect(deps.foundation.enable(account)).resolves.toMatchObject({
+      stage: 'completed',
+      category: 'enabled',
+    });
+    expect(deps.transport.permissionState).toHaveBeenCalledTimes(1);
+    expect(deps.transport.requestPermission).toHaveBeenCalledTimes(1);
+    expect(deps.transport.token).toHaveBeenCalledTimes(1);
+  });
+
+  test('bounds a native permission request that never settles', async () => {
+    const deps = fixture('not_determined');
+    deps.transport.requestPermission.mockReturnValue(new Promise(() => {}));
+    await expect(deps.foundation.enable(account)).rejects.toMatchObject({
+      result: {
+        stage: 'permission_request',
+        category: 'permission_failure',
+      },
+    });
+    expect(deps.transport.requestPermission).toHaveBeenCalledTimes(1);
+    expect(deps.transport.token).not.toHaveBeenCalled();
   });
 
   test('reports preference persistence after successful backend registration', async () => {

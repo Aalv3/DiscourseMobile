@@ -15,6 +15,27 @@ import {
   succeededPushRegistrationStage,
 } from './pushRegistrationResult';
 
+function boundedPermissionRequest(request, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(
+      () => reject(new Error('push_permission_request_timeout')),
+      timeoutMs,
+    );
+    Promise.resolve()
+      .then(request)
+      .then(
+        value => {
+          clearTimeout(timeout);
+          resolve(value);
+        },
+        error => {
+          clearTimeout(timeout);
+          reject(error);
+        },
+      );
+  });
+}
+
 export class PushFoundation {
   constructor({
     enabled,
@@ -27,6 +48,7 @@ export class PushFoundation {
     transport,
     client,
     onResult = () => {},
+    permissionRequestTimeoutMs = 15000,
   }) {
     this.enabled = Boolean(enabled);
     this.environment = environment;
@@ -38,6 +60,7 @@ export class PushFoundation {
     this.transport = transport;
     this.client = client;
     this.onResult = onResult;
+    this.permissionRequestTimeoutMs = permissionRequestTimeoutMs;
     this.account = null;
     this.tokenSubscription = null;
     this.enablePromise = null;
@@ -150,12 +173,25 @@ export class PushFoundation {
     }
     let permission;
     try {
-      permission = await this.transport.requestPermission();
+      permission = await this.transport.permissionState();
     } catch {
       throw pushRegistrationFailure(
-        PUSH_REGISTRATION_STAGE.PERMISSION_REQUEST,
+        PUSH_REGISTRATION_STAGE.PERMISSION_CHECK,
         PUSH_REGISTRATION_CATEGORY.PERMISSION_FAILURE,
       );
+    }
+    if (permission === 'not_determined') {
+      try {
+        permission = await boundedPermissionRequest(
+          () => this.transport.requestPermission(),
+          this.permissionRequestTimeoutMs,
+        );
+      } catch {
+        throw pushRegistrationFailure(
+          PUSH_REGISTRATION_STAGE.PERMISSION_REQUEST,
+          PUSH_REGISTRATION_CATEGORY.PERMISSION_FAILURE,
+        );
+      }
     }
     if (permission !== 'granted') {
       try {
@@ -167,7 +203,9 @@ export class PushFoundation {
         );
       }
       throw pushRegistrationFailure(
-        PUSH_REGISTRATION_STAGE.PERMISSION_REQUEST,
+        permission === 'denied'
+          ? PUSH_REGISTRATION_STAGE.PERMISSION_CHECK
+          : PUSH_REGISTRATION_STAGE.PERMISSION_REQUEST,
         PUSH_REGISTRATION_CATEGORY.PERMISSION_DENIED,
       );
     }

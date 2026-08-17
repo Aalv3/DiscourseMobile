@@ -26,9 +26,23 @@ PushNotificationIOS.addEventListener('registrationError', () => {
 
 function permissionState() {
   return new Promise(resolve => {
-    PushNotificationIOS.checkPermissions(value =>
-      resolve(value.alert ? 'granted' : 'denied'),
-    );
+    PushNotificationIOS.checkPermissions(value => {
+      // UNAuthorizationStatus: notDetermined=0, denied=1, authorized=2,
+      // provisional=3, ephemeral=4.
+      switch (value.authorizationStatus) {
+        case 1:
+          resolve('denied');
+          break;
+        case 2:
+        case 3:
+        case 4:
+          resolve('granted');
+          break;
+        case 0:
+        default:
+          resolve('not_determined');
+      }
+    });
   });
 }
 
