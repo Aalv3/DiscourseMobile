@@ -1,8 +1,12 @@
 import fs from 'fs';
 import path from 'path';
 
+const mockListeners = {};
+
 jest.mock('@react-native-community/push-notification-ios', () => ({
-  addEventListener: jest.fn(),
+  addEventListener: jest.fn((name, handler) => {
+    mockListeners[name] = handler;
+  }),
   removeEventListener: jest.fn(),
 }));
 
@@ -15,6 +19,7 @@ function loadTransport(nativeState) {
       Promise.resolve(nativeState),
     ),
     consumeAPNSToken: jest.fn(() => Promise.resolve('native-token')),
+    consumeAPNSRegistrationFailure: jest.fn(() => Promise.resolve(false)),
     registerForRemoteNotifications: jest.fn(),
   };
   return {
@@ -56,6 +61,27 @@ describe('native iOS push authorization transport', () => {
     expect(native.registerForRemoteNotifications).not.toHaveBeenCalled();
   });
 
+  test('consumes an early native APNs failure before registering again', async () => {
+    const { native, transport } = loadTransport('authorized');
+    native.consumeAPNSToken.mockResolvedValue(null);
+    native.consumeAPNSRegistrationFailure.mockResolvedValue(true);
+    await expect(transport.token()).rejects.toThrow('push_token_failed');
+    expect(native.registerForRemoteNotifications).not.toHaveBeenCalled();
+  });
+
+  test('bounds an APNs token event that never arrives and ignores a late event', async () => {
+    jest.useFakeTimers();
+    const { native, transport } = loadTransport('authorized');
+    native.consumeAPNSToken.mockResolvedValue(null);
+    const pending = transport.token();
+    await Promise.resolve();
+    await Promise.resolve();
+    jest.advanceTimersByTime(15000);
+    await expect(pending).rejects.toThrow('push_token_timeout');
+    expect(() => mockListeners.register('late-token')).not.toThrow();
+    jest.useRealTimers();
+  });
+
   test('native implementation uses UserNotifications and no RN permission API', () => {
     const nativeSource = fs.readFileSync(
       path.join(__dirname, '../../ios/DiscourseKeyboardShortcuts.m'),
@@ -65,11 +91,17 @@ describe('native iOS push authorization transport', () => {
       path.join(__dirname, '../platforms/push-transport.ios.js'),
       'utf8',
     );
+    const appDelegateSource = fs.readFileSync(
+      path.join(__dirname, '../../ios/Discourse/AppDelegate.swift'),
+      'utf8',
+    );
     expect(nativeSource).toContain(
       'getNotificationSettingsWithCompletionHandler',
     );
     expect(nativeSource).toContain('requestAuthorizationWithOptions');
     expect(nativeSource).toContain('registerForRemoteNotifications');
+    expect(nativeSource).toContain('consumeAPNSRegistrationFailure');
+    expect(appDelegateSource).toContain('storeAPNSRegistrationFailure');
     expect(transportSource).not.toContain('checkPermissions');
     expect(transportSource).not.toContain('requestPermissions');
   });

@@ -3,6 +3,7 @@
 
 import { NativeModules } from 'react-native';
 import PushNotificationIOS from '@react-native-community/push-notification-ios';
+import { PUSH_OPERATION_TIMEOUT_MS } from '../pushBoundedOperation';
 
 const { DiscourseKeyboardShortcuts } = NativeModules;
 
@@ -64,23 +65,30 @@ export const pushTransport = Object.freeze({
         currentToken = pendingToken;
         return pendingToken;
       }
-      return new Promise((resolve, reject) => {
-        const waiter = {
-          resolve: token => {
-            clearTimeout(timeout);
-            resolve(token);
-          },
-          reject: error => {
-            clearTimeout(timeout);
-            reject(error);
-          },
-        };
-        const timeout = setTimeout(() => {
-          tokenWaiters = tokenWaiters.filter(item => item !== waiter);
-          reject(new Error('push_token_timeout'));
-        }, 15000);
-        tokenWaiters.push(waiter);
-        DiscourseKeyboardShortcuts?.registerForRemoteNotifications?.();
+      return Promise.resolve(
+        DiscourseKeyboardShortcuts?.consumeAPNSRegistrationFailure?.(),
+      ).then(pendingFailure => {
+        if (pendingFailure) {
+          throw new Error('push_token_failed');
+        }
+        return new Promise((resolve, reject) => {
+          const waiter = {
+            resolve: token => {
+              clearTimeout(timeout);
+              resolve(token);
+            },
+            reject: error => {
+              clearTimeout(timeout);
+              reject(error);
+            },
+          };
+          const timeout = setTimeout(() => {
+            tokenWaiters = tokenWaiters.filter(item => item !== waiter);
+            reject(new Error('push_token_timeout'));
+          }, PUSH_OPERATION_TIMEOUT_MS.APNS_TOKEN);
+          tokenWaiters.push(waiter);
+          DiscourseKeyboardShortcuts?.registerForRemoteNotifications?.();
+        });
       });
     });
   },

@@ -1,6 +1,8 @@
 import { PushBackendClient } from '../pushBackendClient';
 
 describe('A3 push backend client', () => {
+  afterEach(() => jest.useRealTimers());
+
   test('sends registration only to configured HTTPS A3 endpoint', async () => {
     const fetchImpl = jest.fn(() => Promise.resolve({ status: 204 }));
     const client = new PushBackendClient({
@@ -175,5 +177,86 @@ describe('A3 push backend client', () => {
         category: 'nonce_failure',
       },
     });
+  });
+
+  test('bounds a nonce generator that never settles', async () => {
+    jest.useFakeTimers();
+    const client = new PushBackendClient({
+      origin: 'https://adjusternetwork.org',
+      fetchImpl: jest.fn(),
+      nonceFactory: () => new Promise(() => {}),
+      nonceTimeoutMs: 25,
+    });
+    const pending = client.register({
+      installationId: 'id',
+      authToken: 'key',
+      authClientId: 'client',
+      registration: {},
+    });
+    const failure = expect(pending).rejects.toMatchObject({
+      result: { stage: 'nonce_generation', category: 'nonce_failure' },
+    });
+    await jest.advanceTimersByTimeAsync(25);
+    await failure;
+  });
+
+  test('aborts and classifies a backend fetch that never settles', async () => {
+    jest.useFakeTimers();
+    let capturedSignal;
+    const fetchImpl = jest.fn((_url, options) => {
+      capturedSignal = options.signal;
+      return new Promise((_resolve, reject) => {
+        capturedSignal?.addEventListener('abort', () =>
+          reject(new Error('private abort detail')),
+        );
+      });
+    });
+    const client = new PushBackendClient({
+      origin: 'https://adjusternetwork.org',
+      fetchImpl,
+      nonceFactory: () => Promise.resolve('nonce_0123456789abcdef'),
+      transportTimeoutMs: 25,
+    });
+    const pending = client.register({
+      installationId: 'id',
+      authToken: 'key',
+      authClientId: 'client',
+      registration: {},
+    });
+    const failure = expect(pending).rejects.toMatchObject({
+      result: {
+        stage: 'backend_transport',
+        category: 'network_failure',
+        httpStatusClass: 'none',
+      },
+    });
+    await jest.advanceTimersByTimeAsync(25);
+    await failure;
+    expect(capturedSignal?.aborted).toBe(true);
+  });
+
+  test('emits accurate nonce, transport, and response stages', async () => {
+    const onStage = jest.fn();
+    const client = new PushBackendClient({
+      origin: 'https://adjusternetwork.org',
+      fetchImpl: jest.fn(() => Promise.resolve({ status: 204 })),
+      nonceFactory: () => Promise.resolve('nonce_0123456789abcdef'),
+    });
+    await client.register({
+      installationId: 'id',
+      authToken: 'key',
+      authClientId: 'client',
+      registration: {},
+      onStage,
+    });
+    expect(
+      onStage.mock.calls.map(([result]) => [result.stage, result.outcome]),
+    ).toEqual([
+      ['nonce_generation', 'started'],
+      ['nonce_generation', 'succeeded'],
+      ['backend_transport', 'started'],
+      ['backend_transport', 'succeeded'],
+      ['backend_response', 'started'],
+    ]);
   });
 });

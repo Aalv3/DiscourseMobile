@@ -8,6 +8,7 @@
 @implementation DiscourseKeyboardShortcuts
 
 static NSString *pendingAPNSToken = nil;
+static BOOL pendingAPNSRegistrationFailure = NO;
 
 + (void)storeAPNSToken:(NSData *)deviceToken
 {
@@ -18,6 +19,15 @@ static NSString *pendingAPNSToken = nil;
   }
   @synchronized(self) {
     pendingAPNSToken = [token copy];
+    pendingAPNSRegistrationFailure = NO;
+  }
+}
+
++ (void)storeAPNSRegistrationFailure
+{
+  @synchronized(self) {
+    pendingAPNSToken = nil;
+    pendingAPNSRegistrationFailure = YES;
   }
 }
 
@@ -189,6 +199,18 @@ RCT_REMAP_METHOD(consumeAPNSToken,
     pendingAPNSToken = nil;
   }
   resolve(token ?: [NSNull null]);
+}
+
+RCT_REMAP_METHOD(consumeAPNSRegistrationFailure,
+                 consumeAPNSRegistrationFailureWithResolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject)
+{
+  BOOL failed = NO;
+  @synchronized([self class]) {
+    failed = pendingAPNSRegistrationFailure;
+    pendingAPNSRegistrationFailure = NO;
+  }
+  resolve(@(failed));
 }
 
 RCT_REMAP_METHOD(consumeShareIntent,

@@ -5,5 +5,6 @@
 
 - (void) sendEvent:(NSString *)eventName;
 + (void)storeAPNSToken:(NSData *)deviceToken;
++ (void)storeAPNSRegistrationFailure;
 
 @end

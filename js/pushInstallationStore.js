@@ -37,9 +37,18 @@ export class PushInstallationStore {
     this.storage = storage;
     this.secureStore = secureStore;
     this.idFactory = idFactory || secureRandomId;
+    this.installationPromise = null;
   }
 
-  async installationId() {
+  installationId() {
+    if (this.installationPromise) return this.installationPromise;
+    this.installationPromise = this._installationId().finally(() => {
+      this.installationPromise = null;
+    });
+    return this.installationPromise;
+  }
+
+  async _installationId() {
     const marker = await this.storage.getItem(INSTALLATION_MARKER);
     if (!marker) {
       // iOS Keychain entries can survive uninstall. No app marker means a new

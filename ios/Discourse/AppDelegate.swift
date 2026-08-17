@@ -147,6 +147,7 @@ public class AppDelegate: ExpoAppDelegate, UNUserNotificationCenterDelegate {
     _ application: UIApplication,
     didFailToRegisterForRemoteNotificationsWithError error: Error
   ) {
+    DiscourseKeyboardShortcuts.storeAPNSRegistrationFailure()
     RNCPushNotificationIOS.didFailToRegisterForRemoteNotificationsWithError(error)
     super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
   }

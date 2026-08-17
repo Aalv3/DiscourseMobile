@@ -15,24 +15,10 @@ import {
   startedPushRegistration,
   succeededPushRegistrationStage,
 } from './pushRegistrationResult';
-
-function boundedNativeOperation(request, timeoutMs, timeoutCode) {
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error(timeoutCode)), timeoutMs);
-    Promise.resolve()
-      .then(request)
-      .then(
-        value => {
-          clearTimeout(timeout);
-          resolve(value);
-        },
-        error => {
-          clearTimeout(timeout);
-          reject(error);
-        },
-      );
-  });
-}
+import {
+  boundedPushOperation,
+  PUSH_OPERATION_TIMEOUT_MS,
+} from './pushBoundedOperation';
 
 export class PushFoundation {
   constructor({
@@ -46,8 +32,11 @@ export class PushFoundation {
     transport,
     client,
     onResult = () => {},
-    permissionCheckTimeoutMs = 15000,
-    permissionRequestTimeoutMs = 15000,
+    permissionCheckTimeoutMs = PUSH_OPERATION_TIMEOUT_MS.AUTHORIZATION,
+    permissionRequestTimeoutMs = PUSH_OPERATION_TIMEOUT_MS.AUTHORIZATION,
+    installationTimeoutMs = PUSH_OPERATION_TIMEOUT_MS.INSTALLATION_IDENTITY,
+    preferenceTimeoutMs = PUSH_OPERATION_TIMEOUT_MS.PREFERENCE_PERSISTENCE,
+    refreshTimeoutMs = PUSH_OPERATION_TIMEOUT_MS.TOKEN_REFRESH,
   }) {
     this.enabled = Boolean(enabled);
     this.environment = environment;
@@ -61,12 +50,17 @@ export class PushFoundation {
     this.onResult = onResult;
     this.permissionCheckTimeoutMs = permissionCheckTimeoutMs;
     this.permissionRequestTimeoutMs = permissionRequestTimeoutMs;
+    this.installationTimeoutMs = installationTimeoutMs;
+    this.preferenceTimeoutMs = preferenceTimeoutMs;
+    this.refreshTimeoutMs = refreshTimeoutMs;
     this.account = null;
     this.tokenSubscription = null;
     this.enablePromise = null;
     this.registeredIdentity = null;
     this.lastBackendStatusClass = PUSH_HTTP_STATUS_CLASS.NONE;
     this.retryAfter = 0;
+    this.refreshPromise = null;
+    this.pendingRefreshToken = null;
   }
 
   async status() {
@@ -78,10 +72,13 @@ export class PushFoundation {
     if (compatibility !== 'compatible') return compatibility;
     let preference;
     try {
-      preference = await this.store.preference();
+      preference = await boundedPushOperation(() => this.store.preference(), {
+        timeoutMs: this.preferenceTimeoutMs,
+        timeoutCode: 'push_preference_read_timeout',
+      });
     } catch {
       throw pushRegistrationFailure(
-        PUSH_REGISTRATION_STAGE.PERMISSION_CHECK,
+        PUSH_REGISTRATION_STAGE.PREFERENCE_PERSISTENCE,
         PUSH_REGISTRATION_CATEGORY.PREFERENCE_PERSISTENCE_FAILURE,
       );
     }
@@ -94,10 +91,12 @@ export class PushFoundation {
         startedPushRegistration(PUSH_REGISTRATION_STAGE.PERMISSION_CHECK),
       );
       try {
-        permission = await boundedNativeOperation(
+        permission = await boundedPushOperation(
           () => this.transport.permissionState(),
-          this.permissionCheckTimeoutMs,
-          'push_permission_check_timeout',
+          {
+            timeoutMs: this.permissionCheckTimeoutMs,
+            timeoutCode: 'push_permission_check_timeout',
+          },
         );
       } catch {
         throw pushRegistrationFailure(
@@ -183,10 +182,12 @@ export class PushFoundation {
       startedPushRegistration(PUSH_REGISTRATION_STAGE.PERMISSION_CHECK),
     );
     try {
-      permission = await boundedNativeOperation(
+      permission = await boundedPushOperation(
         () => this.transport.permissionState(),
-        this.permissionCheckTimeoutMs,
-        'push_permission_check_timeout',
+        {
+          timeoutMs: this.permissionCheckTimeoutMs,
+          timeoutCode: 'push_permission_check_timeout',
+        },
       );
     } catch {
       throw pushRegistrationFailure(
@@ -204,10 +205,12 @@ export class PushFoundation {
         startedPushRegistration(PUSH_REGISTRATION_STAGE.PERMISSION_REQUEST),
       );
       try {
-        permission = await boundedNativeOperation(
+        permission = await boundedPushOperation(
           () => this.transport.requestPermission(),
-          this.permissionRequestTimeoutMs,
-          'push_permission_request_timeout',
+          {
+            timeoutMs: this.permissionRequestTimeoutMs,
+            timeoutCode: 'push_permission_request_timeout',
+          },
         );
       } catch {
         throw pushRegistrationFailure(
@@ -215,10 +218,18 @@ export class PushFoundation {
           PUSH_REGISTRATION_CATEGORY.PERMISSION_FAILURE,
         );
       }
+      this.emitResult(
+        succeededPushRegistrationStage(
+          PUSH_REGISTRATION_STAGE.PERMISSION_REQUEST,
+        ),
+      );
     }
     if (permission !== 'granted') {
       try {
-        await this.store.setPreference('denied');
+        await boundedPushOperation(() => this.store.setPreference('denied'), {
+          timeoutMs: this.preferenceTimeoutMs,
+          timeoutCode: 'push_preference_write_timeout',
+        });
       } catch {
         throw pushRegistrationFailure(
           PUSH_REGISTRATION_STAGE.PREFERENCE_PERSISTENCE,
@@ -234,14 +245,15 @@ export class PushFoundation {
           : PUSH_REGISTRATION_CATEGORY.PERMISSION_FAILURE,
       );
     }
-    this.emitResult(
-      succeededPushRegistrationStage(
-        PUSH_REGISTRATION_STAGE.PERMISSION_REQUEST,
-      ),
-    );
     let token;
+    this.emitResult(
+      startedPushRegistration(PUSH_REGISTRATION_STAGE.APNS_TOKEN),
+    );
     try {
-      token = await this.transport.token();
+      token = await boundedPushOperation(() => this.transport.token(), {
+        timeoutMs: PUSH_OPERATION_TIMEOUT_MS.APNS_TOKEN,
+        timeoutCode: 'push_token_timeout',
+      });
     } catch {
       throw pushRegistrationFailure(
         PUSH_REGISTRATION_STAGE.APNS_TOKEN,
@@ -252,8 +264,17 @@ export class PushFoundation {
       succeededPushRegistrationStage(PUSH_REGISTRATION_STAGE.APNS_TOKEN),
     );
     let installationId;
+    this.emitResult(
+      startedPushRegistration(PUSH_REGISTRATION_STAGE.INSTALLATION_IDENTITY),
+    );
     try {
-      installationId = await this.store.installationId();
+      installationId = await boundedPushOperation(
+        () => this.store.installationId(),
+        {
+          timeoutMs: this.installationTimeoutMs,
+          timeoutCode: 'push_installation_identity_timeout',
+        },
+      );
     } catch {
       throw pushRegistrationFailure(
         PUSH_REGISTRATION_STAGE.INSTALLATION_IDENTITY,
@@ -273,6 +294,7 @@ export class PushFoundation {
           authToken: account.authToken,
           authClientId: account.clientId,
           registration: this.registration(token),
+          onStage: result => this.emitResult(result),
         });
         this.lastBackendStatusClass =
           httpStatusClass || PUSH_HTTP_STATUS_CLASS.SUCCESS;
@@ -299,8 +321,14 @@ export class PushFoundation {
       );
     }
     this.account = account;
+    this.emitResult(
+      startedPushRegistration(PUSH_REGISTRATION_STAGE.PREFERENCE_PERSISTENCE),
+    );
     try {
-      await this.store.setPreference('enabled');
+      await boundedPushOperation(() => this.store.setPreference('enabled'), {
+        timeoutMs: this.preferenceTimeoutMs,
+        timeoutCode: 'push_preference_write_timeout',
+      });
     } catch {
       // The backend registration is valid. Keep the in-memory identity so a
       // retry is idempotent, while reporting only the local persistence stage.
@@ -317,9 +345,9 @@ export class PushFoundation {
       ),
     );
     this.tokenSubscription?.remove?.();
-    this.tokenSubscription = this.transport.onTokenRefresh(nextToken =>
-      this.rotate(nextToken),
-    );
+    this.tokenSubscription = this.transport.onTokenRefresh(nextToken => {
+      this.scheduleTokenRefresh(nextToken);
+    });
     return completedPushRegistration(
       this.lastBackendStatusClass || PUSH_HTTP_STATUS_CLASS.SUCCESS,
     );
@@ -327,26 +355,137 @@ export class PushFoundation {
 
   async rotate(token) {
     if (!this.enabled || !this.account) return false;
-    const installationId = await this.store.installationId();
-    await this.client.refresh({
-      installationId,
-      authToken: this.account.authToken,
-      authClientId: this.account.clientId,
-      registration: this.registration(token),
+    let installationId;
+    this.emitResult(
+      startedPushRegistration(PUSH_REGISTRATION_STAGE.INSTALLATION_IDENTITY),
+    );
+    try {
+      installationId = await boundedPushOperation(
+        () => this.store.installationId(),
+        {
+          timeoutMs: this.installationTimeoutMs,
+          timeoutCode: 'push_installation_identity_timeout',
+        },
+      );
+    } catch {
+      throw pushRegistrationFailure(
+        PUSH_REGISTRATION_STAGE.INSTALLATION_IDENTITY,
+        PUSH_REGISTRATION_CATEGORY.INSTALLATION_IDENTITY_FAILURE,
+      );
+    }
+    this.emitResult(
+      succeededPushRegistrationStage(
+        PUSH_REGISTRATION_STAGE.INSTALLATION_IDENTITY,
+      ),
+    );
+    try {
+      const httpStatusClass = await boundedPushOperation(
+        () =>
+          this.client.refresh({
+            installationId,
+            authToken: this.account.authToken,
+            authClientId: this.account.clientId,
+            registration: this.registration(token),
+            onStage: result => this.emitResult(result),
+          }),
+        {
+          timeoutMs: this.refreshTimeoutMs,
+          timeoutCode: 'push_refresh_timeout',
+        },
+      );
+      this.emitResult(
+        succeededPushRegistrationStage(
+          PUSH_REGISTRATION_STAGE.BACKEND_RESPONSE,
+          httpStatusClass || PUSH_HTTP_STATUS_CLASS.SUCCESS,
+        ),
+      );
+      return true;
+    } catch (error) {
+      if (error?.message === 'push_refresh_timeout') {
+        throw pushRegistrationFailure(
+          PUSH_REGISTRATION_STAGE.BACKEND_TRANSPORT,
+          PUSH_REGISTRATION_CATEGORY.NETWORK_FAILURE,
+        );
+      }
+      const result = resultFromPushError(
+        error,
+        PUSH_REGISTRATION_STAGE.BACKEND_TRANSPORT,
+      );
+      throw pushRegistrationFailure(
+        result.stage,
+        result.category,
+        result.httpStatusClass,
+      );
+    }
+  }
+
+  scheduleTokenRefresh(token) {
+    this.pendingRefreshToken = token;
+    if (this.refreshPromise) return;
+    this.refreshPromise = (async () => {
+      while (this.pendingRefreshToken) {
+        const nextToken = this.pendingRefreshToken;
+        this.pendingRefreshToken = null;
+        try {
+          await this.rotate(nextToken);
+        } catch (error) {
+          const result = resultFromPushError(
+            error,
+            PUSH_REGISTRATION_STAGE.BACKEND_TRANSPORT,
+          );
+          if (
+            result.category === PUSH_REGISTRATION_CATEGORY.BACKEND_RATE_LIMITED
+          ) {
+            this.retryAfter = Date.now() + 60 * 1000;
+          }
+          this.emitResult(result);
+        }
+      }
+    })().finally(() => {
+      this.refreshPromise = null;
+      if (this.pendingRefreshToken) {
+        this.scheduleTokenRefresh(this.pendingRefreshToken);
+      }
     });
-    return true;
   }
 
   async setPreference(enabled) {
     if (!this.enabled || !this.account) return false;
-    const installationId = await this.store.installationId();
+    let installationId;
+    try {
+      installationId = await boundedPushOperation(
+        () => this.store.installationId(),
+        {
+          timeoutMs: this.installationTimeoutMs,
+          timeoutCode: 'push_installation_identity_timeout',
+        },
+      );
+    } catch {
+      throw pushRegistrationFailure(
+        PUSH_REGISTRATION_STAGE.INSTALLATION_IDENTITY,
+        PUSH_REGISTRATION_CATEGORY.INSTALLATION_IDENTITY_FAILURE,
+      );
+    }
     await this.client.updatePreferences({
       installationId,
       authToken: this.account.authToken,
       authClientId: this.account.clientId,
       enabled,
     });
-    await this.store.setPreference(enabled ? 'enabled' : 'denied');
+    try {
+      await boundedPushOperation(
+        () => this.store.setPreference(enabled ? 'enabled' : 'denied'),
+        {
+          timeoutMs: this.preferenceTimeoutMs,
+          timeoutCode: 'push_preference_write_timeout',
+        },
+      );
+    } catch {
+      throw pushRegistrationFailure(
+        PUSH_REGISTRATION_STAGE.PREFERENCE_PERSISTENCE,
+        PUSH_REGISTRATION_CATEGORY.PREFERENCE_PERSISTENCE_FAILURE,
+      );
+    }
     return true;
   }
 
@@ -357,7 +496,18 @@ export class PushFoundation {
     this.registeredIdentity = null;
     this.retryAfter = 0;
     if (!this.enabled || !account?.authToken) return false;
-    const installationId = await this.store.installationId();
+    let installationId;
+    try {
+      installationId = await boundedPushOperation(
+        () => this.store.installationId(),
+        {
+          timeoutMs: this.installationTimeoutMs,
+          timeoutCode: 'push_installation_identity_timeout',
+        },
+      );
+    } catch {
+      return false;
+    }
     await this.client
       .unregister({
         installationId,
@@ -365,7 +515,10 @@ export class PushFoundation {
         authClientId: account.clientId,
       })
       .catch(() => {});
-    await this.store.setPreference('unknown');
+    await boundedPushOperation(() => this.store.setPreference('unknown'), {
+      timeoutMs: this.preferenceTimeoutMs,
+      timeoutCode: 'push_preference_write_timeout',
+    }).catch(() => {});
     return true;
   }
 }

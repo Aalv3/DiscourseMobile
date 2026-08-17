@@ -7,7 +7,13 @@ import {
   PUSH_REGISTRATION_STAGE,
   pushHttpStatusClass,
   pushRegistrationFailure,
+  startedPushRegistration,
+  succeededPushRegistrationStage,
 } from './pushRegistrationResult';
+import {
+  boundedPushOperation,
+  PUSH_OPERATION_TIMEOUT_MS,
+} from './pushBoundedOperation';
 
 function endpoint(origin, installationId, suffix = '') {
   let url;
@@ -51,16 +57,35 @@ async function expectSuccess(response) {
 }
 
 export class PushBackendClient {
-  constructor({ origin, fetchImpl = fetch, nonceFactory }) {
+  constructor({
+    origin,
+    fetchImpl = fetch,
+    nonceFactory,
+    nonceTimeoutMs = PUSH_OPERATION_TIMEOUT_MS.NONCE,
+    transportTimeoutMs = PUSH_OPERATION_TIMEOUT_MS.BACKEND_TRANSPORT,
+  }) {
     this.origin = origin;
     this.fetchImpl = fetchImpl;
     this.nonceFactory = nonceFactory;
+    this.nonceTimeoutMs = nonceTimeoutMs;
+    this.transportTimeoutMs = transportTimeoutMs;
   }
 
-  async request(url, method, authToken, authClientId, body) {
+  async request(url, method, authToken, authClientId, body, onStage) {
+    const emit = result => {
+      try {
+        onStage?.(result);
+      } catch {
+        // Diagnostics must never affect registration.
+      }
+    };
     let nonce;
+    emit(startedPushRegistration(PUSH_REGISTRATION_STAGE.NONCE_GENERATION));
     try {
-      nonce = await this.nonceFactory?.();
+      nonce = await boundedPushOperation(() => this.nonceFactory?.(), {
+        timeoutMs: this.nonceTimeoutMs,
+        timeoutCode: 'push_nonce_timeout',
+      });
     } catch {
       throw pushRegistrationFailure(
         PUSH_REGISTRATION_STAGE.NONCE_GENERATION,
@@ -73,29 +98,52 @@ export class PushBackendClient {
         PUSH_REGISTRATION_CATEGORY.NONCE_FAILURE,
       );
     }
+    emit(
+      succeededPushRegistrationStage(PUSH_REGISTRATION_STAGE.NONCE_GENERATION),
+    );
     let response;
+    const controller =
+      typeof AbortController === 'function' ? new AbortController() : null;
+    emit(startedPushRegistration(PUSH_REGISTRATION_STAGE.BACKEND_TRANSPORT));
     try {
-      response = await this.fetchImpl(url, {
-        method,
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'User-Api-Key': authToken,
-          'User-Api-Client-Id': authClientId,
-          'X-AN-Push-Nonce': nonce,
+      response = await boundedPushOperation(
+        () =>
+          this.fetchImpl(url, {
+            method,
+            headers: {
+              Accept: 'application/json',
+              'Content-Type': 'application/json',
+              'User-Api-Key': authToken,
+              'User-Api-Client-Id': authClientId,
+              'X-AN-Push-Nonce': nonce,
+            },
+            body: body ? JSON.stringify(body) : undefined,
+            signal: controller?.signal,
+          }),
+        {
+          timeoutMs: this.transportTimeoutMs,
+          timeoutCode: 'push_backend_timeout',
+          onTimeout: () => controller?.abort(),
         },
-        body: body ? JSON.stringify(body) : undefined,
-      });
+      );
     } catch {
       throw pushRegistrationFailure(
         PUSH_REGISTRATION_STAGE.BACKEND_TRANSPORT,
         PUSH_REGISTRATION_CATEGORY.NETWORK_FAILURE,
       );
     }
+    const statusClass = pushHttpStatusClass(response?.status);
+    emit(
+      succeededPushRegistrationStage(
+        PUSH_REGISTRATION_STAGE.BACKEND_TRANSPORT,
+        statusClass,
+      ),
+    );
+    emit(startedPushRegistration(PUSH_REGISTRATION_STAGE.BACKEND_RESPONSE));
     return expectSuccess(response);
   }
 
-  register({ installationId, authToken, authClientId, registration }) {
+  register({ installationId, authToken, authClientId, registration, onStage }) {
     return this.request(
       endpoint(this.origin, installationId),
       'PUT',
@@ -109,16 +157,18 @@ export class PushBackendClient {
           token: registration.transportToken,
         },
       },
+      onStage,
     );
   }
 
-  refresh({ installationId, authToken, authClientId, registration }) {
+  refresh({ installationId, authToken, authClientId, registration, onStage }) {
     return this.request(
       endpoint(this.origin, installationId, '/refresh'),
       'POST',
       authToken,
       authClientId,
       { token: registration.transportToken },
+      onStage,
     );
   }
 

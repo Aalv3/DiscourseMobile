@@ -53,4 +53,27 @@ describe('push installation store', () => {
       'fresh',
     );
   });
+
+  test('coalesces identity creation so a late completion cannot duplicate it', async () => {
+    let resolveId;
+    const idFactory = jest.fn(
+      () =>
+        new Promise(resolve => {
+          resolveId = resolve;
+        }),
+    );
+    const deps = fixture();
+    const store = new PushInstallationStore({ ...deps, idFactory });
+    const first = store.installationId();
+    const second = store.installationId();
+    expect(first).toBe(second);
+    for (let index = 0; index < 5; index += 1) await Promise.resolve();
+    resolveId('late-identity');
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      'late-identity',
+      'late-identity',
+    ]);
+    expect(idFactory).toHaveBeenCalledTimes(1);
+    expect(deps.secureStore.storePushInstallationId).toHaveBeenCalledTimes(1);
+  });
 });

@@ -7,6 +7,7 @@ import {
 } from '../pushRegistrationResult';
 
 function fixture(permission = 'granted') {
+  const onResult = jest.fn();
   const store = {
     preference: jest.fn(() => Promise.resolve('unknown')),
     setPreference: jest.fn(() => Promise.resolve()),
@@ -40,15 +41,23 @@ function fixture(permission = 'granted') {
     store,
     transport,
     client,
+    onResult,
     permissionCheckTimeoutMs: 25,
     permissionRequestTimeoutMs: 25,
+    installationTimeoutMs: 25,
+    preferenceTimeoutMs: 25,
+    refreshTimeoutMs: 25,
   });
   return {
     foundation,
     store,
     transport,
     client,
-    refresh: token => refreshHandler(token),
+    onResult,
+    refresh: token => {
+      refreshHandler(token);
+      return foundation.refreshPromise;
+    },
     remove,
   };
 }
@@ -142,6 +151,22 @@ describe('push foundation lifecycle', () => {
     await expect(deps.foundation.status()).resolves.toBe('permission_denied');
   });
 
+  test('bounds startup preference acquisition', async () => {
+    jest.useFakeTimers();
+    const deps = fixture();
+    deps.store.preference.mockReturnValue(new Promise(() => {}));
+    const pending = deps.foundation.status();
+    const failure = expect(pending).rejects.toMatchObject({
+      result: {
+        stage: 'preference_persistence',
+        category: 'preference_persistence_failure',
+      },
+    });
+    await jest.advanceTimersByTimeAsync(25);
+    await failure;
+    jest.useRealTimers();
+  });
+
   test('registers minimum metadata only after contextual enablement', async () => {
     const deps = fixture();
     await expect(deps.foundation.enable(account)).resolves.toMatchObject({
@@ -160,6 +185,7 @@ describe('push foundation lifecycle', () => {
         build: '1',
         transportToken: 'transport-token',
       },
+      onStage: expect.any(Function),
     });
     expect(account.clientId).toBe('synthetic-client-id');
   });
@@ -244,6 +270,22 @@ describe('push foundation lifecycle', () => {
     }
 
     await expect(deps.foundation.enable(account)).rejects.toThrow(expected);
+  });
+
+  test('bounds an APNs token dependency that never settles', async () => {
+    jest.useFakeTimers();
+    const deps = fixture();
+    deps.transport.token.mockReturnValue(new Promise(() => {}));
+    const pending = deps.foundation.enable(account);
+    const failure = expect(pending).rejects.toMatchObject({
+      result: {
+        stage: 'apns_token',
+        category: 'apns_token_failure',
+      },
+    });
+    await jest.advanceTimersByTimeAsync(15000);
+    await failure;
+    jest.useRealTimers();
   });
 
   test.each([
@@ -339,6 +381,108 @@ describe('push foundation lifecycle', () => {
       category: 'enabled',
     });
     expect(deps.client.register).toHaveBeenCalledTimes(1);
+  });
+
+  test('bounds installation identity and allows its late result to be reused', async () => {
+    jest.useFakeTimers();
+    let resolveIdentity;
+    const identity = new Promise(resolve => {
+      resolveIdentity = resolve;
+    });
+    const deps = fixture();
+    deps.store.installationId.mockReturnValue(identity);
+    const first = deps.foundation.enable(account);
+    const firstFailure = expect(first).rejects.toMatchObject({
+      result: {
+        stage: 'installation_identity',
+        category: 'installation_identity_failure',
+      },
+    });
+    await jest.advanceTimersByTimeAsync(25);
+    await firstFailure;
+    resolveIdentity('late-installation');
+    await Promise.resolve();
+    await expect(deps.foundation.enable(account)).resolves.toMatchObject({
+      category: 'enabled',
+    });
+    expect(deps.client.register).toHaveBeenCalledTimes(1);
+    jest.useRealTimers();
+  });
+
+  test('bounds preference persistence without duplicating backend registration', async () => {
+    jest.useFakeTimers();
+    const deps = fixture();
+    deps.store.setPreference.mockReturnValueOnce(new Promise(() => {}));
+    const first = deps.foundation.enable(account);
+    const firstFailure = expect(first).rejects.toMatchObject({
+      result: {
+        stage: 'preference_persistence',
+        category: 'preference_persistence_failure',
+      },
+    });
+    await jest.advanceTimersByTimeAsync(25);
+    await firstFailure;
+    deps.store.setPreference.mockResolvedValue();
+    await expect(deps.foundation.enable(account)).resolves.toMatchObject({
+      category: 'enabled',
+    });
+    expect(deps.client.register).toHaveBeenCalledTimes(1);
+    jest.useRealTimers();
+  });
+
+  test('catches and reports token refresh rejection without retry looping', async () => {
+    const deps = fixture();
+    await deps.foundation.enable(account);
+    deps.client.refresh.mockRejectedValue(
+      pushRegistrationFailure(
+        PUSH_REGISTRATION_STAGE.BACKEND_TRANSPORT,
+        PUSH_REGISTRATION_CATEGORY.NETWORK_FAILURE,
+      ),
+    );
+    deps.refresh('rotated-token');
+    await deps.foundation.refreshPromise;
+    expect(deps.client.refresh).toHaveBeenCalledTimes(1);
+    expect(deps.onResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: 'backend_transport',
+        category: 'network_failure',
+        outcome: 'failed',
+      }),
+    );
+  });
+
+  test('bounds a token refresh that never settles without an unhandled rejection', async () => {
+    jest.useFakeTimers();
+    const deps = fixture();
+    await deps.foundation.enable(account);
+    deps.client.refresh.mockReturnValue(new Promise(() => {}));
+    deps.refresh('rotated-token');
+    const refresh = deps.foundation.refreshPromise;
+    await jest.advanceTimersByTimeAsync(25);
+    await expect(refresh).resolves.toBeUndefined();
+    expect(deps.client.refresh).toHaveBeenCalledTimes(1);
+    expect(deps.onResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: 'backend_transport',
+        category: 'network_failure',
+        outcome: 'failed',
+      }),
+    );
+    jest.useRealTimers();
+  });
+
+  test('does not emit permission_request when authorization is already granted', async () => {
+    const deps = fixture('granted');
+    await deps.foundation.enable(account);
+    const stages = deps.onResult.mock.calls.map(([result]) => [
+      result.stage,
+      result.outcome,
+    ]);
+    expect(stages).toContainEqual(['permission_check', 'started']);
+    expect(stages).toContainEqual(['permission_check', 'succeeded']);
+    expect(stages).not.toContainEqual(['permission_request', 'started']);
+    expect(stages).not.toContainEqual(['permission_request', 'succeeded']);
+    expect(stages).toContainEqual(['apns_token', 'started']);
   });
 
   test('manual retry after failure is not poisoned by the prior promise', async () => {

@@ -24,6 +24,7 @@ import {
 } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import PushNotificationIOS from '@react-native-community/push-notification-ios';
+import { initialPushNotification } from './initialPushNotification';
 import Screens from './screens';
 import Site from './site';
 import SiteManager from './site_manager';
@@ -205,7 +206,7 @@ class Discourse extends React.Component {
         this._handleNotification(e),
       );
 
-      PushNotificationIOS.getInitialNotification().then(e => {
+      initialPushNotification(PushNotificationIOS).then(e => {
         if (e) {
           this._handleNotification(e);
         }
