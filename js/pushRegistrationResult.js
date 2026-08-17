@@ -97,7 +97,7 @@ export function resultFromPushError(error, fallbackStage) {
 }
 
 export function startedPushRegistration(
-  stage = PUSH_REGISTRATION_STAGE.PERMISSION_REQUEST,
+  stage = PUSH_REGISTRATION_STAGE.PERMISSION_CHECK,
 ) {
   return pushRegistrationResult({
     stage,

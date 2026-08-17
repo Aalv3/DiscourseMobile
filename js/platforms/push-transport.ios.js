@@ -9,9 +9,9 @@ const { DiscourseKeyboardShortcuts } = NativeModules;
 let currentToken = null;
 let tokenWaiters = [];
 
-// requestPermissions may cause iOS to register immediately. Observe that
-// callback from module load so the one-time token cannot race the later
-// backend-registration step. The token remains memory-only.
+// Observe the native APNs callback from module load so the one-time token
+// cannot race the later backend-registration step. The token remains
+// memory-only.
 PushNotificationIOS.addEventListener('register', token => {
   currentToken = token;
   const waiters = tokenWaiters;
@@ -25,24 +25,21 @@ PushNotificationIOS.addEventListener('registrationError', () => {
 });
 
 function permissionState() {
-  return new Promise(resolve => {
-    PushNotificationIOS.checkPermissions(value => {
-      // UNAuthorizationStatus: notDetermined=0, denied=1, authorized=2,
-      // provisional=3, ephemeral=4.
-      switch (value.authorizationStatus) {
-        case 1:
-          resolve('denied');
-          break;
-        case 2:
-        case 3:
-        case 4:
-          resolve('granted');
-          break;
-        case 0:
-        default:
-          resolve('not_determined');
-      }
-    });
+  return Promise.resolve(
+    DiscourseKeyboardShortcuts?.notificationAuthorizationState?.(),
+  ).then(state => {
+    switch (state) {
+      case 'authorized':
+      case 'provisional':
+      case 'ephemeral':
+        return 'granted';
+      case 'denied':
+        return 'denied';
+      case 'notDetermined':
+        return 'not_determined';
+      default:
+        return 'unknown';
+    }
   });
 }
 
@@ -50,12 +47,13 @@ export const pushTransport = Object.freeze({
   platform: 'ios',
   permissionState,
   async requestPermission() {
-    const value = await PushNotificationIOS.requestPermissions({
-      alert: true,
-      badge: true,
-      sound: true,
-    });
-    return value.alert ? 'granted' : 'denied';
+    const state =
+      await DiscourseKeyboardShortcuts?.requestNotificationAuthorization?.();
+    return ['authorized', 'provisional', 'ephemeral'].includes(state)
+      ? 'granted'
+      : state === 'denied'
+      ? 'denied'
+      : 'unknown';
   },
   token() {
     if (currentToken) return Promise.resolve(currentToken);
@@ -82,7 +80,7 @@ export const pushTransport = Object.freeze({
           reject(new Error('push_token_timeout'));
         }, 15000);
         tokenWaiters.push(waiter);
-        PushNotificationIOS.registerForRemoteNotifications();
+        DiscourseKeyboardShortcuts?.registerForRemoteNotifications?.();
       });
     });
   },

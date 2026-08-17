@@ -1,6 +1,8 @@
 #import "DiscourseKeyboardShortcuts.h"
 #import <Security/Security.h>
 #import <TargetConditionals.h>
+#import <UIKit/UIKit.h>
+#import <UserNotifications/UserNotifications.h>
 #import <os/log.h>
 
 @implementation DiscourseKeyboardShortcuts
@@ -117,6 +119,64 @@ RCT_EXPORT_METHOD(recordPushRegistrationResult:(NSDictionary *)result)
   os_log_with_type(OS_LOG_DEFAULT, OS_LOG_TYPE_INFO,
     "ANPushRegistration stage=%{public}@ category=%{public}@ http=%{public}@ outcome=%{public}@",
     stage, category, statusClass, outcome);
+}
+
+static NSString *ANAuthorizationState(UNAuthorizationStatus status)
+{
+  switch (status) {
+    case UNAuthorizationStatusNotDetermined:
+      return @"notDetermined";
+    case UNAuthorizationStatusDenied:
+      return @"denied";
+    case UNAuthorizationStatusAuthorized:
+      return @"authorized";
+    case UNAuthorizationStatusProvisional:
+      return @"provisional";
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 140000
+    case UNAuthorizationStatusEphemeral:
+      return @"ephemeral";
+#endif
+    default:
+      return @"unknown";
+  }
+}
+
+RCT_REMAP_METHOD(notificationAuthorizationState,
+                 notificationAuthorizationStateWithResolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject)
+{
+  [[UNUserNotificationCenter currentNotificationCenter]
+      getNotificationSettingsWithCompletionHandler:^(UNNotificationSettings *settings) {
+    resolve(ANAuthorizationState(settings.authorizationStatus));
+  }];
+}
+
+RCT_REMAP_METHOD(requestNotificationAuthorization,
+                 requestNotificationAuthorizationWithResolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject)
+{
+  UNAuthorizationOptions options = UNAuthorizationOptionAlert |
+      UNAuthorizationOptionBadge | UNAuthorizationOptionSound;
+  [[UNUserNotificationCenter currentNotificationCenter]
+      requestAuthorizationWithOptions:options
+      completionHandler:^(BOOL granted, NSError *error) {
+    if (error) {
+      reject(@"notification_authorization_failed",
+        @"Notification authorization could not complete", nil);
+      return;
+    }
+    [[UNUserNotificationCenter currentNotificationCenter]
+        getNotificationSettingsWithCompletionHandler:^(UNNotificationSettings *settings) {
+      resolve(ANAuthorizationState(settings.authorizationStatus));
+    }];
+  }];
+}
+
+RCT_EXPORT_METHOD(registerForRemoteNotifications)
+{
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [[UIApplication sharedApplication] registerForRemoteNotifications];
+  });
 }
 
 RCT_REMAP_METHOD(consumeAPNSToken,

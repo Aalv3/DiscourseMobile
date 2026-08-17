@@ -12,15 +12,13 @@ import {
   PUSH_REGISTRATION_STAGE,
   pushRegistrationFailure,
   resultFromPushError,
+  startedPushRegistration,
   succeededPushRegistrationStage,
 } from './pushRegistrationResult';
 
-function boundedPermissionRequest(request, timeoutMs) {
+function boundedNativeOperation(request, timeoutMs, timeoutCode) {
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(
-      () => reject(new Error('push_permission_request_timeout')),
-      timeoutMs,
-    );
+    const timeout = setTimeout(() => reject(new Error(timeoutCode)), timeoutMs);
     Promise.resolve()
       .then(request)
       .then(
@@ -48,6 +46,7 @@ export class PushFoundation {
     transport,
     client,
     onResult = () => {},
+    permissionCheckTimeoutMs = 15000,
     permissionRequestTimeoutMs = 15000,
   }) {
     this.enabled = Boolean(enabled);
@@ -60,6 +59,7 @@ export class PushFoundation {
     this.transport = transport;
     this.client = client;
     this.onResult = onResult;
+    this.permissionCheckTimeoutMs = permissionCheckTimeoutMs;
     this.permissionRequestTimeoutMs = permissionRequestTimeoutMs;
     this.account = null;
     this.tokenSubscription = null;
@@ -90,8 +90,15 @@ export class PushFoundation {
       this.transport.permissionState
     ) {
       let permission;
+      this.emitResult(
+        startedPushRegistration(PUSH_REGISTRATION_STAGE.PERMISSION_CHECK),
+      );
       try {
-        permission = await this.transport.permissionState();
+        permission = await boundedNativeOperation(
+          () => this.transport.permissionState(),
+          this.permissionCheckTimeoutMs,
+          'push_permission_check_timeout',
+        );
       } catch {
         throw pushRegistrationFailure(
           PUSH_REGISTRATION_STAGE.PERMISSION_CHECK,
@@ -172,19 +179,35 @@ export class PushFoundation {
       );
     }
     let permission;
+    this.emitResult(
+      startedPushRegistration(PUSH_REGISTRATION_STAGE.PERMISSION_CHECK),
+    );
     try {
-      permission = await this.transport.permissionState();
+      permission = await boundedNativeOperation(
+        () => this.transport.permissionState(),
+        this.permissionCheckTimeoutMs,
+        'push_permission_check_timeout',
+      );
     } catch {
       throw pushRegistrationFailure(
         PUSH_REGISTRATION_STAGE.PERMISSION_CHECK,
         PUSH_REGISTRATION_CATEGORY.PERMISSION_FAILURE,
       );
     }
+    this.emitResult(
+      succeededPushRegistrationStage(PUSH_REGISTRATION_STAGE.PERMISSION_CHECK),
+    );
+    let requestedPermission = false;
     if (permission === 'not_determined') {
+      requestedPermission = true;
+      this.emitResult(
+        startedPushRegistration(PUSH_REGISTRATION_STAGE.PERMISSION_REQUEST),
+      );
       try {
-        permission = await boundedPermissionRequest(
+        permission = await boundedNativeOperation(
           () => this.transport.requestPermission(),
           this.permissionRequestTimeoutMs,
+          'push_permission_request_timeout',
         );
       } catch {
         throw pushRegistrationFailure(
@@ -203,10 +226,12 @@ export class PushFoundation {
         );
       }
       throw pushRegistrationFailure(
+        requestedPermission
+          ? PUSH_REGISTRATION_STAGE.PERMISSION_REQUEST
+          : PUSH_REGISTRATION_STAGE.PERMISSION_CHECK,
         permission === 'denied'
-          ? PUSH_REGISTRATION_STAGE.PERMISSION_CHECK
-          : PUSH_REGISTRATION_STAGE.PERMISSION_REQUEST,
-        PUSH_REGISTRATION_CATEGORY.PERMISSION_DENIED,
+          ? PUSH_REGISTRATION_CATEGORY.PERMISSION_DENIED
+          : PUSH_REGISTRATION_CATEGORY.PERMISSION_FAILURE,
       );
     }
     this.emitResult(

@@ -545,12 +545,6 @@ class Discourse extends React.Component {
     });
 
     if (adjusterNetwork.features.push && Platform.OS === 'ios') {
-      PushNotificationIOS.requestPermissions({
-        alert: true,
-        badge: true,
-        sound: true,
-      });
-
       addShortcutListener(({ userInfo }) => {
         if (userInfo.siteUrl) {
           this._handleOpenUrl({

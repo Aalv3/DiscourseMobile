@@ -40,6 +40,7 @@ function fixture(permission = 'granted') {
     store,
     transport,
     client,
+    permissionCheckTimeoutMs: 25,
     permissionRequestTimeoutMs: 25,
   });
   return {
@@ -107,6 +108,31 @@ describe('push foundation lifecycle', () => {
     });
     expect(deps.transport.requestPermission).not.toHaveBeenCalled();
     expect(deps.store.setPreference).toHaveBeenCalledWith('denied');
+    expect(deps.transport.token).not.toHaveBeenCalled();
+  });
+
+  test('bounds a native permission-state check that never settles', async () => {
+    const deps = fixture();
+    deps.transport.permissionState.mockReturnValue(new Promise(() => {}));
+    await expect(deps.foundation.enable(account)).rejects.toMatchObject({
+      result: {
+        stage: 'permission_check',
+        category: 'permission_failure',
+      },
+    });
+    expect(deps.transport.requestPermission).not.toHaveBeenCalled();
+    expect(deps.transport.token).not.toHaveBeenCalled();
+  });
+
+  test('fails closed when the native authorization state is unknown', async () => {
+    const deps = fixture('unknown');
+    await expect(deps.foundation.enable(account)).rejects.toMatchObject({
+      result: {
+        stage: 'permission_check',
+        category: 'permission_failure',
+      },
+    });
+    expect(deps.transport.requestPermission).not.toHaveBeenCalled();
     expect(deps.transport.token).not.toHaveBeenCalled();
   });
 
@@ -259,6 +285,18 @@ describe('push foundation lifecycle', () => {
     expect(deps.transport.token).toHaveBeenCalledTimes(1);
   });
 
+  test('reports denial from the native prompt at permission_request', async () => {
+    const deps = fixture('not_determined');
+    deps.transport.requestPermission.mockResolvedValue('denied');
+    await expect(deps.foundation.enable(account)).rejects.toMatchObject({
+      result: {
+        stage: 'permission_request',
+        category: 'permission_denied',
+      },
+    });
+    expect(deps.transport.requestPermission).toHaveBeenCalledTimes(1);
+  });
+
   test('bounds a native permission request that never settles', async () => {
     const deps = fixture('not_determined');
     deps.transport.requestPermission.mockReturnValue(new Promise(() => {}));
@@ -270,6 +308,18 @@ describe('push foundation lifecycle', () => {
     });
     expect(deps.transport.requestPermission).toHaveBeenCalledTimes(1);
     expect(deps.transport.token).not.toHaveBeenCalled();
+  });
+
+  test('startup status and manual retry share the bounded native check', async () => {
+    const deps = fixture('granted');
+    deps.store.preference.mockResolvedValue('enabled');
+    await expect(deps.foundation.status()).resolves.toBe('enabled');
+    await expect(deps.foundation.enable(account)).resolves.toMatchObject({
+      stage: 'completed',
+      category: 'enabled',
+    });
+    expect(deps.transport.permissionState).toHaveBeenCalledTimes(2);
+    expect(deps.transport.requestPermission).not.toHaveBeenCalled();
   });
 
   test('reports preference persistence after successful backend registration', async () => {
