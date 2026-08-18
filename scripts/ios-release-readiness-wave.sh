@@ -3,8 +3,23 @@ set -euo pipefail
 
 # Simulator-only evidence wave. It never signs, archives, uploads, submits, or changes a domain.
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-evidence_root="${1:-$repo_root/.local/ios-readiness}"
-mkdir -p "$evidence_root"
+workflow="ios-release-readiness"
+eval "$(node "$repo_root/scripts/native-build-storage.mjs" begin --workflow="$workflow" --shell)"
+evidence_root="$AN_NATIVE_EVIDENCE_DIR"
+derived_data="$AN_NATIVE_BUILD_WORKSPACE/DerivedData"
+run_status=failed
+
+finish_run() {
+  local exit_code=$?
+  trap - EXIT INT TERM
+  node "$repo_root/scripts/native-build-storage.mjs" finish \
+    --workflow="$workflow" \
+    --run-id="$AN_NATIVE_RUN_ID" \
+    --status="$run_status" || true
+  exit "$exit_code"
+}
+trap finish_run EXIT
+trap 'run_status=failed; exit 130' INT TERM
 
 exec > >(tee "$evidence_root/wave.log") 2>&1
 cd "$repo_root"
@@ -29,9 +44,8 @@ corepack yarn verify:release-readiness | tee "$evidence_root/readiness.json"
 
 for configuration in Debug Release; do
   configuration_slug=$(printf '%s' "$configuration" | tr '[:upper:]' '[:lower:]')
-  # Keep generated binary plists outside ios/. CocoaPods recursively scans the
-  # project directory and can otherwise attempt to parse DerivedData artifacts.
-  derived_data="$evidence_root/derived-data-$configuration_slug"
+  # DerivedData is disposable build state, never audit evidence. Both configurations
+  # share this run-scoped workspace and it is removed by the EXIT trap.
   xcodebuild \
     -workspace ios/Discourse.xcworkspace \
     -scheme Discourse \
@@ -44,3 +58,4 @@ for configuration in Debug Release; do
 done
 
 printf '%s\n' 'DEBUG + RELEASE BUILDS PASS. Continue with the manual runtime matrix in docs/IOS-MAC-RELEASE-READINESS-WAVE.md.'
+run_status=success

@@ -20,6 +20,8 @@
     "verify:ios-auth": "node scripts/verify-ios-auth-presentation.mjs",
     "verify:ota": "node scripts/verify-ota-readiness.mjs",
     "verify:release-readiness": "node scripts/verify-native-release-readiness.mjs",
+    "native:storage": "node scripts/native-build-storage.mjs maintenance",
+    "native:storage:delete": "node scripts/native-build-storage.mjs maintenance --delete",
     "test-ipad": "detox test --configuration ios.sim.debug -n 'iPad (10th generation)'"
   },
   "dependencies": {

@@ -5,8 +5,45 @@
 This wave is simulator-first and produces evidence without signing, archiving, uploading, store
 submission, domain mutation, production account creation, or legal/privacy assertions. Run it only
 from the canonical native branch after the owner supplies a Mac with current Xcode. Keep all logs,
-screenshots and UI trees under ignored `.local/ios-readiness`; redact tokens, email addresses,
+screenshots and UI trees under ignored `.local/evidence/ios-release-readiness/<run-id>`; redact tokens, email addresses,
 private content and callback payloads before sharing any evidence.
+
+## Build storage and retention
+
+Native build state and durable evidence are deliberately separated:
+
+- `.local/build-workspace/<workflow>/<run-id>` is disposable. The readiness script removes its
+  DerivedData on success, failure, interruption and termination.
+- `.local/evidence/<workflow>/<run-id>` contains only revision data, readiness JSON, concise logs,
+  manifests and accounting. Ordinary evidence keeps the newest three runs and expires after ten
+  days.
+- A `.protected` marker exempts an explicitly approved evidence run from ordinary retention.
+  Signed `.xcarchive`, `.ipa` and archive `.dSYM` artifacts are never cleanup candidates and belong
+  in the approved release-artifact location, not the build workspace.
+
+The preflight warns below 50 GiB free and refuses a full native build below 25 GiB. An emergency
+operator may set `AN_NATIVE_EMERGENCY_DISK_OVERRIDE=1`, but must record why. Set
+`AN_RETAIN_NATIVE_BUILD_STATE=1` only for an intentional diagnostic investigation; normal runs
+never retain DerivedData. Active-run locks prevent maintenance from touching an in-progress build
+and stale locks are recovered only after the owning process is gone and a 15-minute race-safety
+grace period has elapsed.
+
+Inspect usage and reclaimable state safely (dry-run is the default):
+
+```bash
+corepack yarn native:storage
+```
+
+After reviewing the exact candidates, delete only managed disposable/expired state with:
+
+```bash
+corepack yarn native:storage:delete
+```
+
+Each completed workflow reports free disk before/after, workspace size, retained evidence size and
+whether diagnostic state was intentionally retained. To recover after cleanup, rerun
+`corepack yarn install --immutable`, `bundle install`, and
+`bundle exec pod install --project-directory=ios`; the next native build regenerates DerivedData.
 
 ## Automated build wave
 
