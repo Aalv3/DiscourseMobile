@@ -34,7 +34,6 @@ function fixture(permission = 'granted') {
   const foundation = new PushFoundation({
     enabled: true,
     environment: 'staging',
-    apsEnvironment: 'development',
     appId: 'org.adjusternetwork.app',
     appVersion: '1.0.0',
     build: '1',
@@ -76,24 +75,23 @@ describe('push foundation lifecycle', () => {
     expect(deps.client.register).not.toHaveBeenCalled();
   });
 
-  test('development-signed Release reports a limitation without registration', async () => {
+  test('missing runtime environment fails closed without registration', async () => {
     const deps = fixture();
-    deps.foundation.environment = 'production';
+    deps.foundation.environment = null;
     await expect(deps.foundation.status()).resolves.toBe(
-      'development_build_limitation',
+      'push_registration_failed',
     );
     await expect(deps.foundation.enable(account)).resolves.toBe(
-      'development_build_limitation',
+      'push_registration_failed',
     );
     expect(deps.transport.requestPermission).not.toHaveBeenCalled();
     expect(deps.transport.token).not.toHaveBeenCalled();
     expect(deps.client.register).not.toHaveBeenCalled();
   });
 
-  test('production entitlement and runtime retain normal registration', async () => {
+  test('production runtime proceeds to the native permission and APNs pipeline', async () => {
     const deps = fixture();
     deps.foundation.environment = 'production';
-    deps.foundation.apsEnvironment = 'production';
     await expect(deps.foundation.enable(account)).resolves.toMatchObject({
       stage: 'completed',
       category: 'enabled',
@@ -105,6 +103,20 @@ describe('push foundation lifecycle', () => {
     );
     expect(deps.transport.permissionState).toHaveBeenCalledTimes(1);
     expect(deps.transport.requestPermission).not.toHaveBeenCalled();
+  });
+
+  test('staging runtime proceeds with the staging backend environment', async () => {
+    const deps = fixture();
+    await expect(deps.foundation.enable(account)).resolves.toMatchObject({
+      stage: 'completed',
+      category: 'enabled',
+    });
+    expect(deps.client.register).toHaveBeenCalledWith(
+      expect.objectContaining({
+        registration: expect.objectContaining({ environment: 'staging' }),
+      }),
+    );
+    expect(deps.transport.token).toHaveBeenCalledTimes(1);
   });
 
   test('records existing denial without requesting permission or a token', async () => {

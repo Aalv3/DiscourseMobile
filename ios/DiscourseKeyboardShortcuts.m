@@ -1,6 +1,5 @@
 #import "DiscourseKeyboardShortcuts.h"
 #import <Security/Security.h>
-#import <TargetConditionals.h>
 #import <UIKit/UIKit.h>
 #import <UserNotifications/UserNotifications.h>
 #import <os/log.h>
@@ -53,41 +52,11 @@ static BOOL pendingAPNSRegistrationFailure = NO;
 
 RCT_EXPORT_MODULE()
 
-static NSString *trustedAPSEnvironmentFromEntitlement(CFTypeRef entitlement)
-{
-  if (!entitlement || CFGetTypeID(entitlement) != CFStringGetTypeID()) {
-    return nil;
-  }
-
-  NSString *environment = (__bridge NSString *)entitlement;
-  if ([environment isEqualToString:@"development"] ||
-      [environment isEqualToString:@"production"]) {
-    return environment;
-  }
-  return nil;
-}
-
 - (NSDictionary *)constantsToExport
 {
   NSString *environment = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"ANPushEnvironment"];
   BOOL trusted = [environment isEqualToString:@"staging"] || [environment isEqualToString:@"production"];
-  NSString *apsEnvironment = nil;
-#if !TARGET_OS_SIMULATOR
-  SecTaskRef task = SecTaskCreateFromSelf(kCFAllocatorDefault);
-  if (task) {
-    CFTypeRef entitlement = SecTaskCopyValueForEntitlement(
-        task, CFSTR("aps-environment"), NULL);
-    apsEnvironment = trustedAPSEnvironmentFromEntitlement(entitlement);
-    if (entitlement) {
-      CFRelease(entitlement);
-    }
-    CFRelease(task);
-  }
-#endif
-  return @{
-    @"pushEnvironment": trusted ? environment : [NSNull null],
-    @"apsEnvironment": apsEnvironment ?: [NSNull null]
-  };
+  return @{ @"pushEnvironment": trusted ? environment : [NSNull null] };
 }
 
 - (NSArray<NSString *> *)supportedEvents

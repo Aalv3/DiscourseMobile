@@ -66,20 +66,10 @@ export function classifyPushRegistrationError(error) {
   return NOTIFICATION_STATUS.UNKNOWN_REGISTRATION_FAILURE;
 }
 
-export function pushEnvironmentCompatibility(
-  apsEnvironment,
-  runtimeEnvironment,
-) {
-  if (
-    (apsEnvironment === 'development' && runtimeEnvironment === 'staging') ||
-    (apsEnvironment === 'production' && runtimeEnvironment === 'production')
-  ) {
-    return 'compatible';
-  }
-  if (apsEnvironment === 'development' && runtimeEnvironment === 'production') {
-    return NOTIFICATION_STATUS.DEVELOPMENT_BUILD_LIMITATION;
-  }
-  return NOTIFICATION_STATUS.TEMPORARY_ERROR;
+export function pushEnvironmentCompatibility(runtimeEnvironment) {
+  return runtimeEnvironment === 'staging' || runtimeEnvironment === 'production'
+    ? 'compatible'
+    : NOTIFICATION_STATUS.TEMPORARY_ERROR;
 }
 
 export function canAttemptNotificationSetup(status) {

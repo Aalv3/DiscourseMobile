@@ -106,16 +106,13 @@ check(
   'Debug must pair APNs sandbox with staging and Release must pair production APNs with production backend registration',
 );
 check(
-  'iOS installed APNs entitlement detection',
-  iosNativeModule.includes('SecTaskCreateFromSelf') &&
-    iosNativeModule.includes('SecTaskCopyValueForEntitlement') &&
-    iosNativeModule.includes('CFSTR("aps-environment")') &&
-    iosNativeModule.includes('CFStringGetTypeID') &&
+  'iOS runtime signing boundary',
+  !iosNativeModule.includes('SecTask') &&
     !iosNativeModule.includes('embedded.mobileprovision') &&
     !iosNativeModule.includes('NSISOLatin1StringEncoding')
     ? 'PASS'
     : 'FAIL',
-  'Runtime APNs environment must come from the installed process signed entitlement and fail closed without parsing provisioning files',
+  'Runtime must delegate APNs entitlement authority to iOS and never inspect signatures or provisioning files',
 );
 check(
   'iOS Share Extension App Group boundary',
@@ -170,8 +167,27 @@ check(
 );
 
 if (archivePath) {
-  const embeddedHermes = `${archivePath}/Products/Applications/AdjusterNetwork.app/Frameworks/hermes.framework/hermes`;
+  const app = `${archivePath}/Products/Applications/AdjusterNetwork.app`;
+  const shareExtension = `${app}/PlugIns/ShareExtension.appex`;
+  const embeddedHermes = `${app}/Frameworks/hermes.framework/hermes`;
   const archivedDwarf = `${archivePath}/dSYMs/hermes.framework.dSYM/Contents/Resources/DWARF/hermes`;
+  const command = (executable, args) =>
+    execFileSync(executable, args, { encoding: 'utf8' });
+  const plistValue = (path, key) =>
+    command('plutil', ['-extract', key, 'raw', '-o', '-', path]).trim();
+  const signedEntitlements = path =>
+    command('codesign', ['-d', '--entitlements', ':-', path]);
+  const profile = path =>
+    command('security', [
+      'cms',
+      '-D',
+      '-i',
+      `${path}/embedded.mobileprovision`,
+    ]);
+  const hasStringValue = (plist, key, value) =>
+    new RegExp(`<key>${key}</key>\\s*<string>${value}</string>`).test(plist);
+  const hasTrueValue = (plist, key) =>
+    new RegExp(`<key>${key}</key>\\s*<true\\s*/>`).test(plist);
   const uuid = path =>
     execFileSync('dwarfdump', ['--uuid', path], { encoding: 'utf8' }).match(
       /UUID: ([0-9A-F-]+)/,
@@ -194,6 +210,48 @@ if (archivePath) {
     'archived Hermes symbols',
     archiveSymbolsValid ? 'PASS' : 'FAIL',
     'Final xcarchive must contain a non-empty Hermes dSYM with real DWARF and the embedded framework UUID',
+  );
+
+  let archiveReleaseValid = false;
+  let archiveProfilesValid = false;
+  try {
+    const appEntitlements = signedEntitlements(app);
+    const extensionEntitlements = signedEntitlements(shareExtension);
+    const appProfile = profile(app);
+    const extensionProfile = profile(shareExtension);
+    archiveReleaseValid =
+      plistValue(`${app}/Info.plist`, 'CFBundleIdentifier') ===
+        'org.adjusternetwork.app' &&
+      plistValue(`${app}/Info.plist`, 'ANPushEnvironment') === 'production' &&
+      hasStringValue(appEntitlements, 'aps-environment', 'production') &&
+      !hasTrueValue(appEntitlements, 'get-task-allow') &&
+      appEntitlements.includes('applinks:adjusternetwork.org') &&
+      appEntitlements.includes('group.org.adjusternetwork.app') &&
+      extensionEntitlements.includes('group.org.adjusternetwork.app') &&
+      productConfig.includes("backendOrigin: 'https://adjusternetwork.org'");
+    archiveProfilesValid =
+      hasStringValue(appProfile, 'Name', 'Adjuster Network App Store') &&
+      hasStringValue(
+        extensionProfile,
+        'Name',
+        'Adjuster Network Share Extension App Store',
+      ) &&
+      hasStringValue(appProfile, 'aps-environment', 'production') &&
+      !hasTrueValue(appProfile, 'get-task-allow') &&
+      !hasTrueValue(extensionProfile, 'get-task-allow');
+  } catch {
+    archiveReleaseValid = false;
+    archiveProfilesValid = false;
+  }
+  check(
+    'archived production APNs and runtime boundary',
+    archiveReleaseValid ? 'PASS' : 'FAIL',
+    'Final archive must be the production app identity with production runtime, production signed APNs entitlement, distribution restrictions, App Group and Associated Domain',
+  );
+  check(
+    'archived App Store provisioning',
+    archiveProfilesValid ? 'PASS' : 'FAIL',
+    'Main app and Share Extension must use the approved App Store profiles without development task access',
   );
 }
 

@@ -24,7 +24,6 @@ export class PushFoundation {
   constructor({
     enabled,
     environment,
-    apsEnvironment,
     appId,
     appVersion,
     build,
@@ -40,7 +39,6 @@ export class PushFoundation {
   }) {
     this.enabled = Boolean(enabled);
     this.environment = environment;
-    this.apsEnvironment = apsEnvironment;
     this.appId = appId;
     this.appVersion = appVersion;
     this.build = build;
@@ -65,10 +63,7 @@ export class PushFoundation {
 
   async status() {
     if (!this.enabled) return 'disabled';
-    const compatibility = pushEnvironmentCompatibility(
-      this.apsEnvironment,
-      this.environment,
-    );
+    const compatibility = pushEnvironmentCompatibility(this.environment);
     if (compatibility !== 'compatible') return compatibility;
     let preference;
     try {
@@ -165,10 +160,7 @@ export class PushFoundation {
 
   async _enable(account) {
     if (!this.enabled) return 'disabled';
-    const compatibility = pushEnvironmentCompatibility(
-      this.apsEnvironment,
-      this.environment,
-    );
+    const compatibility = pushEnvironmentCompatibility(this.environment);
     if (compatibility !== 'compatible') return compatibility;
     if (Date.now() < this.retryAfter) {
       throw pushRegistrationFailure(

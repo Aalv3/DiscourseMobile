@@ -8,34 +8,16 @@ import {
 } from '../notificationStatus';
 
 describe('notification status model', () => {
-  test('classifies development-signed Release without attempting production registration', () => {
-    expect(pushEnvironmentCompatibility('development', 'production')).toBe(
-      NOTIFICATION_STATUS.DEVELOPMENT_BUILD_LIMITATION,
-    );
-    expect(
-      canAttemptNotificationSetup(
-        NOTIFICATION_STATUS.DEVELOPMENT_BUILD_LIMITATION,
-      ),
-    ).toBe(false);
-  });
-
-  test('allows only compatible trusted APNs/runtime pairs', () => {
-    expect(pushEnvironmentCompatibility('production', 'production')).toBe(
-      'compatible',
-    );
-    expect(pushEnvironmentCompatibility('development', 'staging')).toBe(
-      'compatible',
-    );
-    expect(pushEnvironmentCompatibility(null, 'production')).toBe(
+  test('allows only bounded configured runtime environments', () => {
+    expect(pushEnvironmentCompatibility('production')).toBe('compatible');
+    expect(pushEnvironmentCompatibility('staging')).toBe('compatible');
+    expect(pushEnvironmentCompatibility(null)).toBe(
       NOTIFICATION_STATUS.TEMPORARY_ERROR,
     );
-    expect(pushEnvironmentCompatibility('production', 'staging')).toBe(
+    expect(pushEnvironmentCompatibility('development')).toBe(
       NOTIFICATION_STATUS.TEMPORARY_ERROR,
     );
-    expect(pushEnvironmentCompatibility('development', null)).toBe(
-      NOTIFICATION_STATUS.TEMPORARY_ERROR,
-    );
-    expect(pushEnvironmentCompatibility('sandbox', 'production')).toBe(
+    expect(pushEnvironmentCompatibility('sandbox')).toBe(
       NOTIFICATION_STATUS.TEMPORARY_ERROR,
     );
   });

@@ -11,20 +11,9 @@ export function trustedPushEnvironment(platform, configured) {
     : null;
 }
 
-export function trustedAPSEnvironment(platform, configured) {
-  if (platform !== 'ios') return null;
-  return configured === 'development' || configured === 'production'
-    ? configured
-    : null;
-}
-
 const pushEnvironment = trustedPushEnvironment(
   Platform.OS,
   NativeModules.DiscourseKeyboardShortcuts?.pushEnvironment,
-);
-const apsEnvironment = trustedAPSEnvironment(
-  Platform.OS,
-  NativeModules.DiscourseKeyboardShortcuts?.apsEnvironment,
 );
 
 // Keep Adjuster Network product choices in one reversible boundary. Native
@@ -52,7 +41,6 @@ export const adjusterNetwork = Object.freeze({
     // Injected by signed build configuration and exported by the native
     // module. Missing or unexpected values fail closed; users cannot switch it.
     environment: pushEnvironment,
-    apsEnvironment,
   }),
   navigation: Object.freeze({
     floor: Object.freeze({

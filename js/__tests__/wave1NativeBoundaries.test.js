@@ -20,18 +20,28 @@ describe('Wave 1 native boundaries', () => {
     expect(entitlements).toContain('$(AN_APNS_ENVIRONMENT)');
     expect(info).toContain('$(AN_PUSH_ENVIRONMENT)');
     expect(nativeModule).toContain('@"pushEnvironment"');
-    expect(nativeModule).toContain('@"apsEnvironment"');
-    expect(nativeModule).toContain('SecTaskCreateFromSelf');
-    expect(nativeModule).toContain('SecTaskCopyValueForEntitlement');
-    expect(nativeModule).toContain('CFSTR("aps-environment")');
-    expect(nativeModule).toContain(
-      'CFGetTypeID(entitlement) != CFStringGetTypeID()',
-    );
-    expect(nativeModule).toContain('isEqualToString:@"development"');
-    expect(nativeModule).toContain('isEqualToString:@"production"');
     expect(nativeModule).not.toMatch(
-      /embedded\.mobileprovision|NSISOLatin1StringEncoding|profileData|profilePath/,
+      /apsEnvironment|embedded\.mobileprovision|NSISOLatin1StringEncoding|SecTask|profileData|profilePath/,
     );
+  });
+
+  test('enforces production APNs identity on the final archive only', () => {
+    const readiness = read('scripts/verify-native-release-readiness.mjs');
+    expect(readiness).toContain('signedEntitlements(app)');
+    expect(readiness).toContain(
+      "hasStringValue(appEntitlements, 'aps-environment', 'production')",
+    );
+    expect(readiness).toContain(
+      "plistValue(`${app}/Info.plist`, 'ANPushEnvironment') === 'production'",
+    );
+    expect(readiness).toContain(
+      "plistValue(`${app}/Info.plist`, 'CFBundleIdentifier')",
+    );
+    expect(readiness).toContain(
+      "!hasTrueValue(appEntitlements, 'get-task-allow')",
+    );
+    expect(readiness).toContain('Adjuster Network App Store');
+    expect(readiness).toContain('Adjuster Network Share Extension App Store');
   });
 
   test('uses one explicit App Group without sharing credentials', () => {
