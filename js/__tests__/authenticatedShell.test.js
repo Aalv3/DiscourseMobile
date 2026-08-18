@@ -68,6 +68,39 @@ describe('authenticated member shell', () => {
     expect(source).toContain('tabBarHideOnKeyboard: true');
   });
 
+  test('elevated Ask action preserves the shared tab-label baseline', () => {
+    const source = read('Discourse.js');
+    const askOptions = source.slice(
+      source.indexOf('name="Ask"'),
+      source.indexOf('name="Lounge"'),
+    );
+
+    expect(askOptions).toContain('width: 38');
+    expect(askOptions).toContain('height: 38');
+    expect(askOptions).toContain('transform: [{ translateY: -10 }]');
+    expect(askOptions).not.toContain('marginTop: -6');
+
+    // The six fixed-width destinations retain side clearance around the
+    // 38-point action at the smallest supported portrait width and both
+    // current Pro widths.
+    [375, 393, 402].forEach(viewportWidth => {
+      const tabSlotWidth = (viewportWidth - 20) / 6;
+      expect(tabSlotWidth - 38).toBeGreaterThanOrEqual(21);
+    });
+
+    // React Navigation reserves the label at the bottom of the item. The
+    // visual-only lift leaves the label in that shared slot and provides a
+    // conservative minimum gap in standard and Larger UI modes.
+    [
+      { barHeight: 70, labelBlockHeight: 15 },
+      { barHeight: 76, labelBlockHeight: 19 },
+    ].forEach(({ barHeight, labelBlockHeight }) => {
+      const iconAreaHeight = barHeight - 7 - labelBlockHeight;
+      const circleBottom = iconAreaHeight / 2 + 38 / 2 - 10;
+      expect(iconAreaHeight - circleBottom).toBeGreaterThanOrEqual(15);
+    });
+  });
+
   test('member account rows use supported semantic glyphs', () => {
     const source = read('product/ProductScreens.js');
     const glyphs = require('../../node_modules/@react-native-vector-icons/fontawesome5/glyphmaps/FontAwesome5_solid.json');

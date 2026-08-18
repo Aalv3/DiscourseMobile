@@ -1022,7 +1022,7 @@ class Discourse extends React.Component {
                               width: 38,
                               height: 38,
                               borderRadius: 19,
-                              marginTop: -6,
+                              transform: [{ translateY: -10 }],
                               alignItems: 'center',
                               justifyContent: 'center',
                               backgroundColor: shellColors.brandAccent,
