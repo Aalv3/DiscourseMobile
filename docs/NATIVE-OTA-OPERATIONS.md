@@ -1,5 +1,9 @@
 # Native OTA operations
 
+The canonical operator flow and risk lanes are now defined in
+`docs/NATIVE-DEVELOPMENT-WORKFLOW.md`. This document retains protocol and
+recovery background only; where procedures differ, the canonical workflow wins.
+
 Adjuster Network uses EAS Update through `expo-updates` for JavaScript and
 bundled assets only. The native iOS and Android projects remain hand-managed.
 
@@ -15,12 +19,13 @@ signing until that capability is configured and certified.
 
 ## Immutable boundaries
 
-- Runtime `an-ios-android-1.0.0-native-1` is a hard compatibility boundary.
+- Runtime `an-ios-android-1.0.0-native-2` is the current hard compatibility boundary.
 - Any native source, native dependency, entitlement, permission, capability,
   Expo module, or native configuration change requires a new store binary and
   a new runtime value.
-- The embedded bundle remains enabled. Launch waits zero milliseconds for the
-  network; a downloaded update becomes eligible on a later launch.
+- Production retains its embedded recovery bundle. The permanent internal
+  staging app is remote-update-first (`EXUpdatesHasEmbeddedUpdate=false`) so a
+  newer embedded bundle cannot mask the exact OTA group under certification.
 - Expo anti-bricking measures must remain enabled.
 - Build 1 does not embed a publisher signing certificate.
 

@@ -381,7 +381,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -eu\nchannel=\"${AN_OTA_CHANNEL_OVERRIDE:-$AN_OTA_CHANNEL}\"\ncase \"$channel\" in\n  staging|production) ;;\n  *) echo \"error: invalid Adjuster Network OTA channel\" >&2; exit 1 ;;\nesac\nplist=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Expo.plist\"\n/usr/libexec/PlistBuddy -c \"Set :EXUpdatesRequestHeaders:expo-channel-name $channel\" \"$plist\"\nprintf '%s\\n' \"$channel\" > \"$SCRIPT_OUTPUT_FILE_0\"\n";
+			shellScript = "set -eu\nchannel=\"${AN_OTA_CHANNEL_OVERRIDE:-$AN_OTA_CHANNEL}\"\ncase \"$channel\" in\n  staging) embedded=false ;;\n  production) embedded=true ;;\n  *) echo \"error: invalid Adjuster Network OTA channel\" >&2; exit 1 ;;\nesac\nplist=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Expo.plist\"\n/usr/libexec/PlistBuddy -c \"Set :EXUpdatesRequestHeaders:expo-channel-name $channel\" \"$plist\"\n/usr/libexec/PlistBuddy -c \"Set :EXUpdatesHasEmbeddedUpdate $embedded\" \"$plist\"\nprintf 'channel=%s\\nembedded=%s\\n' \"$channel\" \"$embedded\" > \"$SCRIPT_OUTPUT_FILE_0\"\n";
 		};
 		A30A0A122E4B000100000001 /* Generate Hermes dSYM */ = {
 			isa = PBXShellScriptBuildPhase;

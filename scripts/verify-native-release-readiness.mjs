@@ -19,6 +19,8 @@ const shareEntitlements = read(
 const shareController = read('ios/ShareExtension/ShareViewController.swift');
 const iosNativeModule = read('ios/DiscourseKeyboardShortcuts.m');
 const productConfig = read('js/adjusterNetworkConfig.js');
+const expoConfig = read('app.config.js');
+const expoPlist = read('ios/Discourse/Supporting/Expo.plist');
 const packageManifest = read('package.json');
 const siteManager = read('js/site_manager.js');
 const productScreens = read('js/product/ProductScreens.js');
@@ -113,6 +115,16 @@ check(
     ? 'PASS'
     : 'FAIL',
   'Runtime must delegate APNs entitlement authority to iOS and never inspect signatures or provisioning files',
+);
+check(
+  'permanent staging OTA architecture',
+  expoConfig.includes("useEmbeddedUpdate: otaChannel !== 'staging'") &&
+    iosProject.includes('staging) embedded=false') &&
+    iosProject.includes('production) embedded=true') &&
+    expoPlist.includes('EXUpdatesHasEmbeddedUpdate')
+    ? 'PASS'
+    : 'FAIL',
+  'Staging must be remote-update-first while production retains its embedded recovery update',
 );
 check(
   'iOS Share Extension App Group boundary',
@@ -224,6 +236,8 @@ if (archivePath) {
         'org.adjusternetwork.app' &&
       plistValue(`${app}/Info.plist`, 'ANPushEnvironment') === 'production' &&
       hasStringValue(appEntitlements, 'aps-environment', 'production') &&
+      plistValue(`${app}/Expo.plist`, 'EXUpdatesHasEmbeddedUpdate') ===
+        'true' &&
       !hasTrueValue(appEntitlements, 'get-task-allow') &&
       appEntitlements.includes('applinks:adjusternetwork.org') &&
       appEntitlements.includes('group.org.adjusternetwork.app') &&

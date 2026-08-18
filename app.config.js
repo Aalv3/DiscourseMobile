@@ -1,6 +1,7 @@
 'use strict';
 
 const runtimeVersion = 'an-ios-android-1.0.0-native-2';
+const otaChannel = process.env.AN_OTA_CHANNEL || 'production';
 
 module.exports = {
   name: 'Adjuster Network',
@@ -13,10 +14,13 @@ module.exports = {
     enabled: true,
     checkAutomatically: 'ON_LOAD',
     fallbackToCacheTimeout: 0,
-    useEmbeddedUpdate: true,
+    // Internal staging is a permanent OTA certification client. It must never
+    // let a newer embedded bundle hide an already-published staging update.
+    // Production retains the embedded recovery bundle and anti-bricking path.
+    useEmbeddedUpdate: otaChannel !== 'staging',
     disableAntiBrickingMeasures: false,
     requestHeaders: {
-      'expo-channel-name': process.env.AN_OTA_CHANNEL || 'production',
+      'expo-channel-name': otaChannel,
     },
   },
   extra: {

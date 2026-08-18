@@ -9,6 +9,47 @@
 static NSString *pendingAPNSToken = nil;
 static BOOL pendingAPNSRegistrationFailure = NO;
 
+static void ANPersistPushDiagnostic(NSString *stage, NSString *category,
+                                    NSString *statusClass, NSString *outcome)
+{
+  NSFileManager *files = [NSFileManager defaultManager];
+  NSURL *support = [files URLsForDirectory:NSApplicationSupportDirectory
+                                 inDomains:NSUserDomainMask].firstObject;
+  if (!support) return;
+  NSURL *directory = [support URLByAppendingPathComponent:@"AdjusterNetworkDiagnostics"
+                                               isDirectory:YES];
+  [files createDirectoryAtURL:directory
+   withIntermediateDirectories:YES
+                    attributes:@{NSFileProtectionKey: NSFileProtectionCompleteUntilFirstUserAuthentication}
+                         error:nil];
+  NSURL *url = [directory URLByAppendingPathComponent:@"push-registration.ndjson"];
+  NSDictionary *entry = @{
+    @"timestamp": @((long long)(NSDate.date.timeIntervalSince1970 * 1000)),
+    @"stage": stage,
+    @"category": category,
+    @"http": statusClass,
+    @"outcome": outcome
+  };
+  NSData *json = [NSJSONSerialization dataWithJSONObject:entry options:0 error:nil];
+  if (!json) return;
+  NSMutableData *bounded = [NSMutableData data];
+  NSData *existing = [NSData dataWithContentsOfURL:url];
+  if (existing.length > 65536) {
+    NSRange tail = NSMakeRange(existing.length - 65536, 65536);
+    existing = [existing subdataWithRange:tail];
+    const uint8_t *bytes = existing.bytes;
+    NSUInteger firstLine = 0;
+    while (firstLine < existing.length && bytes[firstLine] != '\n') firstLine++;
+    if (firstLine < existing.length) {
+      existing = [existing subdataWithRange:NSMakeRange(firstLine + 1, existing.length - firstLine - 1)];
+    }
+  }
+  if (existing) [bounded appendData:existing];
+  [bounded appendData:json];
+  [bounded appendBytes:"\n" length:1];
+  [bounded writeToURL:url options:NSDataWritingAtomic | NSDataWritingFileProtectionCompleteUntilFirstUserAuthentication error:nil];
+}
+
 + (void)storeAPNSToken:(NSData *)deviceToken
 {
   const unsigned char *bytes = deviceToken.bytes;
@@ -101,6 +142,7 @@ RCT_EXPORT_METHOD(recordPushRegistrationResult:(NSDictionary *)result)
   os_log_with_type(OS_LOG_DEFAULT, OS_LOG_TYPE_INFO,
     "ANPushRegistration stage=%{public}@ category=%{public}@ http=%{public}@ outcome=%{public}@",
     stage, category, statusClass, outcome);
+  ANPersistPushDiagnostic(stage, category, statusClass, outcome);
 }
 
 static NSString *ANAuthorizationState(UNAuthorizationStatus status)

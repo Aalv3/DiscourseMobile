@@ -32,7 +32,22 @@ const checks = [
     'EAS update URL',
     /^https:\/\/u\.expo\.dev\/[0-9a-f-]{36}$/.test(config.updates.url),
   ],
-  ['embedded recovery bundle', config.updates.useEmbeddedUpdate === true],
+  [
+    'production embedded recovery bundle',
+    config.updates.useEmbeddedUpdate === true,
+  ],
+  [
+    'staging is remote-update-first',
+    (() => {
+      const previous = process.env.AN_OTA_CHANNEL;
+      process.env.AN_OTA_CHANNEL = 'staging';
+      delete require.cache[require.resolve(resolve(root, 'app.config.js'))];
+      const staging = require(resolve(root, 'app.config.js'));
+      if (previous === undefined) delete process.env.AN_OTA_CHANNEL;
+      else process.env.AN_OTA_CHANNEL = previous;
+      return staging.updates.useEmbeddedUpdate === false;
+    })(),
+  ],
   [
     'anti-bricking enabled',
     config.updates.disableAntiBrickingMeasures === false,
@@ -43,6 +58,12 @@ const checks = [
   [
     'iOS channel injected at build time',
     ios.includes('<string>$(AN_OTA_CHANNEL)</string>'),
+  ],
+  [
+    'iOS staging embedded-update suppression',
+    iosProject.includes('staging) embedded=false') &&
+      iosProject.includes('production) embedded=true') &&
+      iosProject.includes('Set :EXUpdatesHasEmbeddedUpdate $embedded'),
   ],
   [
     'iOS Debug defaults to staging',

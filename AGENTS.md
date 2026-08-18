@@ -1,5 +1,16 @@
 # AGENTS.md - Discourse Mobile Codebase Guide
 
+## Adjuster Network binding development workflow
+
+Before changing code, read `docs/NATIVE-DEVELOPMENT-WORKFLOW.md` and classify
+the task with `yarn native:lane`. Its JS/UI, native, and system/security lanes
+are mandatory. In particular: audit an affected boundary end-to-end; never use
+Simulator-only evidence for native APIs; never consume TestFlight to discover a
+source-level defect; stage an OTA once and promote the exact certified group;
+use the permanent remote-update-first staging app; use privacy-safe durable
+device diagnostics; and stop only at genuine founder authority or product
+decisions. Do not recreate release infrastructure inside a product task.
+
 This document provides guidance for AI agents working on the Discourse Mobile codebase.
 
 ## Project Overview

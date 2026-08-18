@@ -22,6 +22,14 @@
     "verify:release-readiness": "node scripts/verify-native-release-readiness.mjs",
     "native:storage": "node scripts/native-build-storage.mjs maintenance",
     "native:storage:delete": "node scripts/native-build-storage.mjs maintenance --delete",
+    "native:lane": "node scripts/native-devex.mjs classify",
+    "validate:js-ui": "node scripts/native-devex.mjs validate --lane=js",
+    "validate:ota": "node scripts/native-devex.mjs validate --lane=ota",
+    "validate:native": "node scripts/native-devex.mjs validate --lane=native",
+    "validate:system": "node scripts/native-devex.mjs validate --lane=system",
+    "ota:stage": "node scripts/native-devex.mjs ota-stage",
+    "ota:promote": "node scripts/native-devex.mjs ota-promote",
+    "device:harness": "node scripts/native-device-harness.mjs",
     "test-ipad": "detox test --configuration ios.sim.debug -n 'iPad (10th generation)'"
   },
   "dependencies": {
