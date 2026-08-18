@@ -29,6 +29,15 @@ describe('notification status model', () => {
     expect(pushEnvironmentCompatibility(null, 'production')).toBe(
       NOTIFICATION_STATUS.TEMPORARY_ERROR,
     );
+    expect(pushEnvironmentCompatibility('production', 'staging')).toBe(
+      NOTIFICATION_STATUS.TEMPORARY_ERROR,
+    );
+    expect(pushEnvironmentCompatibility('development', null)).toBe(
+      NOTIFICATION_STATUS.TEMPORARY_ERROR,
+    );
+    expect(pushEnvironmentCompatibility('sandbox', 'production')).toBe(
+      NOTIFICATION_STATUS.TEMPORARY_ERROR,
+    );
   });
 
   test.each([

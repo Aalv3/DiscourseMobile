@@ -21,7 +21,17 @@ describe('Wave 1 native boundaries', () => {
     expect(info).toContain('$(AN_PUSH_ENVIRONMENT)');
     expect(nativeModule).toContain('@"pushEnvironment"');
     expect(nativeModule).toContain('@"apsEnvironment"');
-    expect(nativeModule).toContain('embedded.mobileprovision');
+    expect(nativeModule).toContain('SecTaskCreateFromSelf');
+    expect(nativeModule).toContain('SecTaskCopyValueForEntitlement');
+    expect(nativeModule).toContain('CFSTR("aps-environment")');
+    expect(nativeModule).toContain(
+      'CFGetTypeID(entitlement) != CFStringGetTypeID()',
+    );
+    expect(nativeModule).toContain('isEqualToString:@"development"');
+    expect(nativeModule).toContain('isEqualToString:@"production"');
+    expect(nativeModule).not.toMatch(
+      /embedded\.mobileprovision|NSISOLatin1StringEncoding|profileData|profilePath/,
+    );
   });
 
   test('uses one explicit App Group without sharing credentials', () => {

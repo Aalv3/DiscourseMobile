@@ -53,32 +53,35 @@ static BOOL pendingAPNSRegistrationFailure = NO;
 
 RCT_EXPORT_MODULE()
 
+static NSString *trustedAPSEnvironmentFromEntitlement(CFTypeRef entitlement)
+{
+  if (!entitlement || CFGetTypeID(entitlement) != CFStringGetTypeID()) {
+    return nil;
+  }
+
+  NSString *environment = (__bridge NSString *)entitlement;
+  if ([environment isEqualToString:@"development"] ||
+      [environment isEqualToString:@"production"]) {
+    return environment;
+  }
+  return nil;
+}
+
 - (NSDictionary *)constantsToExport
 {
   NSString *environment = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"ANPushEnvironment"];
   BOOL trusted = [environment isEqualToString:@"staging"] || [environment isEqualToString:@"production"];
   NSString *apsEnvironment = nil;
 #if !TARGET_OS_SIMULATOR
-  NSString *profilePath = [[NSBundle mainBundle] pathForResource:@"embedded.mobileprovision" ofType:nil];
-  NSURL *profileURL = profilePath ? [NSURL fileURLWithPath:profilePath] : nil;
-  NSData *profileData = profileURL ? [NSData dataWithContentsOfURL:profileURL] : nil;
-  NSString *profile = profileData
-      ? [[NSString alloc] initWithData:profileData encoding:NSISOLatin1StringEncoding]
-      : nil;
-  NSRange apsKey = [profile rangeOfString:@"<key>aps-environment</key>"];
-  if (apsKey.location != NSNotFound) {
-    NSUInteger start = NSMaxRange(apsKey);
-    NSUInteger length = MIN((NSUInteger)256, profile.length - start);
-    NSString *valueWindow = [profile substringWithRange:NSMakeRange(start, length)];
-    if ([valueWindow containsString:@"<string>development</string>"]) {
-      apsEnvironment = @"development";
-    } else if ([valueWindow containsString:@"<string>production</string>"]) {
-      apsEnvironment = @"production";
+  SecTaskRef task = SecTaskCreateFromSelf(kCFAllocatorDefault);
+  if (task) {
+    CFTypeRef entitlement = SecTaskCopyValueForEntitlement(
+        task, CFSTR("aps-environment"), NULL);
+    apsEnvironment = trustedAPSEnvironmentFromEntitlement(entitlement);
+    if (entitlement) {
+      CFRelease(entitlement);
     }
-  } else if (!profile && [environment isEqualToString:@"production"]) {
-    // App Store/TestFlight distributions do not include an embedded mobile
-    // provision. Their APNs entitlement is production by contract.
-    apsEnvironment = @"production";
+    CFRelease(task);
   }
 #endif
   return @{

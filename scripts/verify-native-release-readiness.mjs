@@ -17,6 +17,7 @@ const shareEntitlements = read(
   'ios/ShareExtension/ShareExtension.entitlements',
 );
 const shareController = read('ios/ShareExtension/ShareViewController.swift');
+const iosNativeModule = read('ios/DiscourseKeyboardShortcuts.m');
 const productConfig = read('js/adjusterNetworkConfig.js');
 const packageManifest = read('package.json');
 const siteManager = read('js/site_manager.js');
@@ -103,6 +104,18 @@ check(
     ? 'PASS'
     : 'FAIL',
   'Debug must pair APNs sandbox with staging and Release must pair production APNs with production backend registration',
+);
+check(
+  'iOS installed APNs entitlement detection',
+  iosNativeModule.includes('SecTaskCreateFromSelf') &&
+    iosNativeModule.includes('SecTaskCopyValueForEntitlement') &&
+    iosNativeModule.includes('CFSTR("aps-environment")') &&
+    iosNativeModule.includes('CFStringGetTypeID') &&
+    !iosNativeModule.includes('embedded.mobileprovision') &&
+    !iosNativeModule.includes('NSISOLatin1StringEncoding')
+    ? 'PASS'
+    : 'FAIL',
+  'Runtime APNs environment must come from the installed process signed entitlement and fail closed without parsing provisioning files',
 );
 check(
   'iOS Share Extension App Group boundary',
