@@ -2,6 +2,7 @@
 'use strict';
 
 import { NativeModules, Platform } from 'react-native';
+import * as Updates from 'expo-updates';
 import { nativeContracts } from './adjusterNetworkContracts';
 
 export function trustedPushEnvironment(platform, configured) {
@@ -16,19 +17,24 @@ const pushEnvironment = trustedPushEnvironment(
   NativeModules.DiscourseKeyboardShortcuts?.pushEnvironment,
 );
 
-export const canonicalOriginForEnvironment = environment =>
-  environment === 'staging'
+export const trustedUpdateChannel = channel =>
+  channel === 'staging' || channel === 'production' ? channel : null;
+
+export const canonicalOriginForChannel = channel =>
+  channel === 'staging'
     ? 'https://staging.adjusternetwork.org'
-    : environment === 'production'
+    : channel === 'production'
     ? 'https://adjusternetwork.org'
     : null;
+
+const updateChannel = trustedUpdateChannel(Updates.channel);
 
 // Keep Adjuster Network product choices in one reversible boundary. Native
 // identifiers, signing, push credentials, and upstream site management remain
 // untouched until their separate release gates are satisfied.
 export const adjusterNetwork = Object.freeze({
   name: 'Adjuster Network',
-  canonicalOrigin: canonicalOriginForEnvironment(pushEnvironment),
+  canonicalOrigin: canonicalOriginForChannel(updateChannel),
   features: Object.freeze({
     analytics: false,
     crashReporting: false,
