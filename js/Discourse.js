@@ -701,6 +701,13 @@ class Discourse extends React.Component {
   }
 
   async connectCanonical() {
+    if (!adjusterNetwork.canonicalOrigin) {
+      Alert.alert(
+        'Configuration unavailable',
+        'Adjuster Network could not verify this app environment.',
+      );
+      return;
+    }
     this.setState({ connecting: true });
     try {
       let site = this._siteManager

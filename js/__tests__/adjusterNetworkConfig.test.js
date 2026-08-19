@@ -1,11 +1,20 @@
 import {
   adjusterNetwork,
+  canonicalOriginForEnvironment,
   trustedPushEnvironment,
 } from '../adjusterNetworkConfig';
 
 describe('Adjuster Network product boundary', () => {
   test('pins the canonical HTTPS origin', () => {
     expect(adjusterNetwork.canonicalOrigin).toBe('https://adjusternetwork.org');
+    expect(canonicalOriginForEnvironment('staging')).toBe(
+      'https://staging.adjusternetwork.org',
+    );
+    expect(canonicalOriginForEnvironment('production')).toBe(
+      'https://adjusternetwork.org',
+    );
+    expect(canonicalOriginForEnvironment(null)).toBeNull();
+    expect(canonicalOriginForEnvironment('unknown')).toBeNull();
   });
 
   test('exposes only routes backed by the current application', () => {

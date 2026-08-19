@@ -27,6 +27,21 @@ describe('secure credential store', () => {
     expect(Keychain.resetGenericPassword).toHaveBeenCalledTimes(1);
   });
 
+  test('isolates staging and production tokens behind distinct services', async () => {
+    await credentialStore.storeSiteToken(
+      'https://adjusternetwork.org',
+      'production-synthetic',
+    );
+    await credentialStore.storeSiteToken(
+      'https://staging.adjusternetwork.org',
+      'staging-synthetic',
+    );
+    const productionService =
+      Keychain.setGenericPassword.mock.calls[0][2].service;
+    const stagingService = Keychain.setGenericPassword.mock.calls[1][2].service;
+    expect(stagingService).not.toBe(productionService);
+  });
+
   test('stores RSA material behind a distinct platform service', async () => {
     await credentialStore.storeRSAKeys({ public: 'pub', private: 'private' });
     const [, , options] = Keychain.setGenericPassword.mock.calls[0];

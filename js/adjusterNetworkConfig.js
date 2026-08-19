@@ -16,12 +16,19 @@ const pushEnvironment = trustedPushEnvironment(
   NativeModules.DiscourseKeyboardShortcuts?.pushEnvironment,
 );
 
+export const canonicalOriginForEnvironment = environment =>
+  environment === 'staging'
+    ? 'https://staging.adjusternetwork.org'
+    : environment === 'production'
+    ? 'https://adjusternetwork.org'
+    : null;
+
 // Keep Adjuster Network product choices in one reversible boundary. Native
 // identifiers, signing, push credentials, and upstream site management remain
 // untouched until their separate release gates are satisfied.
 export const adjusterNetwork = Object.freeze({
   name: 'Adjuster Network',
-  canonicalOrigin: 'https://adjusternetwork.org',
+  canonicalOrigin: canonicalOriginForEnvironment(pushEnvironment),
   features: Object.freeze({
     analytics: false,
     crashReporting: false,
