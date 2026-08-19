@@ -18,7 +18,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { radius, spacing, type } from './DesignSystem';
 import { useProductTheme } from './ProductComponents';
-import { adjusterNetwork } from '../adjusterNetworkConfig';
+import { mediaUploadsEnabledForSite } from '../adjusterNetworkConfig';
 import {
   attachmentIsImage,
   mediaPrivacyReminder,
@@ -39,7 +39,7 @@ const permissionAlert = kind =>
 
 export function useAttachmentQueue(site, uploadType = 'composer') {
   const [attachments, setAttachments] = useState([]);
-  const enabled = adjusterNetwork.features.mediaUploads === true;
+  const enabled = mediaUploadsEnabledForSite(site);
 
   const addAssets = useCallback(assets => {
     const additions = (assets || [])

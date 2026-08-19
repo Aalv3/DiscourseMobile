@@ -34,6 +34,9 @@ export const adjusterNetwork = Object.freeze({
     // server/storage/media-security certification is complete. The backend
     // upload allowlist remains the final enforcement boundary.
     mediaUploads: false,
+    // Physical certification may exercise the client only against this exact
+    // isolated origin. The production origin remains disabled above.
+    mediaUploadOrigins: Object.freeze(['https://staging.adjusternetwork.org']),
     publicNativePreview: false,
   }),
   push: Object.freeze({
@@ -70,3 +73,13 @@ export const adjusterNetwork = Object.freeze({
     }),
   }),
 });
+
+export function mediaUploadsEnabledForSite(site) {
+  if (adjusterNetwork.features.mediaUploads === true) return true;
+  try {
+    const origin = new URL(site?.url).origin;
+    return adjusterNetwork.features.mediaUploadOrigins.includes(origin);
+  } catch {
+    return false;
+  }
+}

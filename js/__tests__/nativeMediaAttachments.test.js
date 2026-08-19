@@ -20,6 +20,7 @@ import {
   refreshSecureMedia,
   shouldRefreshSecureMedia,
 } from '../product/DiscourseMedia';
+import { mediaUploadsEnabledForSite } from '../adjusterNetworkConfig';
 
 describe('native Discourse media attachments', () => {
   test('uploads files through the authenticated composer multipart contract', async () => {
@@ -176,13 +177,29 @@ describe('native Discourse media attachments', () => {
       'utf8',
     );
     expect(config).toContain('mediaUploads: false');
-    expect(composer).toContain(
-      'adjusterNetwork.features.mediaUploads === true',
-    );
+    expect(composer).toContain('mediaUploadsEnabledForSite(site)');
+    expect(config).toContain('https://staging.adjusternetwork.org');
     expect(composer).toContain(
       'Photo and file attachments are not available yet.',
     );
     expect(composer).toContain("throw new Error('media_uploads_disabled')");
+  });
+
+  test('enables uploads only for the exact isolated staging origin', () => {
+    expect(
+      mediaUploadsEnabledForSite({
+        url: 'https://staging.adjusternetwork.org',
+      }),
+    ).toBe(true);
+    expect(
+      mediaUploadsEnabledForSite({ url: 'https://adjusternetwork.org' }),
+    ).toBe(false);
+    expect(
+      mediaUploadsEnabledForSite({
+        url: 'https://staging.adjusternetwork.org.attacker.example',
+      }),
+    ).toBe(false);
+    expect(mediaUploadsEnabledForSite({ url: 'not-a-url' })).toBe(false);
   });
 
   test('coalesces duplicate authorized refreshes for one media resource', async () => {
