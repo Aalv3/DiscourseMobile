@@ -29,8 +29,6 @@ import {
 import { activeMemberSite } from './ProductData';
 import { radius, spacing, type } from './DesignSystem';
 import EmojiTextInput from './EmojiTextInput';
-import AttachmentComposer, { useAttachmentQueue } from './AttachmentComposer';
-import { successfulUploadIds } from './MediaAttachments';
 import DiscourseMedia, { chatMedia } from './DiscourseMedia';
 import {
   canSendToLounge,
@@ -47,7 +45,6 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
   const colors = useProductTheme();
   const tabBarHeight = useBottomTabBarHeight();
   const site = activeMemberSite(screenProps.siteManager);
-  const attachmentQueue = useAttachmentQueue(site, 'chat-composer');
   const listRef = useRef(null);
   const loadingOlder = useRef(false);
   const didInitialScroll = useRef(false);
@@ -173,12 +170,7 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
 
   const submitMessage = async () => {
     const message = composer.message.trim();
-    if (
-      (!message && !attachmentQueue.attachments.length) ||
-      !chat.channel?.id ||
-      !site?.authToken
-    )
-      return;
+    if (!message || !chat.channel?.id || !site?.authToken) return;
     setComposer(current => ({ ...current, submitting: true, error: null }));
     try {
       if (!chat.channel.current_user_membership) {
@@ -187,13 +179,10 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
           'POST',
         );
       }
-      const attachments = await attachmentQueue.uploadAll();
       await site.jsonApi(`/chat/${chat.channel.id}.json`, 'POST', {
         message,
-        upload_ids: successfulUploadIds(attachments),
       });
       setComposer({ message: '', submitting: false, error: null });
-      attachmentQueue.clear();
       await refreshMessages();
       globalThis.requestAnimationFrame(() =>
         listRef.current?.scrollToEnd({ animated: true }),
@@ -482,12 +471,6 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
             renderItem={renderMessage}
           />
         )}
-        <View style={styles.loungeAttachments}>
-          <AttachmentComposer
-            queue={attachmentQueue}
-            disabled={!canSend || composer.submitting}
-          />
-        </View>
         <View
           style={[
             styles.composer,
@@ -521,9 +504,7 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
             accessibilityRole="button"
             accessibilityLabel="Send message"
             disabled={
-              !canSend ||
-              composer.submitting ||
-              (!composer.message.trim() && !attachmentQueue.attachments.length)
+              !canSend || composer.submitting || !composer.message.trim()
             }
             onPress={submitMessage}
             style={({ pressed }) => [
@@ -531,10 +512,7 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
               {
                 backgroundColor: colors.accent,
                 opacity:
-                  !canSend ||
-                  composer.submitting ||
-                  (!composer.message.trim() &&
-                    !attachmentQueue.attachments.length)
+                  !canSend || composer.submitting || !composer.message.trim()
                     ? 0.4
                     : pressed
                     ? 0.75
@@ -737,10 +715,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 10,
     elevation: 4,
-  },
-  loungeAttachments: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.xs,
   },
   emojiInput: { flex: 1 },
   input: {

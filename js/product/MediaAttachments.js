@@ -99,4 +99,4 @@ export const successfulUploadIds = attachments =>
     .map(item => item.upload.id);
 
 export const mediaPrivacyReminder =
-  'Do not upload claim-specific photos, documents, addresses, policy numbers, or other identifying claim information.';
+  'Keep claim data out. Do not upload insured information, claim numbers, loss addresses, private carrier documents, or other claim-identifying material.';

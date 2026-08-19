@@ -119,4 +119,11 @@ describe('native Lounge Chat participation', () => {
       "behavior={Platform.OS === 'ios' ? 'position'",
     );
   });
+
+  test('keeps V1 Lounge text-only with no attachment or upload path', () => {
+    expect(screenSource).not.toContain('AttachmentComposer');
+    expect(screenSource).not.toContain('useAttachmentQueue');
+    expect(screenSource).not.toContain('upload_ids');
+    expect(screenSource).not.toContain('Add photo or file');
+  });
 });

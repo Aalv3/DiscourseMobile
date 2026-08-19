@@ -140,11 +140,12 @@ describe('native Discourse media attachments', () => {
   });
 
   test('keeps the no-claim-data rule beside selected media', () => {
-    expect(mediaPrivacyReminder).toMatch(/claim-specific photos/i);
-    expect(mediaPrivacyReminder).toMatch(/policy numbers/i);
+    expect(mediaPrivacyReminder).toBe(
+      'Keep claim data out. Do not upload insured information, claim numbers, loss addresses, private carrier documents, or other claim-identifying material.',
+    );
   });
 
-  test('all native Discourse composers use the shared attachment queue', () => {
+  test('discussion composers use the shared queue while Lounge remains text-only', () => {
     const read = file =>
       fs.readFileSync(path.join(__dirname, '..', 'product', file), 'utf8');
     expect(read('ProductScreens.js')).toContain(
@@ -153,10 +154,10 @@ describe('native Discourse media attachments', () => {
     expect(read('NativeTopicScreen.js')).toContain(
       "useAttachmentQueue(site, 'composer')",
     );
-    expect(read('NativeLoungeScreen.js')).toContain(
-      "useAttachmentQueue(site, 'chat-composer')",
-    );
-    expect(read('NativeLoungeScreen.js')).toContain('upload_ids:');
+    expect(read('NativeLoungeScreen.js')).not.toContain('AttachmentComposer');
+    expect(read('NativeLoungeScreen.js')).not.toContain('useAttachmentQueue');
+    expect(read('NativeLoungeScreen.js')).not.toContain('upload_ids:');
+    expect(read('NativeLoungeScreen.js')).not.toContain("'/uploads.json'");
   });
 
   test('keeps the approved client dormant behind the Build 3 release gate', () => {
