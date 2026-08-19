@@ -133,6 +133,27 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
     }
   }, [chat.channel?.id, site]);
 
+  const refreshLoungeMedia = useCallback(
+    async (messageId, mediaIndex) => {
+      if (!site?.authToken) {
+        const error = new Error('signed_out');
+        error.status = 401;
+        throw error;
+      }
+      if (!chat.channel?.id) throw new Error('lounge_channel_missing');
+      const payload = await site.jsonApi(loungeMessagesPath(chat.channel.id));
+      const messages = normalizeChatMessages(payload);
+      setChat(current => ({
+        ...current,
+        messages: mergeChatMessages(current.messages, messages),
+        error: null,
+      }));
+      const message = messages.find(item => item.id === messageId);
+      return chatMedia(message, site)[mediaIndex]?.url || null;
+    },
+    [chat.channel?.id, site],
+  );
+
   useEffect(() => {
     const timer = setInterval(() => {
       if (AppState.currentState === 'active') refreshMessages();
@@ -294,7 +315,13 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
           <Text selectable style={[styles.body, { color: colors.text }]}>
             {body}
           </Text>
-          <DiscourseMedia media={chatMedia(item, site)} site={site} compact />
+          <DiscourseMedia
+            media={chatMedia(item, site)}
+            site={site}
+            compact
+            resourceKey={`lounge:${chat.channel?.id}:message:${item.id}`}
+            refreshMedia={mediaIndex => refreshLoungeMedia(item.id, mediaIndex)}
+          />
           {canDeleteOwnLoungeMessage(item, site.username) ? (
             <Pressable
               accessibilityRole="button"

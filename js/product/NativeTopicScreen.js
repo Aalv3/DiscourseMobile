@@ -143,6 +143,21 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
     }
   }, [route.params.topicId, site]);
 
+  const refreshTopicMedia = useCallback(
+    async (postId, mediaIndex) => {
+      if (!site?.authToken) {
+        const error = new Error('signed_out');
+        error.status = 401;
+        throw error;
+      }
+      const topic = await site.jsonApi(`/t/${route.params.topicId}.json`);
+      setState(current => ({ ...current, topic, error: null }));
+      const post = topic?.post_stream?.posts?.find(item => item.id === postId);
+      return cookedMedia(post?.cooked, site)[mediaIndex]?.url || null;
+    },
+    [route.params.topicId, site],
+  );
+
   useEffect(() => {
     let mounted = true;
     if (site?.authToken) {
@@ -686,6 +701,10 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
                   <DiscourseMedia
                     media={cookedMedia(post.cooked, site)}
                     site={site}
+                    resourceKey={`topic:${route.params.topicId}:post:${post.id}`}
+                    refreshMedia={mediaIndex =>
+                      refreshTopicMedia(post.id, mediaIndex)
+                    }
                   />
                   <View style={styles.postActions}>
                     {availability.allowed ? (

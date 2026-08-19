@@ -13,7 +13,13 @@ import {
   uploadAttachment,
   uploadErrorMessage,
 } from '../product/MediaAttachments';
-import { chatMedia, cookedMedia } from '../product/DiscourseMedia';
+import {
+  chatMedia,
+  cookedMedia,
+  mediaRefreshErrorMessage,
+  refreshSecureMedia,
+  shouldRefreshSecureMedia,
+} from '../product/DiscourseMedia';
 
 describe('native Discourse media attachments', () => {
   test('uploads files through the authenticated composer multipart contract', async () => {
@@ -177,5 +183,67 @@ describe('native Discourse media attachments', () => {
       'Photo and file attachments are not available yet.',
     );
     expect(composer).toContain("throw new Error('media_uploads_disabled')");
+  });
+
+  test('coalesces duplicate authorized refreshes for one media resource', async () => {
+    let resolveRefresh;
+    const refresh = jest
+      .fn()
+      .mockImplementationOnce(
+        () => new Promise(resolve => (resolveRefresh = resolve)),
+      )
+      .mockResolvedValue('https://authorized.example/fresh');
+    const first = refreshSecureMedia('topic:1:post:2:0', refresh);
+    const second = refreshSecureMedia('topic:1:post:2:0', refresh);
+    expect(first).toBe(second);
+    await Promise.resolve();
+    expect(refresh).toHaveBeenCalledTimes(1);
+    resolveRefresh();
+    await first;
+    await refreshSecureMedia('topic:1:post:2:0', refresh);
+    expect(refresh).toHaveBeenCalledTimes(2);
+  });
+
+  test('refreshes aged access after foregrounding without parsing signed URLs', () => {
+    expect(shouldRefreshSecureMedia(1000, 240999)).toBe(false);
+    expect(shouldRefreshSecureMedia(1000, 241000)).toBe(true);
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'product', 'DiscourseMedia.js'),
+      'utf8',
+    );
+    expect(source).toContain("AppState.addEventListener('change'");
+    expect(source).toContain('onError={() => refresh(true)}');
+    expect(source).not.toMatch(/amazonaws|cloudfront|s3[.-]/i);
+    expect(source).not.toContain('console.');
+  });
+
+  test('fails visibly for authorization loss and bounds automatic retries', async () => {
+    await expect(
+      refreshSecureMedia('topic:3:post:4:0', () =>
+        Promise.reject({ status: 403 }),
+      ),
+    ).rejects.toEqual({ status: 403 });
+    expect(mediaRefreshErrorMessage({ status: 403 })).toMatch(/sign in again/i);
+    expect(mediaRefreshErrorMessage(new Error('offline'))).toMatch(
+      /could not be refreshed/i,
+    );
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'product', 'DiscourseMedia.js'),
+      'utf8',
+    );
+    expect(source).toContain('automaticRefreshes.current >= 1');
+    expect(source).toContain('Retry secure media');
+  });
+
+  test('uses authenticated Discourse surfaces as stable resource identities', () => {
+    const topic = fs.readFileSync(
+      path.join(__dirname, '..', 'product', 'NativeTopicScreen.js'),
+      'utf8',
+    );
+    expect(topic).toContain('site.jsonApi(`/t/${route.params.topicId}.json`)');
+    expect(topic).toContain(
+      'resourceKey={`topic:${route.params.topicId}:post:${post.id}`}',
+    );
+    expect(topic).not.toMatch(/amazonaws|cloudfront|s3[.-]/i);
   });
 });
