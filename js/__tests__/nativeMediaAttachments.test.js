@@ -70,6 +70,35 @@ describe('native Discourse media attachments', () => {
     }
   });
 
+  test('exposes the active multipart request so an upload can be canceled', async () => {
+    const OriginalFormData = global.FormData;
+    global.FormData = class {
+      append() {}
+    };
+    try {
+      const request = Promise.resolve({
+        id: 42,
+        short_url: 'upload://photo.png',
+      });
+      request.abort = jest.fn();
+      const onRequest = jest.fn(activeRequest => activeRequest.abort());
+      await uploadAttachment(
+        { authToken: 'present', multipartApi: jest.fn(() => request) },
+        {
+          uri: 'file:///photo.png',
+          name: 'photo.png',
+          type: 'image/png',
+        },
+        'composer',
+        onRequest,
+      );
+      expect(onRequest).toHaveBeenCalledWith(request);
+      expect(request.abort).toHaveBeenCalledTimes(1);
+    } finally {
+      global.FormData = OriginalFormData;
+    }
+  });
+
   test('inserts image and file uploads as Discourse markdown in order', () => {
     const raw = appendUploadMarkup('Context', [
       {
@@ -146,10 +175,18 @@ describe('native Discourse media attachments', () => {
     expect(uploadErrorMessage({ status: 429 })).toMatch(/rate-limited/i);
   });
 
-  test('keeps the no-claim-data rule beside selected media', () => {
+  test('keeps the no-claim-data rule beside the attachment affordance', () => {
     expect(mediaPrivacyReminder).toBe(
       'Keep claim data out. Do not upload insured information, claim numbers, loss addresses, private carrier documents, or other claim-identifying material.',
     );
+    const composer = fs.readFileSync(
+      path.join(__dirname, '..', 'product', 'AttachmentComposer.js'),
+      'utf8',
+    );
+    expect(composer).toMatch(
+      /<\/Pressable>\s*<Text[^>]*>\s*\{mediaPrivacyReminder\}/,
+    );
+    expect(composer).toContain('Cancel upload of ${item.name}');
   });
 
   test('discussion composers use the shared queue while Lounge remains text-only', () => {

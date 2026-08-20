@@ -1,7 +1,7 @@
 /* @flow */
 'use strict';
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   ActionSheetIOS,
   Alert,
@@ -39,6 +39,7 @@ const permissionAlert = kind =>
 
 export function useAttachmentQueue(site, uploadType = 'composer') {
   const [attachments, setAttachments] = useState([]);
+  const activeUploads = useRef(new Map());
   const enabled = mediaUploadsEnabledForSite(site);
 
   const addAssets = useCallback(assets => {
@@ -126,7 +127,12 @@ export function useAttachmentQueue(site, uploadType = 'composer') {
         ),
       );
       try {
-        const upload = await uploadAttachment(site, target, uploadType);
+        const upload = await uploadAttachment(
+          site,
+          target,
+          uploadType,
+          request => activeUploads.current.set(localId, request),
+        );
         const completed = {
           ...target,
           status: 'succeeded',
@@ -138,15 +144,18 @@ export function useAttachmentQueue(site, uploadType = 'composer') {
         );
         return completed;
       } catch (error) {
+        const canceled = error?.message === 'Network request aborted';
         const failed = {
           ...target,
           status: 'failed',
-          error: uploadErrorMessage(error),
+          error: canceled ? 'Upload canceled.' : uploadErrorMessage(error),
         };
         setAttachments(current =>
           current.map(item => (item.localId === localId ? failed : item)),
         );
         throw error;
+      } finally {
+        activeUploads.current.delete(localId);
       }
     },
     [attachments, enabled, site, uploadType],
@@ -164,10 +173,15 @@ export function useAttachmentQueue(site, uploadType = 'composer') {
     return completed;
   }, [attachments, uploadOne]);
 
+  const cancel = useCallback(localId => {
+    activeUploads.current.get(localId)?.abort?.();
+  }, []);
+
   const clear = useCallback(() => setAttachments([]), []);
   return {
     attachments,
     chooseSource,
+    cancel,
     remove,
     uploadOne,
     uploadAll,
@@ -224,6 +238,9 @@ export default function AttachmentComposer({ queue, disabled = false }) {
           Add photo or file
         </Text>
       </Pressable>
+      <Text style={[styles.reminder, { color: colors.muted }]}>
+        {mediaPrivacyReminder}
+      </Text>
       {queue.attachments.length ? (
         <View style={styles.queue}>
           {queue.attachments.map(item => (
@@ -294,7 +311,21 @@ export default function AttachmentComposer({ queue, disabled = false }) {
                   />
                 </Pressable>
               ) : null}
-              {item.status !== 'uploading' ? (
+              {item.status === 'uploading' ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Cancel upload of ${item.name}`}
+                  hitSlop={8}
+                  onPress={() => queue.cancel(item.localId)}
+                >
+                  <FontAwesome5
+                    name="stop-circle"
+                    size={16}
+                    color={colors.danger}
+                    iconStyle="solid"
+                  />
+                </Pressable>
+              ) : (
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`Remove ${item.name}`}
@@ -308,15 +339,10 @@ export default function AttachmentComposer({ queue, disabled = false }) {
                     iconStyle="solid"
                   />
                 </Pressable>
-              ) : null}
+              )}
             </View>
           ))}
         </View>
-      ) : null}
-      {queue.attachments.length ? (
-        <Text style={[styles.reminder, { color: colors.muted }]}>
-          {mediaPrivacyReminder}
-        </Text>
       ) : null}
     </View>
   );

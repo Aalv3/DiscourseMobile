@@ -56,7 +56,12 @@ export const uploadErrorMessage = error => {
   return 'Upload failed. Check your connection and retry.';
 };
 
-export async function uploadAttachment(site, attachment, uploadType) {
+export function uploadAttachment(
+  site,
+  attachment,
+  uploadType,
+  onRequest = () => {},
+) {
   if (!site?.authToken || !attachment?.uri) {
     throw new Error('invalid_upload_asset');
   }
@@ -69,11 +74,14 @@ export async function uploadAttachment(site, attachment, uploadType) {
     name: attachment.name,
     type: attachment.type,
   });
-  const payload = await site.multipartApi('/uploads.json', form);
-  if (!payload?.id || !(payload.short_url || payload.url)) {
-    throw new Error('invalid_upload_response');
-  }
-  return payload;
+  const request = site.multipartApi('/uploads.json', form);
+  onRequest(request);
+  return request.then(payload => {
+    if (!payload?.id || !(payload.short_url || payload.url)) {
+      throw new Error('invalid_upload_response');
+    }
+    return payload;
+  });
 }
 
 export const uploadMarkup = attachment => {

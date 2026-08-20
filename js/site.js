@@ -223,8 +223,8 @@ class Site {
       method: 'POST',
       body: formData,
     });
-    this._currentFetch = fetch(request);
-    return this._currentFetch
+    const networkRequest = fetch(request);
+    const responseRequest = networkRequest
       .then(async response => {
         if (response.status >= 200 && response.status < 300) {
           return response.json();
@@ -255,6 +255,9 @@ class Site {
       .finally(() => {
         this._currentFetch = undefined;
       });
+    responseRequest.abort = () => networkRequest.abort?.();
+    this._currentFetch = responseRequest;
+    return responseRequest;
   }
 
   logoff() {
