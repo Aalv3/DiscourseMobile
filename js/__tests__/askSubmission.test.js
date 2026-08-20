@@ -59,7 +59,7 @@ describe('Ask submission sequencing', () => {
     expect(site.jsonApi).toHaveBeenCalledTimes(1);
     expect(site.jsonApi).toHaveBeenCalledWith('/posts.json', 'POST', {
       title: 'Unique synthetic retry title',
-      raw: 'Safe fixture\n\n[synthetic.pdf](upload://synthetic.pdf)',
+      raw: 'Safe fixture\n\n[synthetic.pdf|attachment](upload://synthetic.pdf)',
       category: 2,
     });
   });

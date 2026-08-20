@@ -91,7 +91,7 @@ export const uploadMarkup = attachment => {
   const name = upload.original_filename || attachment.name || 'attachment';
   return attachmentIsImage(attachment)
     ? `![${name}](${url})`
-    : `[${name}](${url})`;
+    : `[${name}|attachment](${url})`;
 };
 
 export const appendUploadMarkup = (raw, attachments) => {

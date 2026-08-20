@@ -62,22 +62,24 @@ const absoluteUrl = (site, value) => {
   return `${site?.url || ''}${url.startsWith('/') ? '' : '/'}${url}`;
 };
 
-const discourseAttachmentUrl = (site, value) => {
+const discourseAttachmentRoute = (site, value) => {
   const url = decode(String(value || ''));
-  if (/^upload:\/\//i.test(url)) return true;
   try {
     const base = new URL(site?.url);
     const parsed = new URL(url, base);
-    return (
-      parsed.origin === base.origin &&
+    return parsed.origin === base.origin &&
       /^\/(?:uploads|secure-uploads|secure-media-uploads|show-secure-uploads)\//i.test(
         parsed.pathname,
       )
-    );
+      ? parsed
+      : null;
   } catch {
-    return false;
+    return null;
   }
 };
+
+const supportedBareFileAttachment = route =>
+  route && /\.pdf$/i.test(decodeURIComponent(route.pathname));
 
 export function cookedMedia(cooked, site) {
   const html = String(cooked || '');
@@ -106,10 +108,12 @@ export function cookedMedia(cooked, site) {
       attributes.match(/\bhref=["']([^"']+)["']/i)?.[1];
     const url = absoluteUrl(site, href);
     const className = tag.match(/\bclass=["']([^"']*)["']/i)?.[1] || '';
+    const hasAttachmentClass = /(?:^|\s)attachment(?:\s|$)/i.test(className);
+    const attachmentRoute = discourseAttachmentRoute(site, href);
     if (
       !url ||
-      !/(?:^|\s)attachment(?:\s|$)/i.test(className) ||
-      !discourseAttachmentUrl(site, href)
+      !attachmentRoute ||
+      (!hasAttachmentClass && !supportedBareFileAttachment(attachmentRoute))
     )
       continue;
     add({

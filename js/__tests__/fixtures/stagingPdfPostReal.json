@@ -1,0 +1,45 @@
+{
+  "_meta": {
+    "purpose": "Sanitized real authenticated staging response for the existing PDF post used in physical testing.",
+    "sourceEvidenceCommit": "fe34999e7937d9a119b0716aeb12c6adcaef7b00",
+    "containsNoSignedUrlOrCredential": true
+  },
+  "origin": "https://staging.adjusternetwork.org",
+  "topic": {
+    "id": 90,
+    "post_stream": {
+      "posts": [
+        {
+          "id": 132,
+          "topic_id": 90,
+          "post_number": 1,
+          "raw": "Testing pdf upload\n\n[field-notes.pdf](upload://sssssssssssssssssssssssssss.pdf)",
+          "cooked": "<p>Testing pdf upload</p>\n<p><a href=\"/secure-uploads/original/1X/0000000000000000000000000000000000000000.pdf\">field-notes.pdf</a></p>",
+          "link_counts": [
+            {
+              "url": "https://staging.adjusternetwork.org/secure-uploads/original/1X/0000000000000000000000000000000000000000.pdf",
+              "internal": false,
+              "reflection": false,
+              "clicks": 0
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "structural_facts": {
+    "anchor_count": 1,
+    "img_count": 0,
+    "attributes_present_on_attachment_anchor": ["href"],
+    "attributes_absent_on_attachment_anchor": [
+      "class",
+      "data-download-href",
+      "data-orig-href",
+      "data-orig-src",
+      "title",
+      "rel",
+      "target"
+    ],
+    "secure_route_shape": "/secure-uploads/original/1X/<sha1>.<ext>"
+  }
+}

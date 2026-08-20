@@ -117,7 +117,7 @@ describe('native Discourse media attachments', () => {
       },
     ]);
     expect(raw).toBe(
-      'Context\n\n![roof.jpg](upload://roof.jpg)\n\n[guide.pdf](upload://guide.pdf)',
+      'Context\n\n![roof.jpg](upload://roof.jpg)\n\n[guide.pdf|attachment](upload://guide.pdf)',
     );
   });
 
@@ -188,10 +188,10 @@ describe('native Discourse media attachments', () => {
     ]);
   });
 
-  test('renders the existing-post secure PDF response shape as an openable card', () => {
+  test('renders the real staging PDF response as an openable file card', () => {
     const fixture = JSON.parse(
       fs.readFileSync(
-        path.join(__dirname, 'fixtures', 'stagingSecurePdfTopic.json'),
+        path.join(__dirname, 'fixtures', 'stagingPdfPostReal.json'),
         'utf8',
       ),
     );
@@ -203,8 +203,8 @@ describe('native Discourse media attachments', () => {
     expect(media).toEqual([
       {
         type: 'file',
-        url: `${fixture.origin}/secure-media-uploads/original/1X/synthetic.pdf`,
-        name: 'synthetic.pdf',
+        url: `${fixture.origin}/secure-uploads/original/1X/0000000000000000000000000000000000000000.pdf`,
+        name: 'field-notes.pdf',
       },
     ]);
 
@@ -214,27 +214,61 @@ describe('native Discourse media attachments', () => {
         <DiscourseMedia
           media={media}
           site={site}
-          resourceKey="topic:fixture:post:fixture"
+          resourceKey="topic:90:post:132"
           refreshMedia={jest.fn()}
         />,
       );
     });
     const rendered = JSON.stringify(renderer.toJSON());
+    expect(rendered).toContain('field-notes.pdf');
     expect(rendered).toContain('Open attachment');
-    expect(rendered).toContain('synthetic.pdf');
+  });
+
+  test('supports canonical and legacy Discourse attachment representations', () => {
+    const site = { url: 'https://staging.adjusternetwork.org' };
+    expect(
+      cookedMedia(
+        '<a class="attachment" href="/secure-uploads/original/1X/report.pdf">report.pdf</a>',
+        site,
+      ),
+    ).toHaveLength(1);
+    expect(
+      cookedMedia(
+        '<a class="attachment" href="/secure-media-uploads/original/1X/legacy.pdf">legacy.pdf</a>',
+        site,
+      ),
+    ).toHaveLength(1);
   });
 
   test('does not treat arbitrary or direct-S3 links as Discourse attachments', () => {
     const site = { url: 'https://staging.adjusternetwork.org' };
     expect(
       cookedMedia(
-        '<a href="/secure-uploads/original/1X/not-an-attachment.pdf">ordinary link</a>',
+        '<a href="/secure-uploads/original/1X/not-supported.txt">unsupported file</a>',
         site,
       ),
     ).toEqual([]);
     expect(
       cookedMedia(
         '<a class="attachment" href="https://private-bucket.s3.example/synthetic.pdf">direct storage</a>',
+        site,
+      ),
+    ).toEqual([]);
+    expect(
+      cookedMedia('<a href="/t/ordinary/12">ordinary.pdf</a>', site),
+    ).toEqual([]);
+    expect(
+      cookedMedia(
+        '<a href="https://example.org/report.pdf">report.pdf</a>',
+        site,
+      ),
+    ).toEqual([]);
+    expect(
+      cookedMedia('<a href="javascript:alert(1)">report.pdf</a>', site),
+    ).toEqual([]);
+    expect(
+      cookedMedia(
+        '<a href="data:application/pdf;base64,AA==">report.pdf</a>',
         site,
       ),
     ).toEqual([]);
