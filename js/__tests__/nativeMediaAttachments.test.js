@@ -17,6 +17,7 @@ import {
   chatMedia,
   cookedMedia,
   mediaRefreshErrorMessage,
+  openSecureMediaFile,
   refreshSecureMedia,
   shouldRefreshSecureMedia,
 } from '../product/DiscourseMedia';
@@ -256,6 +257,36 @@ describe('native Discourse media attachments', () => {
     await first;
     await refreshSecureMedia('topic:1:post:2:0', refresh);
     expect(refresh).toHaveBeenCalledTimes(2);
+  });
+
+  test('opens file attachments only after an authorized media refresh', async () => {
+    const refresh = jest
+      .fn()
+      .mockResolvedValue('https://authorized.example/fresh-signed-pdf');
+    const openUrl = jest.fn().mockResolvedValue(undefined);
+    await expect(
+      openSecureMediaFile('topic:1:post:2:0', refresh, openUrl),
+    ).resolves.toBe('https://authorized.example/fresh-signed-pdf');
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(openUrl).toHaveBeenCalledWith(
+      'https://authorized.example/fresh-signed-pdf',
+    );
+  });
+
+  test('fails closed when authorized file refresh is unavailable', async () => {
+    const openUrl = jest.fn();
+    await expect(
+      openSecureMediaFile(
+        'topic:1:post:2:0',
+        jest
+          .fn()
+          .mockRejectedValue(
+            Object.assign(new Error('denied'), { status: 403 }),
+          ),
+        openUrl,
+      ),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(openUrl).not.toHaveBeenCalled();
   });
 
   test('refreshes aged access after foregrounding without parsing signed URLs', () => {

@@ -39,7 +39,7 @@ import { parseAdjusterCard } from '../adjusterCardClient';
 import { openMemberAdjusterCard } from './memberNavigation';
 import { optionLabel, stateLabel } from './adjusterCardPresentation';
 import AttachmentComposer, { useAttachmentQueue } from './AttachmentComposer';
-import { appendUploadMarkup } from './MediaAttachments';
+import { reconcileAskSubmission, submitAskQuestion } from './AskSubmission';
 import NotificationEducation from './NotificationEducation';
 
 const Screen = ({ children, backgroundColor }) => {
@@ -1207,6 +1207,7 @@ export function AskScreen({ navigation, route, screenProps }) {
   const colors = useProductTheme();
   const site = activeMemberSite(screenProps.siteManager);
   const attachmentQueue = useAttachmentQueue(site, 'composer');
+  const submissionInFlight = React.useRef(false);
   const data = useCommunity(
     screenProps.siteManager,
     screenProps.memberContentVersion,
@@ -1219,6 +1220,7 @@ export function AskScreen({ navigation, route, screenProps }) {
     raw: '',
     submitting: false,
     error: null,
+    uncertainSince: null,
   });
   useEffect(() => {
     const sharedText = route?.params?.sharedText;
@@ -1231,16 +1233,30 @@ export function AskScreen({ navigation, route, screenProps }) {
     }
   }, [navigation, route?.params?.shareIntentId, route?.params?.sharedText]);
   const submitQuestion = async () => {
-    if (!site?.authToken || !category) return;
+    if (
+      !site?.authToken ||
+      !category ||
+      submissionInFlight.current ||
+      question.uncertainSince
+    )
+      return;
+    submissionInFlight.current = true;
     setQuestion(current => ({ ...current, submitting: true, error: null }));
     try {
-      const attachments = await attachmentQueue.uploadAll();
-      const created = await site.jsonApi('/posts.json', 'POST', {
+      const { created } = await submitAskQuestion({
+        site,
+        uploadAll: attachmentQueue.uploadAll,
         title: question.title.trim(),
-        raw: appendUploadMarkup(question.raw, attachments),
-        category: category.id,
+        raw: question.raw,
+        categoryId: category.id,
       });
-      setQuestion({ title: '', raw: '', submitting: false, error: null });
+      setQuestion({
+        title: '',
+        raw: '',
+        submitting: false,
+        error: null,
+        uncertainSince: null,
+      });
       attachmentQueue.clear();
       data.refresh();
       if (created?.topic_id) {
@@ -1252,12 +1268,62 @@ export function AskScreen({ navigation, route, screenProps }) {
       setQuestion(current => ({
         ...current,
         submitting: false,
+        uncertainSince:
+          error?.askSubmissionStage === 'topic_submission_unconfirmed'
+            ? error.startedAt
+            : null,
         error:
-          error?.userMessages?.join(' ') ||
-          (error?.status === 403
-            ? 'Your account is not permitted to ask in this category.'
-            : 'Your question could not be posted. Please try again.'),
+          error?.askSubmissionStage === 'topic_submission_unconfirmed'
+            ? 'We could not confirm whether this discussion was posted. Reconnect and check its status before submitting again.'
+            : error?.askSubmissionStage === 'attachment_upload'
+            ? 'The attachment did not upload. Retry it before posting.'
+            : error?.userMessages?.join(' ') ||
+              (error?.status === 403
+                ? 'Your account is not permitted to ask in this category.'
+                : 'Your question could not be posted. Please try again.'),
       }));
+    } finally {
+      submissionInFlight.current = false;
+    }
+  };
+  const checkQuestionStatus = async () => {
+    if (!question.uncertainSince || submissionInFlight.current) return;
+    submissionInFlight.current = true;
+    setQuestion(current => ({ ...current, submitting: true, error: null }));
+    try {
+      const topic = await reconcileAskSubmission(
+        site,
+        question.title,
+        question.uncertainSince,
+      );
+      if (topic) {
+        setQuestion({
+          title: '',
+          raw: '',
+          submitting: false,
+          error: null,
+          uncertainSince: null,
+        });
+        attachmentQueue.clear();
+        screenProps.openUrl(
+          `${site.url}/t/${topic.slug || 'topic'}/${topic.id}`,
+        );
+      } else {
+        setQuestion(current => ({
+          ...current,
+          submitting: false,
+          uncertainSince: null,
+          error: 'No matching discussion was posted. You can submit it now.',
+        }));
+      }
+    } catch {
+      setQuestion(current => ({
+        ...current,
+        submitting: false,
+        error: 'Status could not be checked. Reconnect and try again.',
+      }));
+    } finally {
+      submissionInFlight.current = false;
     }
   };
   return (
@@ -1447,7 +1513,13 @@ export function AskScreen({ navigation, route, screenProps }) {
             </View>
           </Card>
           <Action
-            label={question.submitting ? 'Posting…' : 'Ask the Network'}
+            label={
+              question.submitting
+                ? 'Working…'
+                : question.uncertainSince
+                ? 'Check posting status'
+                : 'Ask the Network'
+            }
             icon="pen"
             disabled={
               question.submitting ||
@@ -1455,7 +1527,9 @@ export function AskScreen({ navigation, route, screenProps }) {
               !question.title.trim() ||
               (!question.raw.trim() && !attachmentQueue.attachments.length)
             }
-            onPress={submitQuestion}
+            onPress={
+              question.uncertainSince ? checkQuestionStatus : submitQuestion
+            }
           />
           <Text style={[styles.finePrint, { color: colors.muted }]}>
             Your post is members-only under the network’s current access rules.

@@ -18,10 +18,14 @@ Production currently sets Discourse `authorized_extensions` to an empty value. T
 1. In Ask, choose one approved non-claim photo, verify preview/removal, submit a disposable topic, verify rendering, then delete it.
 2. Select two approved photos, verify ordering and partial-failure handling, then remove them without submitting.
 3. In a disposable reply, test an approved photo and approved file, verify rendering after relaunch, edit without losing media, then delete the reply.
-4. In Lounge, send an approved photo and approved file, verify rendering after relaunch, then delete both messages.
+4. Confirm Lounge remains text-only while secure Chat uploads are disabled.
 5. Invoke Take Photo, deny camera once, verify recovery guidance, then grant access and capture an approved test image.
 6. Deny photo-library access once and verify the Settings recovery action.
 7. Exercise an unsupported type, an oversized file, network loss, retry, and removal before send.
 8. Download the exact uploaded image and inspect metadata independently; do not certify GPS/EXIF stripping from picker settings alone.
 
 Never use claim-specific photos, documents, addresses, policy numbers, or other identifying claim information in certification.
+
+## Deferred non-blocking product defect
+
+- Floor retains its mounted `/latest.json` snapshot after an Ask submission, so the new topic may not appear in Network activity until Floor is refreshed or the app is relaunched. This is separate from media activation and must be addressed during the next authorized Floor lifecycle pass.

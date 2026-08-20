@@ -4,11 +4,31 @@
 export const activeMemberSite = siteManager =>
   siteManager.listSites().find(site => site.authToken) || null;
 
+const COMMUNITY_RETRY_DELAYS_MS = [650, 1800];
+
+export const communityRequestCanRetry = error =>
+  error?.status == null || error.status === 429 || error.status >= 500;
+
+export async function loadCommunityResource(
+  request,
+  delay = ms => new Promise(resolve => setTimeout(resolve, ms)),
+) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await request();
+    } catch (error) {
+      const retryDelay = COMMUNITY_RETRY_DELAYS_MS[attempt];
+      if (retryDelay == null || !communityRequestCanRetry(error)) throw error;
+      await delay(retryDelay);
+    }
+  }
+}
+
 export async function loadCommunity(site) {
   if (!site) return { topics: [], categories: [] };
   const [latest, siteInfo] = await Promise.all([
-    site.jsonApi('/latest.json'),
-    site.jsonApi('/site.json'),
+    loadCommunityResource(() => site.jsonApi('/latest.json')),
+    loadCommunityResource(() => site.jsonApi('/site.json')),
   ]);
   return {
     topics: latest?.topic_list?.topics || [],

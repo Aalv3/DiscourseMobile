@@ -44,6 +44,17 @@ export const mediaRefreshErrorMessage = error =>
     ? 'Sign in again to view this media.'
     : 'Media could not be refreshed. Try again.';
 
+export async function openSecureMediaFile(
+  resourceKey,
+  refreshMedia,
+  openUrl = Linking.openURL,
+) {
+  const refreshedUrl = await refreshSecureMedia(resourceKey, refreshMedia);
+  if (!refreshedUrl) throw new Error('media_access_not_refreshed');
+  await openUrl(refreshedUrl);
+  return refreshedUrl;
+}
+
 const absoluteUrl = (site, value) => {
   const url = decode(String(value || ''));
   if (!url) return null;
@@ -218,6 +229,79 @@ function SecureMediaImage({
   );
 }
 
+function SecureMediaFile({ item, resourceKey, refreshMedia }) {
+  const colors = useProductTheme();
+  const [state, setState] = useState({ opening: false, error: null });
+  const open = useCallback(async () => {
+    if (state.opening) return;
+    setState({ opening: true, error: null });
+    try {
+      await openSecureMediaFile(resourceKey, refreshMedia);
+      setState({ opening: false, error: null });
+    } catch (error) {
+      setState({
+        opening: false,
+        error:
+          error?.status === 401 || error?.status === 403
+            ? 'Sign in again to open this attachment.'
+            : 'This attachment could not be opened. Try again.',
+      });
+    }
+  }, [refreshMedia, resourceKey, state.opening]);
+
+  return (
+    <View>
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel={`Open attachment ${item.name}`}
+        accessibilityState={{ busy: state.opening }}
+        disabled={state.opening}
+        onPress={open}
+        style={({ pressed }) => [
+          styles.file,
+          {
+            backgroundColor: colors.surfaceAlt,
+            borderColor: state.error ? colors.danger : colors.border,
+            opacity: pressed || state.opening ? 0.7 : 1,
+          },
+        ]}
+      >
+        <FontAwesome5
+          name="file-pdf"
+          size={19}
+          color={colors.accent}
+          iconStyle="solid"
+        />
+        <View style={styles.fileCopy}>
+          <Text
+            numberOfLines={2}
+            style={[styles.fileName, { color: colors.text }]}
+          >
+            {item.name}
+          </Text>
+          <Text style={[styles.fileAction, { color: colors.accent }]}>
+            {state.opening ? 'Opening securely…' : 'Open attachment'}
+          </Text>
+        </View>
+        <FontAwesome5
+          name="external-link-alt"
+          size={12}
+          color={colors.muted}
+          iconStyle="solid"
+        />
+      </Pressable>
+      {state.error ? (
+        <Text
+          accessibilityRole="alert"
+          style={[styles.fileError, { color: colors.danger }]}
+        >
+          {state.error}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
 export default function DiscourseMedia({
   media,
   site,
@@ -225,7 +309,6 @@ export default function DiscourseMedia({
   resourceKey,
   refreshMedia,
 }) {
-  const colors = useProductTheme();
   if (!media?.length) return null;
   return (
     <View style={styles.gallery}>
@@ -243,39 +326,14 @@ export default function DiscourseMedia({
             }
           />
         ) : (
-          <Pressable
+          <SecureMediaFile
             key={`${item.url}-${index}`}
-            accessibilityRole="link"
-            accessibilityLabel={`Open attachment ${item.name}`}
-            onPress={() => Linking.openURL(item.url)}
-            style={({ pressed }) => [
-              styles.file,
-              {
-                backgroundColor: colors.surfaceAlt,
-                borderColor: colors.border,
-                opacity: pressed ? 0.7 : 1,
-              },
-            ]}
-          >
-            <FontAwesome5
-              name="file-alt"
-              size={17}
-              color={colors.accent}
-              iconStyle="solid"
-            />
-            <Text
-              numberOfLines={2}
-              style={[styles.fileName, { color: colors.text }]}
-            >
-              {item.name}
-            </Text>
-            <FontAwesome5
-              name="external-link-alt"
-              size={12}
-              color={colors.muted}
-              iconStyle="solid"
-            />
-          </Pressable>
+            item={item}
+            resourceKey={`${resourceKey || 'media'}:${index}`}
+            refreshMedia={
+              refreshMedia ? () => refreshMedia(index) : refreshMedia
+            }
+          />
         ),
       )}
     </View>
@@ -312,4 +370,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   fileName: { ...type.metadata, flex: 1, fontWeight: '700' },
+  fileCopy: { flex: 1 },
+  fileAction: { fontSize: 11, lineHeight: 15, fontWeight: '700', marginTop: 2 },
+  fileError: { ...type.metadata, marginTop: spacing.xs },
 });
