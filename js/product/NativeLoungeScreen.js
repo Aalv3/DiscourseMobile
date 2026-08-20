@@ -40,6 +40,11 @@ import {
   normalizeChatMessages,
 } from './LoungeChat';
 import { openMemberAdjusterCard } from './memberNavigation';
+import {
+  blockMember,
+  moderationFailureMessage,
+  reportChatMessage,
+} from './NativeModeration';
 
 export default function NativeLoungeScreen({ navigation, screenProps }) {
   const colors = useProductTheme();
@@ -61,6 +66,66 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
     error: null,
   });
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [blockedMembers, setBlockedMembers] = useState([]);
+
+  const reportMessage = item =>
+    Alert.alert(
+      'Report this Lounge message?',
+      'The Adjuster Network moderation team will review it.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Report',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await reportChatMessage(site, chat.channel?.id, item.id);
+              Alert.alert(
+                'Report sent',
+                'Thank you. The moderation team will review this message.',
+              );
+            } catch (error) {
+              Alert.alert(
+                'Report not sent',
+                moderationFailureMessage(error, 'report'),
+              );
+            }
+          },
+        },
+      ],
+    );
+
+  const blockMessageAuthor = item => {
+    const username = item?.user?.username;
+    Alert.alert(
+      `Block @${username}?`,
+      'Their Lounge messages will be hidden from you.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Block member',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await blockMember(site, username);
+              setBlockedMembers(current =>
+                current.includes(username) ? current : [...current, username],
+              );
+              Alert.alert(
+                'Member blocked',
+                `Messages from @${username} are now hidden.`,
+              );
+            } catch (error) {
+              Alert.alert(
+                'Member not blocked',
+                moderationFailureMessage(error, 'block'),
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
 
   useEffect(() => {
     const show = Keyboard.addListener('keyboardWillShow', () =>
@@ -257,6 +322,7 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
 
   const renderMessage = ({ item }) => {
     const user = item.user || {};
+    if (blockedMembers.includes(user.username)) return null;
     const avatarUri = user.avatar_template
       ? `${site.url}${user.avatar_template.replace('{size}', '72')}`
       : null;
@@ -340,6 +406,34 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
                 Delete
               </Text>
             </Pressable>
+          ) : null}
+          {user.username && user.username !== site.username ? (
+            <View style={styles.messageModerationActions}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Report Lounge message from ${user.username}`}
+                onPress={() => reportMessage(item)}
+                style={styles.messageAction}
+              >
+                <Text
+                  style={[styles.messageActionText, { color: colors.danger }]}
+                >
+                  Report
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Block ${user.username}`}
+                onPress={() => blockMessageAuthor(item)}
+                style={styles.messageAction}
+              >
+                <Text
+                  style={[styles.messageActionText, { color: colors.danger }]}
+                >
+                  Block member
+                </Text>
+              </Pressable>
+            </View>
           ) : null}
         </View>
       </View>
@@ -730,6 +824,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   messageActionText: { fontSize: 12, lineHeight: 17, fontWeight: '650' },
+  messageModerationActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
   composer: {
     borderTopWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',

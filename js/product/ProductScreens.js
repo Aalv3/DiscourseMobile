@@ -109,7 +109,7 @@ const FloorHeader = ({ navigation, screenProps }) => {
   );
 };
 
-export function WelcomeScreen({ onConnect, onLogin, busy }) {
+export function WelcomeScreen({ onConnect, busy }) {
   const colors = useProductTheme();
   const { width, fontScale } = useWindowDimensions();
   const [brandAssets] = useAssets([
@@ -169,8 +169,8 @@ export function WelcomeScreen({ onConnect, onLogin, busy }) {
             />
             <Value
               icon="handshake"
-              title="Free membership"
-              body="Connect with peers across the claims community."
+              title="Invitation-only membership"
+              body="Approved members connect across the claims community."
             />
             <Value
               icon="clipboard-check"
@@ -180,7 +180,7 @@ export function WelcomeScreen({ onConnect, onLogin, busy }) {
           </View>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={busy ? 'Connecting' : 'Connect free'}
+            accessibilityLabel={busy ? 'Signing in' : 'Member sign in'}
             disabled={busy}
             onPress={onConnect}
             style={[
@@ -195,26 +195,13 @@ export function WelcomeScreen({ onConnect, onLogin, busy }) {
               iconStyle="solid"
             />
             <Text style={styles.welcomePrimaryText}>
-              {busy ? 'Connecting…' : 'Connect free'}
+              {busy ? 'Signing in…' : 'Member sign in'}
             </Text>
           </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Log in"
-            disabled={busy}
-            onPress={onLogin}
-            style={[styles.welcomeSecondary, { borderColor: colors.hero }]}
-          >
-            <FontAwesome5
-              name="lock"
-              size={16}
-              color={colors.hero}
-              iconStyle="solid"
-            />
-            <Text style={[styles.welcomeSecondaryText, { color: colors.hero }]}>
-              Log in
-            </Text>
-          </Pressable>
+          <Text style={[styles.finePrint, { color: colors.muted }]}>
+            Membership is currently available by invitation. Existing members
+            can sign in above.
+          </Text>
           <View style={styles.welcomePrivacy}>
             <FontAwesome5
               name="shield-alt"

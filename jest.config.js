@@ -4,5 +4,6 @@ module.exports = {
   moduleNameMapper: {
     '^expo-updates$': '<rootDir>/js/__mocks__/expo-updates.js',
   },
-  testPathIgnorePatterns: ['/node_modules/', '/e2e/', '/ios/Pods/'],
+  testPathIgnorePatterns: ['/node_modules/', '/e2e/', '/ios/Pods/', '/.local/'],
+  modulePathIgnorePatterns: ['<rootDir>/.local/'],
 };

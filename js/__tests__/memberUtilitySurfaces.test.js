@@ -65,12 +65,19 @@ describe('native member utility surfaces', () => {
     expect(helper).not.toContain('metadata.resume');
   });
 
-  test('privacy actions are confirmed and use authenticated export plus reviewed deletion', () => {
+  test('privacy actions use authenticated export and in-app account deletion', () => {
     const source = read('product/NativeMemberUtilityScreens.js');
+    const moderation = read('product/NativeModeration.js');
     expect(source).toContain('/export_csv/export_entity.json');
     expect(source).toContain("entity: 'user_archive'");
-    expect(source).toContain('privacy@adjusternetwork.org');
-    expect(source).toContain("'Request account deletion?'");
+    expect(source).toContain("'Delete your account?'");
+    expect(source).toContain('await deleteOwnAccount(site)');
+    expect(moderation).toContain('`/u/${encodeURIComponent(username)}.json`');
+    expect(source).not.toContain('mailto:');
+    expect(source).toContain('https://adjusternetwork.org/privacy');
+    expect(source).toContain('https://adjusternetwork.org/tos');
+    expect(source).toContain('https://adjusternetwork.org/guidelines');
+    expect(source).toContain('https://adjusternetwork.org/support');
   });
 
   test('privacy logout requires destructive confirmation', () => {

@@ -858,7 +858,6 @@ class Discourse extends React.Component {
             <WelcomeScreen
               busy={this.state.connecting}
               onConnect={() => this.connectCanonical()}
-              onLogin={() => this.connectCanonical()}
             />
             {this.state.privacyShield && this._blurView(theme.name)}
           </ThemeContext.Provider>

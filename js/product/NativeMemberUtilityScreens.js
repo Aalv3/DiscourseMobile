@@ -37,6 +37,7 @@ import {
   supportedNotificationPreferences,
 } from './memberUtilities';
 import { optionLabel, stateLabel } from './adjusterCardPresentation';
+import { deleteOwnAccount } from './NativeModeration';
 
 const Shell = ({ title, navigation, children }) => {
   const colors = useProductTheme();
@@ -446,6 +447,7 @@ export function AppearanceSettingsScreen({ navigation, screenProps }) {
 export function PrivacyAccountScreen({ navigation, screenProps }) {
   const colors = useProductTheme();
   const site = activeMemberSite(screenProps.siteManager);
+  const [deleting, setDeleting] = useState(false);
   const confirmLogout = () =>
     Alert.alert(
       'Log out?',
@@ -488,17 +490,39 @@ export function PrivacyAccountScreen({ navigation, screenProps }) {
     );
   const requestDeletion = () =>
     Alert.alert(
-      'Request account deletion?',
-      'A privacy team member will verify the request before account data is removed. This does not delete your account immediately.',
+      'Delete your account?',
+      'This requests permanent deletion of your Adjuster Network account, profile, and posts. Data that must be retained for legal, security, or moderation obligations may be kept as described in the Privacy Policy. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Continue',
+          text: 'Delete account',
           style: 'destructive',
-          onPress: () =>
-            Linking.openURL(
-              'mailto:privacy@adjusternetwork.org?subject=Adjuster%20Network%20account%20deletion%20request',
-            ),
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteOwnAccount(site);
+              Alert.alert(
+                'Account deleted',
+                'Your Adjuster Network account deletion was completed.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => screenProps.siteManager.remove(site),
+                  },
+                ],
+              );
+            } catch (error) {
+              const detail =
+                error?.userMessages?.length > 0
+                  ? error.userMessages.join(' ')
+                  : error?.status === 403 || error?.status === 422
+                  ? 'The server could not complete deletion automatically. Your account remains active. Contact support for help with the deletion request.'
+                  : 'The deletion request could not be completed. Your account remains active. Check your connection and try again.';
+              Alert.alert('Account not deleted', detail);
+            } finally {
+              setDeleting(false);
+            }
+          },
         },
       ],
     );
@@ -519,9 +543,31 @@ export function PrivacyAccountScreen({ navigation, screenProps }) {
           onPress={requestExport}
         />
         <Row
-          title="Request account deletion"
-          detail="Starts a verified request with the privacy team"
-          onPress={requestDeletion}
+          title={deleting ? 'Deleting account…' : 'Delete my account'}
+          detail="Permanently delete this account and its associated data"
+          onPress={deleting ? undefined : requestDeletion}
+        />
+        <Row
+          title="Privacy Policy"
+          detail="How Adjuster Network handles member data"
+          onPress={() => Linking.openURL('https://adjusternetwork.org/privacy')}
+        />
+        <Row
+          title="Terms of Service"
+          detail="Terms governing use of the Network"
+          onPress={() => Linking.openURL('https://adjusternetwork.org/tos')}
+        />
+        <Row
+          title="Community Rules"
+          detail="Standards for professional member conduct"
+          onPress={() =>
+            Linking.openURL('https://adjusternetwork.org/guidelines')
+          }
+        />
+        <Row
+          title="Support"
+          detail="Contact Adjuster Network support"
+          onPress={() => Linking.openURL('https://adjusternetwork.org/support')}
         />
         <Action
           label="Log out of this device"

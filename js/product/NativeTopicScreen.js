@@ -37,6 +37,11 @@ import { openMemberAdjusterCard } from './memberNavigation';
 import AttachmentComposer, { useAttachmentQueue } from './AttachmentComposer';
 import { appendUploadMarkup } from './MediaAttachments';
 import DiscourseMedia, { cookedMedia } from './DiscourseMedia';
+import {
+  blockMember,
+  moderationFailureMessage,
+  reportPost,
+} from './NativeModeration';
 
 function readablePost(cooked) {
   return decode(
@@ -128,6 +133,66 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
     loading: true,
     allowed: false,
   });
+  const [blockedMembers, setBlockedMembers] = useState([]);
+
+  const reportContent = post =>
+    Alert.alert(
+      'Report this content?',
+      'The Adjuster Network moderation team will review it. The member is not told who submitted the report.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Report',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await reportPost(site, post.id);
+              Alert.alert(
+                'Report sent',
+                'Thank you. The moderation team will review this content.',
+              );
+            } catch (error) {
+              Alert.alert(
+                'Report not sent',
+                moderationFailureMessage(error, 'report'),
+              );
+            }
+          },
+        },
+      ],
+    );
+
+  const blockPostAuthor = post =>
+    Alert.alert(
+      `Block @${post.username}?`,
+      'Their content will be hidden from you. Adjuster Network moderation and audit records are unchanged.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Block member',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await blockMember(site, post.username);
+              setBlockedMembers(current =>
+                current.includes(post.username)
+                  ? current
+                  : [...current, post.username],
+              );
+              Alert.alert(
+                'Member blocked',
+                `Content from @${post.username} is now hidden.`,
+              );
+            } catch (error) {
+              Alert.alert(
+                'Member not blocked',
+                moderationFailureMessage(error, 'block'),
+              );
+            }
+          },
+        },
+      ],
+    );
 
   const loadTopic = useCallback(async () => {
     if (!site?.authToken) {
@@ -510,6 +575,7 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
             </View>
           ) : null}
           {conversation.map(({ post, depth }, index) => {
+            if (blockedMembers.includes(post.username)) return null;
             const parent = post.reply_to_post_number
               ? postsByNumber[post.reply_to_post_number]
               : null;
@@ -793,6 +859,40 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
                           Delete
                         </Text>
                       </Pressable>
+                    ) : null}
+                    {post.username && post.username !== site?.username ? (
+                      <>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`Report content from ${post.username}`}
+                          onPress={() => reportContent(post)}
+                          style={styles.postReply}
+                        >
+                          <Text
+                            style={[
+                              styles.postReplyText,
+                              { color: colors.danger },
+                            ]}
+                          >
+                            Report
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`Block ${post.username}`}
+                          onPress={() => blockPostAuthor(post)}
+                          style={styles.postReply}
+                        >
+                          <Text
+                            style={[
+                              styles.postReplyText,
+                              { color: colors.danger },
+                            ]}
+                          >
+                            Block member
+                          </Text>
+                        </Pressable>
+                      </>
                     ) : null}
                   </View>
                 </View>
