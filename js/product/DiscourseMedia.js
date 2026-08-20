@@ -62,6 +62,23 @@ const absoluteUrl = (site, value) => {
   return `${site?.url || ''}${url.startsWith('/') ? '' : '/'}${url}`;
 };
 
+const discourseAttachmentUrl = (site, value) => {
+  const url = decode(String(value || ''));
+  if (/^upload:\/\//i.test(url)) return true;
+  try {
+    const base = new URL(site?.url);
+    const parsed = new URL(url, base);
+    return (
+      parsed.origin === base.origin &&
+      /^\/(?:uploads|secure-uploads|show-secure-uploads)\//i.test(
+        parsed.pathname,
+      )
+    );
+  } catch {
+    return false;
+  }
+};
+
 export function cookedMedia(cooked, site) {
   const html = String(cooked || '');
   const results = [];
@@ -84,8 +101,15 @@ export function cookedMedia(cooked, site) {
   for (const match of html.matchAll(
     /<a\b[^>]*href=["']([^"']+)["'][^>]*>(.*?)<\/a>/gis,
   )) {
+    const tag = match[0];
     const url = absoluteUrl(site, match[1]);
-    if (!url || !/(\/uploads\/|upload:\/\/)/i.test(match[1])) continue;
+    const className = tag.match(/\bclass=["']([^"']*)["']/i)?.[1] || '';
+    if (
+      !url ||
+      !/(?:^|\s)attachment(?:\s|$)/i.test(className) ||
+      !discourseAttachmentUrl(site, match[1])
+    )
+      continue;
     add({
       type: 'file',
       url,

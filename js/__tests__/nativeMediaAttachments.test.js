@@ -139,7 +139,7 @@ describe('native Discourse media attachments', () => {
   test('renders cooked post and Chat upload metadata without private fields', () => {
     expect(
       cookedMedia(
-        '<p>Hello</p><img src="/uploads/default/photo.png" alt="Roof"><a href="/uploads/default/report.pdf">Report</a>',
+        '<p>Hello</p><img src="/uploads/default/photo.png" alt="Roof"><a class="attachment" href="/uploads/default/report.pdf">Report</a>',
         { url: 'https://adjusternetwork.org' },
       ),
     ).toEqual([
@@ -168,6 +168,37 @@ describe('native Discourse media attachments', () => {
         { url: 'https://adjusternetwork.org' },
       )[0].type,
     ).toBe('image');
+  });
+
+  test('recognizes the secure attachment anchor cooked by Discourse', () => {
+    expect(
+      cookedMedia(
+        '<p>Safe fixture</p><a class="attachment" href="/secure-uploads/original/1X/synthetic.pdf">synthetic.pdf</a>',
+        { url: 'https://staging.adjusternetwork.org' },
+      ),
+    ).toEqual([
+      {
+        type: 'file',
+        url: 'https://staging.adjusternetwork.org/secure-uploads/original/1X/synthetic.pdf',
+        name: 'synthetic.pdf',
+      },
+    ]);
+  });
+
+  test('does not treat arbitrary or direct-S3 links as Discourse attachments', () => {
+    const site = { url: 'https://staging.adjusternetwork.org' };
+    expect(
+      cookedMedia(
+        '<a href="/secure-uploads/original/1X/not-an-attachment.pdf">ordinary link</a>',
+        site,
+      ),
+    ).toEqual([]);
+    expect(
+      cookedMedia(
+        '<a class="attachment" href="https://private-bucket.s3.example/synthetic.pdf">direct storage</a>',
+        site,
+      ),
+    ).toEqual([]);
   });
 
   test('maps site rejections into useful bounded errors', () => {
