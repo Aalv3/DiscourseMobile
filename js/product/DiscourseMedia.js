@@ -70,7 +70,7 @@ const discourseAttachmentUrl = (site, value) => {
     const parsed = new URL(url, base);
     return (
       parsed.origin === base.origin &&
-      /^\/(?:uploads|secure-uploads|show-secure-uploads)\//i.test(
+      /^\/(?:uploads|secure-uploads|secure-media-uploads|show-secure-uploads)\//i.test(
         parsed.pathname,
       )
     );
@@ -98,16 +98,18 @@ export function cookedMedia(cooked, site) {
       name: decode(tag.match(/alt=["']([^"']*)["']/i)?.[1] || 'Posted image'),
     });
   }
-  for (const match of html.matchAll(
-    /<a\b[^>]*href=["']([^"']+)["'][^>]*>(.*?)<\/a>/gis,
-  )) {
+  for (const match of html.matchAll(/<a\b([^>]*)>(.*?)<\/a>/gis)) {
     const tag = match[0];
-    const url = absoluteUrl(site, match[1]);
+    const attributes = match[1];
+    const href =
+      attributes.match(/\bdata-download-href=["']([^"']+)["']/i)?.[1] ||
+      attributes.match(/\bhref=["']([^"']+)["']/i)?.[1];
+    const url = absoluteUrl(site, href);
     const className = tag.match(/\bclass=["']([^"']*)["']/i)?.[1] || '';
     if (
       !url ||
       !/(?:^|\s)attachment(?:\s|$)/i.test(className) ||
-      !discourseAttachmentUrl(site, match[1])
+      !discourseAttachmentUrl(site, href)
     )
       continue;
     add({

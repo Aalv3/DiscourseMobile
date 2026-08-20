@@ -3,6 +3,8 @@
 
 import fs from 'fs';
 import path from 'path';
+import React from 'react';
+import TestRenderer, { act } from 'react-test-renderer';
 
 jest.mock('@react-native-vector-icons/fontawesome5', () => 'FontAwesome5');
 import {
@@ -21,6 +23,7 @@ import {
   refreshSecureMedia,
   shouldRefreshSecureMedia,
 } from '../product/DiscourseMedia';
+import DiscourseMedia from '../product/DiscourseMedia';
 import { mediaUploadsEnabledForSite } from '../adjusterNetworkConfig';
 
 describe('native Discourse media attachments', () => {
@@ -183,6 +186,42 @@ describe('native Discourse media attachments', () => {
         name: 'synthetic.pdf',
       },
     ]);
+  });
+
+  test('renders the existing-post secure PDF response shape as an openable card', () => {
+    const fixture = JSON.parse(
+      fs.readFileSync(
+        path.join(__dirname, 'fixtures', 'stagingSecurePdfTopic.json'),
+        'utf8',
+      ),
+    );
+    const site = { url: fixture.origin };
+    const post = fixture.topic.post_stream.posts[0];
+    const media = cookedMedia(post.cooked, site);
+
+    expect(post.raw).toContain('upload://');
+    expect(media).toEqual([
+      {
+        type: 'file',
+        url: `${fixture.origin}/secure-media-uploads/original/1X/synthetic.pdf`,
+        name: 'synthetic.pdf',
+      },
+    ]);
+
+    let renderer;
+    act(() => {
+      renderer = TestRenderer.create(
+        <DiscourseMedia
+          media={media}
+          site={site}
+          resourceKey="topic:fixture:post:fixture"
+          refreshMedia={jest.fn()}
+        />,
+      );
+    });
+    const rendered = JSON.stringify(renderer.toJSON());
+    expect(rendered).toContain('Open attachment');
+    expect(rendered).toContain('synthetic.pdf');
   });
 
   test('does not treat arbitrary or direct-S3 links as Discourse attachments', () => {
