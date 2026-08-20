@@ -67,4 +67,58 @@ describe('community startup recovery', () => {
     });
     jest.useRealTimers();
   });
+
+  test('coalesces sibling tab refreshes without retaining a stale snapshot', async () => {
+    let releaseLatest;
+    const firstLatest = new Promise(resolve => (releaseLatest = resolve));
+    const site = {
+      jsonApi: jest.fn(path =>
+        path === '/latest.json'
+          ? firstLatest
+          : Promise.resolve({ categories: [{ id: 2 }] }),
+      ),
+    };
+
+    const floor = loadCommunity(site);
+    const discussions = loadCommunity(site);
+    const ask = loadCommunity(site);
+    expect(site.jsonApi).toHaveBeenCalledTimes(2);
+    releaseLatest({ topic_list: { topics: [{ id: 1 }] } });
+    await expect(Promise.all([floor, discussions, ask])).resolves.toEqual([
+      { topics: [{ id: 1 }], categories: [{ id: 2 }] },
+      { topics: [{ id: 1 }], categories: [{ id: 2 }] },
+      { topics: [{ id: 1 }], categories: [{ id: 2 }] },
+    ]);
+
+    site.jsonApi.mockImplementation(path =>
+      Promise.resolve(
+        path === '/latest.json'
+          ? { topic_list: { topics: [{ id: 3 }] } }
+          : { categories: [{ id: 2 }] },
+      ),
+    );
+    await expect(loadCommunity(site)).resolves.toEqual({
+      topics: [{ id: 3 }],
+      categories: [{ id: 2 }],
+    });
+    expect(site.jsonApi).toHaveBeenCalledTimes(4);
+  });
+
+  test('Ask confirmation invalidates shared Floor and Discussions content', () => {
+    const source = require('fs').readFileSync(
+      require('path').join(__dirname, '..', 'product', 'ProductScreens.js'),
+      'utf8',
+    );
+    const ask = source.slice(
+      source.indexOf('export function AskScreen'),
+      source.indexOf('export function IntelligenceScreen'),
+    );
+    expect(ask).not.toContain('data.refresh();');
+    expect(
+      ask.match(/screenProps\.invalidateMemberContent\(\);/g),
+    ).toHaveLength(2);
+    expect(
+      ask.indexOf('screenProps.invalidateMemberContent();'),
+    ).toBeGreaterThan(ask.indexOf('attachmentQueue.clear();'));
+  });
 });

@@ -98,6 +98,19 @@ describe('Ask submission sequencing', () => {
       created: { topic_id: 91, topic_slug: 'recovered' },
     });
     expect(site.jsonApi).toHaveBeenCalledTimes(2);
+    expect(site.jsonApi.mock.calls[0]).toEqual([
+      '/posts.json',
+      'POST',
+      {
+        title: 'Recovered topic',
+        raw: '[synthetic.pdf|attachment](upload://synthetic.pdf)',
+        category: 2,
+      },
+    ]);
+    expect(site.jsonApi.mock.calls[1]).toEqual(['/latest.json']);
+    expect(
+      site.jsonApi.mock.calls.filter(([path]) => path === '/posts.json'),
+    ).toHaveLength(1);
   });
 
   test('an unreconciled create response fails closed instead of resubmitting', async () => {

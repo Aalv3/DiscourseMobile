@@ -5,6 +5,7 @@ export const activeMemberSite = siteManager =>
   siteManager.listSites().find(site => site.authToken) || null;
 
 const COMMUNITY_RETRY_DELAYS_MS = [650, 1800];
+const communityLoads = new WeakMap();
 
 export const communityRequestCanRetry = error =>
   error?.status == null || error.status === 429 || error.status >= 500;
@@ -24,7 +25,7 @@ export async function loadCommunityResource(
   }
 }
 
-export async function loadCommunity(site) {
+async function loadCommunityUncached(site) {
   if (!site) return { topics: [], categories: [] };
   const [latest, siteInfo] = await Promise.all([
     loadCommunityResource(() => site.jsonApi('/latest.json')),
@@ -34,6 +35,22 @@ export async function loadCommunity(site) {
     topics: latest?.topic_list?.topics || [],
     categories: siteInfo?.categories || [],
   };
+}
+
+// Floor, Discussions, and Ask remain mounted as sibling tabs. A shared
+// invalidation therefore asks each surface to refresh at the same time. Share
+// that one in-flight request without retaining a stale result afterward.
+export async function loadCommunity(site) {
+  if (!site || (typeof site !== 'object' && typeof site !== 'function')) {
+    return loadCommunityUncached(site);
+  }
+  const existing = communityLoads.get(site);
+  if (existing) return existing;
+  const pending = loadCommunityUncached(site).finally(() => {
+    if (communityLoads.get(site) === pending) communityLoads.delete(site);
+  });
+  communityLoads.set(site, pending);
+  return pending;
 }
 
 export const topicPath = topic => `/t/${topic.slug || 'topic'}/${topic.id}`;

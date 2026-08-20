@@ -1258,7 +1258,7 @@ export function AskScreen({ navigation, route, screenProps }) {
         uncertainSince: null,
       });
       attachmentQueue.clear();
-      data.refresh();
+      screenProps.invalidateMemberContent();
       if (created?.topic_id) {
         screenProps.openUrl(
           `${site.url}/t/${created.topic_slug || 'topic'}/${created.topic_id}`,
@@ -1305,6 +1305,7 @@ export function AskScreen({ navigation, route, screenProps }) {
           uncertainSince: null,
         });
         attachmentQueue.clear();
+        screenProps.invalidateMemberContent();
         screenProps.openUrl(
           `${site.url}/t/${topic.slug || 'topic'}/${topic.id}`,
         );
