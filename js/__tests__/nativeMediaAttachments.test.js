@@ -25,7 +25,10 @@ import {
   shouldRefreshSecureMedia,
 } from '../product/DiscourseMedia';
 import DiscourseMedia from '../product/DiscourseMedia';
-import { mediaUploadsEnabledForSite } from '../adjusterNetworkConfig';
+import {
+  mediaUploadsEnabledForChannelSite,
+  mediaUploadsEnabledForSite,
+} from '../adjusterNetworkConfig';
 
 describe('native Discourse media attachments', () => {
   test('uploads files through the authenticated composer multipart contract', async () => {
@@ -350,7 +353,7 @@ describe('native Discourse media attachments', () => {
     expect(read('NativeLoungeScreen.js')).not.toContain("'/uploads.json'");
   });
 
-  test('keeps the approved client dormant behind the Build 3 release gate', () => {
+  test('keeps Media V1 behind an exact channel-and-origin gate', () => {
     const config = fs.readFileSync(
       path.join(__dirname, '..', 'adjusterNetworkConfig.js'),
       'utf8',
@@ -359,23 +362,22 @@ describe('native Discourse media attachments', () => {
       path.join(__dirname, '..', 'product', 'AttachmentComposer.js'),
       'utf8',
     );
-    expect(config).toContain('mediaUploads: false');
+    expect(config).toContain('mediaUploads: updateChannel !== null');
     expect(composer).toContain('mediaUploadsEnabledForSite(site)');
-    expect(config).toContain('https://staging.adjusternetwork.org');
     expect(composer).toContain(
       'Photo and file attachments are not available yet.',
     );
     expect(composer).toContain("throw new Error('media_uploads_disabled')");
   });
 
-  test('enables uploads only for the exact isolated staging origin', () => {
+  test('enables uploads only for the current production origin', () => {
+    expect(
+      mediaUploadsEnabledForSite({ url: 'https://adjusternetwork.org' }),
+    ).toBe(true);
     expect(
       mediaUploadsEnabledForSite({
         url: 'https://staging.adjusternetwork.org',
       }),
-    ).toBe(true);
-    expect(
-      mediaUploadsEnabledForSite({ url: 'https://adjusternetwork.org' }),
     ).toBe(false);
     expect(
       mediaUploadsEnabledForSite({
@@ -383,6 +385,39 @@ describe('native Discourse media attachments', () => {
       }),
     ).toBe(false);
     expect(mediaUploadsEnabledForSite({ url: 'not-a-url' })).toBe(false);
+  });
+
+  test('isolates staging and production media origins and fails closed', () => {
+    expect(
+      mediaUploadsEnabledForChannelSite('staging', {
+        url: 'https://staging.adjusternetwork.org',
+      }),
+    ).toBe(true);
+    expect(
+      mediaUploadsEnabledForChannelSite('staging', {
+        url: 'https://adjusternetwork.org',
+      }),
+    ).toBe(false);
+    expect(
+      mediaUploadsEnabledForChannelSite('production', {
+        url: 'https://adjusternetwork.org',
+      }),
+    ).toBe(true);
+    expect(
+      mediaUploadsEnabledForChannelSite('production', {
+        url: 'https://staging.adjusternetwork.org',
+      }),
+    ).toBe(false);
+    expect(
+      mediaUploadsEnabledForChannelSite('preview', {
+        url: 'https://adjusternetwork.org',
+      }),
+    ).toBe(false);
+    expect(
+      mediaUploadsEnabledForChannelSite(null, {
+        url: 'https://adjusternetwork.org',
+      }),
+    ).toBe(false);
   });
 
   test('coalesces duplicate authorized refreshes for one media resource', async () => {

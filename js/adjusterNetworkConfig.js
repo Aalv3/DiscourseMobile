@@ -43,13 +43,11 @@ export const adjusterNetwork = Object.freeze({
     // Enables device registration with the A3-owned dark backend. Server-side
     // delivery switches remain authoritative and OFF during certification.
     pushDelivery: true,
-    // Build 3 keeps the approved attachment client dormant until the separate
-    // server/storage/media-security certification is complete. The backend
-    // upload allowlist remains the final enforcement boundary.
-    mediaUploads: false,
-    // Physical certification may exercise the client only against this exact
-    // isolated origin. The production origin remains disabled above.
-    mediaUploadOrigins: Object.freeze(['https://staging.adjusternetwork.org']),
+    // Media V1 is available only when the signed app supplies one of the two
+    // approved OTA channels. The site must still match that channel's exact
+    // canonical origin, and the Discourse upload allowlist remains the final
+    // server-side enforcement boundary.
+    mediaUploads: updateChannel !== null,
     publicNativePreview: false,
   }),
   push: Object.freeze({
@@ -88,10 +86,17 @@ export const adjusterNetwork = Object.freeze({
 });
 
 export function mediaUploadsEnabledForSite(site) {
-  if (adjusterNetwork.features.mediaUploads === true) return true;
+  if (adjusterNetwork.features.mediaUploads !== true) return false;
+  return mediaUploadsEnabledForChannelSite(updateChannel, site);
+}
+
+export function mediaUploadsEnabledForChannelSite(channel, site) {
+  const trustedChannel = trustedUpdateChannel(channel);
+  const expectedOrigin = canonicalOriginForChannel(trustedChannel);
+  if (!expectedOrigin) return false;
   try {
     const origin = new URL(site?.url).origin;
-    return adjusterNetwork.features.mediaUploadOrigins.includes(origin);
+    return origin === expectedOrigin;
   } catch {
     return false;
   }
