@@ -165,7 +165,7 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
   const blockPostAuthor = post =>
     Alert.alert(
       `Block @${post.username}?`,
-      'Their content will be hidden from you. Adjuster Network moderation and audit records are unchanged.',
+      'Their replies will be hidden from you. Their opening topics may still appear. Adjuster Network moderation and audit records are unchanged.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -181,7 +181,7 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
               );
               Alert.alert(
                 'Member blocked',
-                `Content from @${post.username} is now hidden.`,
+                `Replies from @${post.username} are now hidden. Their opening topics may still appear.`,
               );
             } catch (error) {
               Alert.alert(

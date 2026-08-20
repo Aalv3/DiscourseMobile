@@ -35,6 +35,12 @@ describe('App Store P1 source gates', () => {
     const lounge = read('js/product/NativeLoungeScreen.js');
     expect(topic).toContain('reportPost(site, post.id)');
     expect(topic).toContain('blockMember(site, post.username)');
+    expect(topic).toContain(
+      'Replies from @${post.username} are now hidden. Their opening topics may still appear.',
+    );
+    expect(topic).not.toContain(
+      'Content from @${post.username} is now hidden.',
+    );
     expect(lounge).toContain(
       'reportChatMessage(site, chat.channel?.id, item.id)',
     );
