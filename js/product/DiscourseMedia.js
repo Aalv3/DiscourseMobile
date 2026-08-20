@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AppState,
   Image,
-  Linking,
+  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import FontAwesome5 from '@react-native-vector-icons/fontawesome5';
 import { decode } from 'html-entities';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { WebView } from 'react-native-webview';
 import { radius, spacing, type } from './DesignSystem';
 import { useProductTheme } from './ProductComponents';
 
@@ -44,14 +46,9 @@ export const mediaRefreshErrorMessage = error =>
     ? 'Sign in again to view this media.'
     : 'Media could not be refreshed. Try again.';
 
-export async function openSecureMediaFile(
-  resourceKey,
-  refreshMedia,
-  openUrl = Linking.openURL,
-) {
+export async function openSecureMediaFile(resourceKey, refreshMedia) {
   const refreshedUrl = await refreshSecureMedia(resourceKey, refreshMedia);
   if (!refreshedUrl) throw new Error('media_access_not_refreshed');
-  await openUrl(refreshedUrl);
   return refreshedUrl;
 }
 
@@ -259,18 +256,32 @@ function SecureMediaImage({
   );
 }
 
-function SecureMediaFile({ item, resourceKey, refreshMedia }) {
+function SecureMediaFile({ item, site, resourceKey, refreshMedia }) {
   const colors = useProductTheme();
-  const [state, setState] = useState({ opening: false, error: null });
+  const [state, setState] = useState({
+    opening: false,
+    error: null,
+    authorizedUrl: null,
+  });
+  const headers = site?.authToken
+    ? {
+        'User-Api-Key': site.authToken,
+        'User-Api-Client-Id': site.clientId || '',
+      }
+    : undefined;
   const open = useCallback(async () => {
     if (state.opening) return;
-    setState({ opening: true, error: null });
+    setState(current => ({ ...current, opening: true, error: null }));
     try {
-      await openSecureMediaFile(resourceKey, refreshMedia);
-      setState({ opening: false, error: null });
+      const authorizedUrl = await openSecureMediaFile(
+        resourceKey,
+        refreshMedia,
+      );
+      setState({ opening: false, error: null, authorizedUrl });
     } catch (error) {
       setState({
         opening: false,
+        authorizedUrl: null,
         error:
           error?.status === 401 || error?.status === 403
             ? 'Sign in again to open this attachment.'
@@ -281,6 +292,69 @@ function SecureMediaFile({ item, resourceKey, refreshMedia }) {
 
   return (
     <View>
+      <Modal
+        animationType="slide"
+        onRequestClose={() =>
+          setState(current => ({ ...current, authorizedUrl: null }))
+        }
+        presentationStyle="pageSheet"
+        visible={Boolean(state.authorizedUrl)}
+      >
+        <SafeAreaView
+          style={[styles.fileViewer, { backgroundColor: colors.surface }]}
+        >
+          <View
+            style={[styles.fileViewerHeader, { borderColor: colors.border }]}
+          >
+            <Text
+              numberOfLines={1}
+              style={[styles.fileViewerTitle, { color: colors.text }]}
+            >
+              {item.name}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close attachment"
+              onPress={() =>
+                setState(current => ({ ...current, authorizedUrl: null }))
+              }
+              style={styles.fileViewerClose}
+            >
+              <Text
+                style={[styles.fileViewerCloseText, { color: colors.accent }]}
+              >
+                Close
+              </Text>
+            </Pressable>
+          </View>
+          {state.authorizedUrl ? (
+            <WebView
+              accessibilityLabel={`Attachment ${item.name}`}
+              originWhitelist={['https://*']}
+              source={{ uri: state.authorizedUrl, headers }}
+              onError={() =>
+                setState(current => ({
+                  ...current,
+                  authorizedUrl: null,
+                  error: 'This attachment could not be opened. Try again.',
+                }))
+              }
+              onHttpError={event => {
+                const status = event.nativeEvent?.statusCode;
+                setState(current => ({
+                  ...current,
+                  authorizedUrl: null,
+                  error:
+                    status === 401 || status === 403
+                      ? 'Sign in again to open this attachment.'
+                      : 'This attachment could not be opened. Try again.',
+                }));
+              }}
+              style={styles.fileWebView}
+            />
+          ) : null}
+        </SafeAreaView>
+      </Modal>
       <Pressable
         accessibilityRole="link"
         accessibilityLabel={`Open attachment ${item.name}`}
@@ -359,6 +433,7 @@ export default function DiscourseMedia({
           <SecureMediaFile
             key={`${item.url}-${index}`}
             item={item}
+            site={site}
             resourceKey={`${resourceKey || 'media'}:${index}`}
             refreshMedia={
               refreshMedia ? () => refreshMedia(index) : refreshMedia
@@ -403,4 +478,22 @@ const styles = StyleSheet.create({
   fileCopy: { flex: 1 },
   fileAction: { fontSize: 11, lineHeight: 15, fontWeight: '700', marginTop: 2 },
   fileError: { ...type.metadata, marginTop: spacing.xs },
+  fileViewer: { flex: 1 },
+  fileViewerHeader: {
+    minHeight: 52,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  fileViewerTitle: { ...type.metadata, flex: 1, fontWeight: '700' },
+  fileViewerClose: {
+    minHeight: 44,
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fileViewerCloseText: { ...type.metadata, fontWeight: '700' },
+  fileWebView: { flex: 1 },
 });

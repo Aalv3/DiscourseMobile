@@ -7,6 +7,7 @@ import React from 'react';
 import TestRenderer, { act } from 'react-test-renderer';
 
 jest.mock('@react-native-vector-icons/fontawesome5', () => 'FontAwesome5');
+jest.mock('react-native-webview', () => ({ WebView: 'WebView' }));
 import {
   appendUploadMarkup,
   attachmentIsImage,
@@ -224,6 +225,46 @@ describe('native Discourse media attachments', () => {
     expect(rendered).toContain('Open attachment');
   });
 
+  test('opens the real PDF route in an authenticated in-app viewer', async () => {
+    const site = {
+      url: 'https://staging.adjusternetwork.org',
+      authToken: 'test-user-api-key',
+      clientId: 'test-client',
+    };
+    const url = `${site.url}/secure-uploads/original/1X/synthetic.pdf`;
+    const refreshMedia = jest.fn().mockResolvedValue(url);
+    let renderer;
+    act(() => {
+      renderer = TestRenderer.create(
+        <DiscourseMedia
+          media={[{ type: 'file', url, name: 'field-notes.pdf' }]}
+          site={site}
+          resourceKey="topic:90:post:132"
+          refreshMedia={refreshMedia}
+        />,
+      );
+    });
+
+    await act(async () => {
+      renderer.root
+        .findByProps({ accessibilityLabel: 'Open attachment field-notes.pdf' })
+        .props.onPress();
+      await Promise.resolve();
+    });
+
+    expect(refreshMedia).toHaveBeenCalledWith(0);
+    const viewer = renderer.root.findByProps({
+      accessibilityLabel: 'Attachment field-notes.pdf',
+    });
+    expect(viewer.props.source).toEqual({
+      uri: url,
+      headers: {
+        'User-Api-Key': site.authToken,
+        'User-Api-Client-Id': site.clientId,
+      },
+    });
+  });
+
   test('supports canonical and legacy Discourse attachment representations', () => {
     const site = { url: 'https://staging.adjusternetwork.org' };
     expect(
@@ -363,22 +404,21 @@ describe('native Discourse media attachments', () => {
     expect(refresh).toHaveBeenCalledTimes(2);
   });
 
-  test('opens file attachments only after an authorized media refresh', async () => {
+  test('resolves file attachments only after an authorized media refresh', async () => {
     const refresh = jest
       .fn()
-      .mockResolvedValue('https://authorized.example/fresh-signed-pdf');
-    const openUrl = jest.fn().mockResolvedValue(undefined);
+      .mockResolvedValue(
+        'https://staging.adjusternetwork.org/secure-uploads/original/1X/fresh.pdf',
+      );
     await expect(
-      openSecureMediaFile('topic:1:post:2:0', refresh, openUrl),
-    ).resolves.toBe('https://authorized.example/fresh-signed-pdf');
-    expect(refresh).toHaveBeenCalledTimes(1);
-    expect(openUrl).toHaveBeenCalledWith(
-      'https://authorized.example/fresh-signed-pdf',
+      openSecureMediaFile('topic:1:post:2:0', refresh),
+    ).resolves.toBe(
+      'https://staging.adjusternetwork.org/secure-uploads/original/1X/fresh.pdf',
     );
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 
   test('fails closed when authorized file refresh is unavailable', async () => {
-    const openUrl = jest.fn();
     await expect(
       openSecureMediaFile(
         'topic:1:post:2:0',
@@ -387,10 +427,8 @@ describe('native Discourse media attachments', () => {
           .mockRejectedValue(
             Object.assign(new Error('denied'), { status: 403 }),
           ),
-        openUrl,
       ),
     ).rejects.toMatchObject({ status: 403 });
-    expect(openUrl).not.toHaveBeenCalled();
   });
 
   test('refreshes aged access after foregrounding without parsing signed URLs', () => {
