@@ -6,7 +6,7 @@ const otaChannel = process.env.AN_OTA_CHANNEL || 'production';
 module.exports = {
   name: 'Adjuster Network',
   slug: 'adjuster-network',
-  version: '1.0.0',
+  version: '1.0',
   owner: 'aalvarez33',
   runtimeVersion,
   updates: {
