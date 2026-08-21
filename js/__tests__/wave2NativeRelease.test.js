@@ -3,6 +3,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import plist from 'plist';
 
 const root = path.join(__dirname, '..', '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
@@ -38,6 +39,21 @@ describe('Wave 2 native release boundaries', () => {
     expect(manifest).toContain('NSPrivacyCollectedDataTypeOtherUserContent');
     expect(manifest).toContain('NSPrivacyCollectedDataTypeSearchHistory');
     expect(manifest).toContain('NSPrivacyCollectedDataTypeDeviceID');
+    const collectedDataTypes =
+      plist.parse(manifest).NSPrivacyCollectedDataTypes;
+    for (const dataType of [
+      'NSPrivacyCollectedDataTypeEmailAddress',
+      'NSPrivacyCollectedDataTypeCoarseLocation',
+    ]) {
+      expect(collectedDataTypes).toContainEqual({
+        NSPrivacyCollectedDataType: dataType,
+        NSPrivacyCollectedDataTypeLinked: true,
+        NSPrivacyCollectedDataTypeTracking: false,
+        NSPrivacyCollectedDataTypePurposes: [
+          'NSPrivacyCollectedDataTypePurposeAppFunctionality',
+        ],
+      });
+    }
     expect(manifest).not.toContain('NSPrivacyAccessedAPICategoryDiskSpace');
     expect(manifest).not.toContain('NSPrivacyAccessedAPICategoryFileTimestamp');
   });
