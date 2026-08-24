@@ -20,6 +20,7 @@ jest.mock('expo-updates', () => ({ channel: 'production' }));
 const ID = '21eb7dcf-a095-4b58-bda8-a67f40cf3069';
 const EXPIRES = '2030-08-24T12:05:00Z';
 const CONFIRMATION = 'c'.repeat(43);
+const BROWSER_TOKEN = 'b'.repeat(43);
 
 beforeEach(async () => {
   await AsyncStorage.clear();
@@ -31,8 +32,7 @@ afterEach(() => jest.restoreAllMocks());
 test('accepts only the canonical HTTPS bearer landing URL', () => {
   const valid = {
     handoff_id: ID,
-    browser_url:
-      'https://adjusternetwork.org/renaissance/admission-handoff#token=secret-never-persisted',
+    browser_url: `https://adjusternetwork.org/renaissance/admission-handoff#token=${BROWSER_TOKEN}`,
     expires_at: EXPIRES,
     confirmation_token: CONFIRMATION,
   };
@@ -62,8 +62,7 @@ test('issuance persists no bearer and opens only the validated browser URL', asy
     clientId: 'client-a',
     jsonApi: jest.fn().mockResolvedValue({
       handoff_id: ID,
-      browser_url:
-        'https://adjusternetwork.org/renaissance/admission-handoff#token=one-time-secret',
+      browser_url: `https://adjusternetwork.org/renaissance/admission-handoff#token=${BROWSER_TOKEN}`,
       expires_at: EXPIRES,
       confirmation_token: CONFIRMATION,
     }),
@@ -76,9 +75,37 @@ test('issuance persists no bearer and opens only the validated browser URL', asy
   );
   const stored = await AsyncStorage.getItem(ADMISSION_HANDOFF_STORAGE);
   expect(stored).toContain(ID);
-  expect(stored).not.toContain('one-time-secret');
+  expect(stored).not.toContain(BROWSER_TOKEN);
   expect(Linking.openURL).toHaveBeenCalledWith(
     expect.stringMatching(/^https:\/\/adjusternetwork\.org\//),
+  );
+});
+
+test('browser launch failure interrupts and removes local correlation state', async () => {
+  Linking.openURL.mockRejectedValueOnce(new Error('browser_unavailable'));
+  const site = {
+    url: 'https://adjusternetwork.org',
+    authToken: 'not-logged-by-test',
+    clientId: 'client-a',
+    jsonApi: jest
+      .fn()
+      .mockResolvedValueOnce({
+        handoff_id: ID,
+        browser_url: `https://adjusternetwork.org/renaissance/admission-handoff#token=${BROWSER_TOKEN}`,
+        expires_at: EXPIRES,
+        confirmation_token: CONFIRMATION,
+      })
+      .mockResolvedValueOnce({ handoff_id: ID, result: 'interrupted' }),
+  };
+  await expect(beginAdmissionHandoff(site)).rejects.toThrow(
+    'browser_unavailable',
+  );
+  await expect(
+    AsyncStorage.getItem(ADMISSION_HANDOFF_STORAGE),
+  ).resolves.toBeNull();
+  expect(site.jsonApi).toHaveBeenLastCalledWith(
+    `/native/v1/admission-handoffs/${ID}/interruption`,
+    'POST',
   );
 });
 
@@ -91,8 +118,7 @@ test('confirmation callback proves native possession before browser finalization
       .fn()
       .mockResolvedValueOnce({
         handoff_id: ID,
-        browser_url:
-          'https://adjusternetwork.org/renaissance/admission-handoff#token=one-time-secret',
+        browser_url: `https://adjusternetwork.org/renaissance/admission-handoff#token=${BROWSER_TOKEN}`,
         confirmation_token: CONFIRMATION,
         expires_at: EXPIRES,
       })

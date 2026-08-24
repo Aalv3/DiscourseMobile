@@ -45,7 +45,7 @@ export function validateIssuedHandoff(payload, now = Date.now()) {
     browser.origin !== adjusterNetwork.canonicalOrigin ||
     browser.pathname !== HANDOFF_PATH ||
     browser.search !== '' ||
-    !browser.hash.startsWith('#token=') ||
+    !/^#token=[A-Za-z0-9_-]{43,128}$/.test(browser.hash) ||
     !CONFIRMATION_PATTERN.test(payload.confirmation_token || '') ||
     !Number.isFinite(expiry) ||
     expiry <= now
@@ -81,6 +81,14 @@ export async function beginAdmissionHandoff(site) {
       return_uri: ADMISSION_RETURN_URI,
     }),
   );
+  try {
+    const previous = JSON.parse(
+      (await AsyncStorage.getItem(ADMISSION_HANDOFF_STORAGE)) || 'null',
+    );
+    if (previous?.handoffId) confirmationSecrets.delete(previous.handoffId);
+  } catch {
+    // Invalid non-secret correlation state is replaced below.
+  }
   // Persist correlation metadata only. The bearer remains solely in the HTTPS
   // browser URL and is never written to AsyncStorage or diagnostics.
   await AsyncStorage.setItem(
@@ -94,7 +102,21 @@ export async function beginAdmissionHandoff(site) {
   // The confirmation bearer is intentionally memory-only. If the process is
   // killed, the flow is interrupted and a new handoff must be issued.
   confirmationSecrets.set(issued.handoffId, issued.confirmationToken);
-  await Linking.openURL(issued.browserUrl);
+  try {
+    await Linking.openURL(issued.browserUrl);
+  } catch (error) {
+    confirmationSecrets.delete(issued.handoffId);
+    await AsyncStorage.removeItem(ADMISSION_HANDOFF_STORAGE);
+    await site
+      .jsonApi(
+        `/native/v1/admission-handoffs/${encodeURIComponent(
+          issued.handoffId,
+        )}/interruption`,
+        'POST',
+      )
+      .catch(() => {});
+    throw error;
+  }
   return { handoffId: issued.handoffId, expiresAt: issued.expiresAt };
 }
 
@@ -157,6 +179,7 @@ export async function reconcileAdmissionReturn(site, params, now = Date.now()) {
       finalize.origin !== adjusterNetwork.canonicalOrigin ||
       finalize.pathname !== FINALIZE_PATH ||
       finalize.searchParams.get('id') !== callback.handoffId ||
+      [...finalize.searchParams.keys()].some(key => key !== 'id') ||
       finalize.hash !== ''
     ) {
       throw new Error('admission_handoff_invalid');
