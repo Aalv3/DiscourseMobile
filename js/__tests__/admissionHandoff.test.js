@@ -173,6 +173,32 @@ test('callback never establishes completion without authoritative status', async
   ).resolves.toEqual({ result: 'success', admissionComplete: false });
 });
 
+test('server completion remains authoritative after local issuance expiry', async () => {
+  await AsyncStorage.setItem(
+    ADMISSION_HANDOFF_STORAGE,
+    JSON.stringify({
+      handoffId: ID,
+      expiresAt: '2020-01-01T00:00:00Z',
+      siteOrigin: 'https://adjusternetwork.org',
+    }),
+  );
+  const site = {
+    url: 'https://adjusternetwork.org',
+    jsonApi: jest.fn().mockResolvedValue({
+      handoff_id: ID,
+      result: 'success',
+      admission_complete: true,
+    }),
+  };
+  await expect(
+    reconcileAdmissionReturn(site, {
+      admission_handoff: 'success',
+      handoff_id: ID,
+    }),
+  ).resolves.toEqual({ result: 'success', admissionComplete: true });
+  expect(site.jsonApi).toHaveBeenCalledTimes(1);
+});
+
 test('wrong correlation and unrecognized result fail closed', async () => {
   expect(
     parseAdmissionReturn({ admission_handoff: 'success', handoff_id: 'wrong' }),

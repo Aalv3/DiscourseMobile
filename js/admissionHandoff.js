@@ -120,7 +120,7 @@ export async function beginAdmissionHandoff(site) {
   return { handoffId: issued.handoffId, expiresAt: issued.expiresAt };
 }
 
-export async function reconcileAdmissionReturn(site, params, now = Date.now()) {
+export async function reconcileAdmissionReturn(site, params) {
   const callback = parseAdmissionReturn(params);
   if (!callback) return { result: 'invalid', admissionComplete: false };
 
@@ -139,12 +139,6 @@ export async function reconcileAdmissionReturn(site, params, now = Date.now()) {
   ) {
     return { result: 'invalid', admissionComplete: false };
   }
-  if (Date.parse(pending.expiresAt) <= now) {
-    confirmationSecrets.delete(callback.handoffId);
-    await AsyncStorage.removeItem(ADMISSION_HANDOFF_STORAGE);
-    return { result: 'expired', admissionComplete: false };
-  }
-
   if (callback.result === 'confirmation_required') {
     const confirmationToken = confirmationSecrets.get(callback.handoffId);
     if (!confirmationToken) {
@@ -211,7 +205,7 @@ export async function reconcileAdmissionReturn(site, params, now = Date.now()) {
   };
 }
 
-export async function reconcilePendingAdmission(site, now = Date.now()) {
+export async function reconcilePendingAdmission(site) {
   let pending;
   try {
     pending = JSON.parse(
@@ -221,11 +215,9 @@ export async function reconcilePendingAdmission(site, now = Date.now()) {
     return { result: 'invalid', admissionComplete: false };
   }
   if (!pending) return null;
-  if (Date.parse(pending.expiresAt) <= now) {
-    confirmationSecrets.delete(pending.handoffId);
-    await AsyncStorage.removeItem(ADMISSION_HANDOFF_STORAGE);
-    return { result: 'expired', admissionComplete: false };
-  }
+  // Local time never overrides the server. A terminal callback can arrive
+  // after the issuance timestamp while the server has already completed the
+  // transaction, so status remains authoritative for expiry and completion.
   const status = await site.jsonApi(
     `/native/v1/admission-handoffs/${encodeURIComponent(pending.handoffId)}`,
   );
