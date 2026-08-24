@@ -303,10 +303,10 @@ class Discourse extends React.Component {
     const site = this._siteManager.activeSite || this._siteManager.sites[0];
     const navigationReady = Boolean(
       this.state.signedIn &&
-      this.state.onboardingReady &&
-      (this.state.onboardingStatus === ONBOARDING_STATUS.COMPLETED ||
-        this.state.onboardingDismissedForSession) &&
-      this._navigation,
+        this.state.onboardingReady &&
+        (this.state.onboardingStatus === ONBOARDING_STATUS.COMPLETED ||
+          this.state.onboardingDismissedForSession) &&
+        this._navigation,
     );
     const routed = this._pushRoute.flush({
       origin: adjusterNetwork.canonicalOrigin,
