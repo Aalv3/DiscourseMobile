@@ -22,8 +22,11 @@ import {
   parseAuthCallbackParameters,
   parseDecryptedAuthPayload,
 } from './authCallback';
-import { ADMISSION_HANDOFF_SCOPE } from './admissionHandoff';
-import { markAuthorizationProfileCurrent } from './authorizationProfile';
+import {
+  markAuthorizationProfileCurrent,
+  REQUIRED_AUTHORIZATION_SCOPES,
+  validateAuthorizationProfile,
+} from './authorizationProfile';
 
 const { DiscourseKeyboardShortcuts } = NativeModules;
 const REFRESH_THROTTLE_MS = 5000;
@@ -448,11 +451,44 @@ class SiteManager {
       return false;
     }
 
+    const previousToken = nonceSite.authToken;
+    const previousHasPush = nonceSite.hasPush;
+    const previousApiVersion = nonceSite.apiVersion;
+    const restorePreviousAuthorization = async () => {
+      nonceSite.authToken = previousToken;
+      nonceSite.hasPush = previousHasPush;
+      nonceSite.apiVersion = previousApiVersion;
+      if (previousToken) {
+        await credentialStore.storeSiteToken(nonceSite.url, previousToken);
+      } else {
+        await credentialStore.removeSiteToken(nonceSite.url);
+      }
+    };
     nonceSite.authToken = decrypted.key;
     nonceSite.hasPush = decrypted.push;
     nonceSite.apiVersion = decrypted.api;
-    await credentialStore.storeSiteToken(nonceSite.url, nonceSite.authToken);
-    await markAuthorizationProfileCurrent(nonceSite.clientId);
+    let authorizationProfile;
+    try {
+      authorizationProfile = await nonceSite.jsonApi(
+        '/native/v1/authorization-profile',
+      );
+    } catch {
+      await restorePreviousAuthorization();
+      return false;
+    }
+    if (
+      !validateAuthorizationProfile(authorizationProfile, nonceSite.clientId)
+    ) {
+      await restorePreviousAuthorization();
+      return false;
+    }
+    try {
+      await credentialStore.storeSiteToken(nonceSite.url, decrypted.key);
+      await markAuthorizationProfileCurrent(nonceSite.clientId);
+    } catch {
+      await restorePreviousAuthorization();
+      return false;
+    }
     this.save();
 
     // cause we want to stop rendering connect
@@ -492,17 +528,7 @@ class SiteManager {
           // same User API Key authorization rather than falling back to web
           // cookies or a PWA session. Member discovery is separately scoped
           // and production-authorized so profile search remains read-only.
-          const scopes = [
-            'read',
-            'write',
-            'notifications',
-            'session_info',
-            'one_time_password',
-            'adjuster-network-renaissance:member_discovery',
-            'adjuster-network-renaissance:profile_onboarding',
-            'adjuster-network-renaissance:creator_delete',
-            ADMISSION_HANDOFF_SCOPE,
-          ].join(',');
+          const scopes = REQUIRED_AUTHORIZATION_SCOPES.join(',');
 
           let params = {
             scopes: scopes,

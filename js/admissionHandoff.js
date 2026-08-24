@@ -60,9 +60,31 @@ export function validateIssuedHandoff(payload, now = Date.now()) {
   };
 }
 
-export function parseAdmissionReturn(params) {
-  const result = params?.admission_handoff;
-  const handoffId = params?.handoff_id;
+export function parseAdmissionReturn(callbackUrl) {
+  let callback;
+  try {
+    callback = new URL(callbackUrl);
+  } catch {
+    return null;
+  }
+  const keys = [...callback.searchParams.keys()];
+  if (
+    callback.protocol !== 'adjusternetwork:' ||
+    callback.hostname !== 'auth_redirect' ||
+    (callback.pathname !== '' && callback.pathname !== '/') ||
+    callback.username !== '' ||
+    callback.password !== '' ||
+    callback.port !== '' ||
+    callback.hash !== '' ||
+    keys.length !== 2 ||
+    keys.some(key => !['admission_handoff', 'handoff_id'].includes(key)) ||
+    callback.searchParams.getAll('admission_handoff').length !== 1 ||
+    callback.searchParams.getAll('handoff_id').length !== 1
+  ) {
+    return null;
+  }
+  const result = callback.searchParams.get('admission_handoff');
+  const handoffId = callback.searchParams.get('handoff_id');
   if (
     !ADMISSION_RESULTS.includes(result) ||
     !ID_PATTERN.test(handoffId || '')
@@ -120,8 +142,8 @@ export async function beginAdmissionHandoff(site) {
   return { handoffId: issued.handoffId, expiresAt: issued.expiresAt };
 }
 
-export async function reconcileAdmissionReturn(site, params) {
-  const callback = parseAdmissionReturn(params);
+export async function reconcileAdmissionReturn(site, callbackUrl) {
+  const callback = parseAdmissionReturn(callbackUrl);
   if (!callback) return { result: 'invalid', admissionComplete: false };
 
   let pending;
@@ -222,7 +244,10 @@ export async function reconcilePendingAdmission(site) {
     `/native/v1/admission-handoffs/${encodeURIComponent(pending.handoffId)}`,
   );
   const result = status?.result || 'invalid';
-  if (result === 'interrupted' && !confirmationSecrets.has(pending.handoffId)) {
+  if (
+    ['interrupted', 'confirmation_required'].includes(result) &&
+    !confirmationSecrets.has(pending.handoffId)
+  ) {
     await site
       .jsonApi(
         `/native/v1/admission-handoffs/${encodeURIComponent(

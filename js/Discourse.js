@@ -303,10 +303,10 @@ class Discourse extends React.Component {
     const site = this._siteManager.activeSite || this._siteManager.sites[0];
     const navigationReady = Boolean(
       this.state.signedIn &&
-        this.state.onboardingReady &&
-        (this.state.onboardingStatus === ONBOARDING_STATUS.COMPLETED ||
-          this.state.onboardingDismissedForSession) &&
-        this._navigation,
+      this.state.onboardingReady &&
+      (this.state.onboardingStatus === ONBOARDING_STATUS.COMPLETED ||
+        this.state.onboardingDismissedForSession) &&
+      this._navigation,
     );
     const routed = this._pushRoute.flush({
       origin: adjusterNetwork.canonicalOrigin,
@@ -329,7 +329,7 @@ class Discourse extends React.Component {
       const params = this._siteManager.parseURLparameters(event.url);
       const site = this._siteManager.activeSite;
 
-      if (parseAdmissionReturn(params)) {
+      if (parseAdmissionReturn(event.url)) {
         const authenticatedSite =
           site ||
           this._siteManager.listSites().find(candidate => candidate.authToken);
@@ -337,7 +337,7 @@ class Discourse extends React.Component {
         try {
           const result = await reconcileAdmissionReturn(
             authenticatedSite,
-            params,
+            event.url,
           );
           securityEvent(`admission.handoff.${result.result}`);
           await this._productSiteSubscription?.();

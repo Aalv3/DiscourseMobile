@@ -30,4 +30,23 @@ describe('auth and push identity separation', () => {
     expect(transportSource).not.toContain('@ClientId');
     expect(transportSource).not.toContain('.clientId =');
   });
+
+  test('replacement authorization is server-attested before credential commit', () => {
+    const managerSource = fs.readFileSync(
+      path.join(__dirname, '..', 'site_manager.js'),
+      'utf8',
+    );
+    const verifyIndex = managerSource.indexOf(
+      "'/native/v1/authorization-profile'",
+    );
+    const persistIndex = managerSource.indexOf(
+      'storeSiteToken(nonceSite.url, decrypted.key)',
+    );
+    expect(verifyIndex).toBeGreaterThan(0);
+    expect(persistIndex).toBeGreaterThan(verifyIndex);
+    expect(managerSource).toContain('restorePreviousAuthorization');
+    expect(managerSource).toContain(
+      'validateAuthorizationProfile(authorizationProfile, nonceSite.clientId)',
+    );
+  });
 });

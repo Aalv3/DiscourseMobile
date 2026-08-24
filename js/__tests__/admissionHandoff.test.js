@@ -12,6 +12,7 @@ import {
   beginAdmissionHandoff,
   parseAdmissionReturn,
   reconcileAdmissionReturn,
+  reconcilePendingAdmission,
   validateIssuedHandoff,
 } from '../admissionHandoff';
 
@@ -21,6 +22,8 @@ const ID = '21eb7dcf-a095-4b58-bda8-a67f40cf3069';
 const EXPIRES = '2030-08-24T12:05:00Z';
 const CONFIRMATION = 'c'.repeat(43);
 const BROWSER_TOKEN = 'b'.repeat(43);
+const callback = result =>
+  `${ADMISSION_RETURN_URI}?admission_handoff=${result}&handoff_id=${ID}`;
 
 beforeEach(async () => {
   await AsyncStorage.clear();
@@ -131,11 +134,7 @@ test('confirmation callback proves native possession before browser finalization
   await beginAdmissionHandoff(site);
   Linking.openURL.mockClear();
   await expect(
-    reconcileAdmissionReturn(
-      site,
-      { admission_handoff: 'confirmation_required', handoff_id: ID },
-      Date.parse('2030-08-24T12:00:00Z'),
-    ),
+    reconcileAdmissionReturn(site, callback('confirmation_required')),
   ).resolves.toEqual({ result: 'interrupted', admissionComplete: false });
   expect(site.jsonApi).toHaveBeenLastCalledWith(
     `/native/v1/admission-handoffs/${ID}/confirmation`,
@@ -165,11 +164,7 @@ test('callback never establishes completion without authoritative status', async
     }),
   };
   await expect(
-    reconcileAdmissionReturn(
-      site,
-      { admission_handoff: 'success', handoff_id: ID },
-      Date.parse('2030-08-24T12:00:00Z'),
-    ),
+    reconcileAdmissionReturn(site, callback('success')),
   ).resolves.toEqual({ result: 'success', admissionComplete: false });
 });
 
@@ -191,21 +186,27 @@ test('server completion remains authoritative after local issuance expiry', asyn
     }),
   };
   await expect(
-    reconcileAdmissionReturn(site, {
-      admission_handoff: 'success',
-      handoff_id: ID,
-    }),
+    reconcileAdmissionReturn(site, callback('success')),
   ).resolves.toEqual({ result: 'success', admissionComplete: true });
   expect(site.jsonApi).toHaveBeenCalledTimes(1);
 });
 
-test('wrong correlation and unrecognized result fail closed', async () => {
-  expect(
-    parseAdmissionReturn({ admission_handoff: 'success', handoff_id: 'wrong' }),
-  ).toBeNull();
-  expect(
-    parseAdmissionReturn({ admission_handoff: 'accepted', handoff_id: ID }),
-  ).toBeNull();
+test('only the exact callback origin, shape, and keys are accepted', async () => {
+  expect(parseAdmissionReturn(callback('success'))).toEqual({
+    result: 'success',
+    handoffId: ID,
+  });
+  for (const url of [
+    `evil://auth_redirect?admission_handoff=success&handoff_id=${ID}`,
+    `adjusternetwork://other?admission_handoff=success&handoff_id=${ID}`,
+    `${callback('success')}&next=https://evil.example`,
+    `${callback('success')}&handoff_id=${ID}`,
+    `${callback('success')}#fragment`,
+    `${ADMISSION_RETURN_URI}?admission_handoff=accepted&handoff_id=${ID}`,
+    `${ADMISSION_RETURN_URI}?admission_handoff=success&handoff_id=wrong`,
+  ]) {
+    expect(parseAdmissionReturn(url)).toBeNull();
+  }
 });
 
 test('replayed callback cannot use cleared pending state', async () => {
@@ -225,7 +226,7 @@ test('replayed callback cannot use cleared pending state', async () => {
       admission_complete: true,
     }),
   };
-  const params = { admission_handoff: 'success', handoff_id: ID };
+  const params = callback('success');
   await expect(
     reconcileAdmissionReturn(site, params, Date.parse('2030-08-24T12:00:00Z')),
   ).resolves.toEqual({ result: 'success', admissionComplete: true });
@@ -233,4 +234,37 @@ test('replayed callback cannot use cleared pending state', async () => {
     reconcileAdmissionReturn(site, params, Date.parse('2030-08-24T12:00:00Z')),
   ).resolves.toEqual({ result: 'invalid', admissionComplete: false });
   expect(site.jsonApi).toHaveBeenCalledTimes(1);
+});
+
+test('relaunch without memory-only confirmation bearer interrupts server record', async () => {
+  await AsyncStorage.setItem(
+    ADMISSION_HANDOFF_STORAGE,
+    JSON.stringify({
+      handoffId: ID,
+      expiresAt: EXPIRES,
+      siteOrigin: 'https://adjusternetwork.org',
+    }),
+  );
+  const site = {
+    url: 'https://adjusternetwork.org',
+    jsonApi: jest
+      .fn()
+      .mockResolvedValueOnce({
+        handoff_id: ID,
+        result: 'confirmation_required',
+        admission_complete: false,
+      })
+      .mockResolvedValueOnce({ handoff_id: ID, result: 'interrupted' }),
+  };
+  await expect(reconcilePendingAdmission(site)).resolves.toEqual({
+    result: 'interrupted',
+    admissionComplete: false,
+  });
+  expect(site.jsonApi).toHaveBeenLastCalledWith(
+    `/native/v1/admission-handoffs/${ID}/interruption`,
+    'POST',
+  );
+  await expect(
+    AsyncStorage.getItem(ADMISSION_HANDOFF_STORAGE),
+  ).resolves.toBeNull();
 });

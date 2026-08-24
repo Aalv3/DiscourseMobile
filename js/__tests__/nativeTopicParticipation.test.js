@@ -12,6 +12,10 @@ const siteManagerSource = fs.readFileSync(
   path.join(__dirname, '../site_manager.js'),
   'utf8',
 );
+const authorizationProfileSource = fs.readFileSync(
+  path.join(__dirname, '../authorizationProfile.js'),
+  'utf8',
+);
 
 describe('native topic participation', () => {
   test('uses the authenticated Discourse create-post endpoint', () => {
@@ -29,10 +33,14 @@ describe('native topic participation', () => {
       "'adjuster-network-renaissance:member_discovery'",
       "'adjuster-network-renaissance:profile_onboarding'",
       "'adjuster-network-renaissance:creator_delete'",
-      'ADMISSION_HANDOFF_SCOPE',
+      "'adjuster-network-renaissance:admission_handoff'",
+      "'adjuster-network-renaissance:authorization_profile'",
     ]) {
-      expect(siteManagerSource).toContain(scope);
+      expect(authorizationProfileSource).toContain(scope);
     }
+    expect(siteManagerSource).toContain(
+      "const scopes = REQUIRED_AUTHORIZATION_SCOPES.join(',')",
+    );
   });
 
   test('provides an accessible native composer and refreshes after posting', () => {
