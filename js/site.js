@@ -178,6 +178,14 @@ class Site {
             error.status = r1.status;
             try {
               const payload = await r1.json();
+              error.code =
+                typeof payload?.error === 'string' ? payload.error : null;
+              error.reason =
+                typeof payload?.reason === 'string' ? payload.reason : null;
+              error.continueAt =
+                typeof payload?.continue_at === 'string'
+                  ? payload.continue_at
+                  : null;
               error.userMessages = Array.isArray(payload?.errors)
                 ? payload.errors.filter(message => typeof message === 'string')
                 : [];

@@ -22,6 +22,8 @@ import {
   parseAuthCallbackParameters,
   parseDecryptedAuthPayload,
 } from './authCallback';
+import { ADMISSION_HANDOFF_SCOPE } from './admissionHandoff';
+import { markAuthorizationProfileCurrent } from './authorizationProfile';
 
 const { DiscourseKeyboardShortcuts } = NativeModules;
 const REFRESH_THROTTLE_MS = 5000;
@@ -450,6 +452,7 @@ class SiteManager {
     nonceSite.hasPush = decrypted.push;
     nonceSite.apiVersion = decrypted.api;
     await credentialStore.storeSiteToken(nonceSite.url, nonceSite.authToken);
+    await markAuthorizationProfileCurrent(nonceSite.clientId);
     this.save();
 
     // cause we want to stop rendering connect
@@ -489,8 +492,17 @@ class SiteManager {
           // same User API Key authorization rather than falling back to web
           // cookies or a PWA session. Member discovery is separately scoped
           // and production-authorized so profile search remains read-only.
-          let scopes =
-            'read,write,notifications,session_info,one_time_password,adjuster-network-renaissance:member_discovery';
+          const scopes = [
+            'read',
+            'write',
+            'notifications',
+            'session_info',
+            'one_time_password',
+            'adjuster-network-renaissance:member_discovery',
+            'adjuster-network-renaissance:profile_onboarding',
+            'adjuster-network-renaissance:creator_delete',
+            ADMISSION_HANDOFF_SCOPE,
+          ].join(',');
 
           let params = {
             scopes: scopes,
