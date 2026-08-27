@@ -1,12 +1,13 @@
 /* @flow */
 'use strict';
 
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActionSheetIOS,
   Alert,
   Image,
   Linking,
+  NativeModules,
   Platform,
   Pressable,
   StyleSheet,
@@ -39,8 +40,21 @@ const permissionAlert = kind =>
 
 export function useAttachmentQueue(site, uploadType = 'composer') {
   const [attachments, setAttachments] = useState([]);
+  const attachmentsRef = useRef(attachments);
+  attachmentsRef.current = attachments;
   const activeUploads = useRef(new Map());
   const enabled = mediaUploadsEnabledForSite(site);
+  const discardSharedAsset = useCallback(asset => {
+    if (asset?.sharedFilename) {
+      NativeModules.DiscourseKeyboardShortcuts?.discardSharedImage?.(
+        asset.sharedFilename,
+      ).catch(() => {});
+    }
+  }, []);
+  useEffect(
+    () => () => attachmentsRef.current.forEach(discardSharedAsset),
+    [discardSharedAsset],
+  );
 
   const addAssets = useCallback(assets => {
     const additions = (assets || [])
@@ -110,9 +124,17 @@ export function useAttachmentQueue(site, uploadType = 'composer') {
     }
   }, [chooseFiles, choosePhotos, enabled, takePhoto]);
 
-  const remove = useCallback(localId => {
-    setAttachments(current => current.filter(item => item.localId !== localId));
-  }, []);
+  const remove = useCallback(
+    localId => {
+      setAttachments(current => {
+        current
+          .filter(item => item.localId === localId)
+          .forEach(discardSharedAsset);
+        return current.filter(item => item.localId !== localId);
+      });
+    },
+    [discardSharedAsset],
+  );
 
   const uploadOne = useCallback(
     async localId => {
@@ -139,6 +161,7 @@ export function useAttachmentQueue(site, uploadType = 'composer') {
           upload,
           error: null,
         };
+        discardSharedAsset(target);
         setAttachments(current =>
           current.map(item => (item.localId === localId ? completed : item)),
         );
@@ -158,7 +181,7 @@ export function useAttachmentQueue(site, uploadType = 'composer') {
         activeUploads.current.delete(localId);
       }
     },
-    [attachments, enabled, site, uploadType],
+    [attachments, discardSharedAsset, enabled, site, uploadType],
   );
 
   const uploadAll = useCallback(async () => {
@@ -177,9 +200,17 @@ export function useAttachmentQueue(site, uploadType = 'composer') {
     activeUploads.current.get(localId)?.abort?.();
   }, []);
 
-  const clear = useCallback(() => setAttachments([]), []);
+  const clear = useCallback(
+    () =>
+      setAttachments(current => {
+        current.forEach(discardSharedAsset);
+        return [];
+      }),
+    [discardSharedAsset],
+  );
   return {
     attachments,
+    addAssets,
     chooseSource,
     cancel,
     remove,

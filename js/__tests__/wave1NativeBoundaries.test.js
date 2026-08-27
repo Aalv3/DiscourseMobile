@@ -72,9 +72,32 @@ describe('Wave 1 native boundaries', () => {
     }
     expect(source).toContain('an.share-intent.v1');
     expect(source).toContain('.completeFileProtection');
-    expect(source).not.toContain('extensionContext?.open');
+    expect(source).toContain('extensionContext?.open(callback)');
     expect(source).not.toMatch(/authToken|User-Api-Key|clientId|credential/i);
     expect(source).not.toContain('UIApplication.shared');
+  });
+
+  test('accepts one bounded image through a protected one-shot handoff', () => {
+    const plist = read('ios/ShareExtension/Info.plist');
+    const extension = read('ios/ShareExtension/ShareViewController.swift');
+    const nativeModule = read('ios/DiscourseKeyboardShortcuts.m');
+    const app = read('js/Discourse.js');
+    const composer = read('js/product/AttachmentComposer.js');
+    expect(plist).toContain('NSExtensionActivationSupportsImageWithMaxCount');
+    expect(plist).toMatch(
+      /NSExtensionActivationSupportsImageWithMaxCount<\/key>\s*<integer>1<\/integer>/,
+    );
+    expect(extension).toContain('15 * 1024 * 1024');
+    expect(extension).toContain('loadFileRepresentation');
+    expect(extension).toContain(
+      'completeFileProtectionUntilFirstUserAuthentication',
+    );
+    expect(extension).not.toMatch(/PHAsset|assets-library:/);
+    expect(nativeModule).toContain('discardSharedImage');
+    expect(nativeModule).toContain('ANRemoveExpiredSharedImages');
+    expect(nativeModule).toContain('actualSize <= 15 * 1024 * 1024');
+    expect(app).toContain("intent.kind === 'image'");
+    expect(composer).toContain('discardSharedAsset');
   });
 
   test('consumes and deletes bounded shared payload before authenticated routing', () => {
@@ -82,7 +105,7 @@ describe('Wave 1 native boundaries', () => {
     const app = read('js/Discourse.js');
     expect(nativeModule).toContain('consumeShareIntent');
     expect(nativeModule).toContain('removeItemAtURL:file');
-    expect(nativeModule).toContain('data.length > 12288');
+    expect(nativeModule).toContain('data.length > 4096');
     expect(nativeModule).toContain('age <= 300');
     expect(nativeModule).toContain('adjusternetwork.org');
     expect(app).toContain("event.url === 'adjusternetwork://share'");

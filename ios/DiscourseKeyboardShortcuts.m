@@ -9,6 +9,27 @@
 static NSString *pendingAPNSToken = nil;
 static BOOL pendingAPNSRegistrationFailure = NO;
 
+static void ANRemoveExpiredSharedImages(NSURL *container)
+{
+  if (!container) return;
+  NSFileManager *files = [NSFileManager defaultManager];
+  NSArray<NSURL *> *contents = [files contentsOfDirectoryAtURL:container
+                                   includingPropertiesForKeys:@[NSURLContentModificationDateKey]
+                                                      options:NSDirectoryEnumerationSkipsHiddenFiles
+                                                        error:nil];
+  NSDate *cutoff = [NSDate dateWithTimeIntervalSinceNow:-600];
+  NSRegularExpression *pattern = [NSRegularExpression regularExpressionWithPattern:@"^shared-image-[0-9a-f-]{36}\\.(jpe?g|png|heic|heif|gif|webp)$" options:NSRegularExpressionCaseInsensitive error:nil];
+  for (NSURL *candidate in contents) {
+    NSString *name = candidate.lastPathComponent;
+    if ([pattern numberOfMatchesInString:name options:0 range:NSMakeRange(0, name.length)] != 1) continue;
+    NSDate *modified = nil;
+    [candidate getResourceValue:&modified forKey:NSURLContentModificationDateKey error:nil];
+    if (modified && [modified compare:cutoff] == NSOrderedAscending) {
+      [files removeItemAtURL:candidate error:nil];
+    }
+  }
+}
+
 static void ANPersistPushDiagnostic(NSString *stage, NSString *category,
                                     NSString *statusClass, NSString *outcome)
 {
@@ -233,15 +254,17 @@ RCT_REMAP_METHOD(consumeShareIntent,
 {
   NSURL *container = [[NSFileManager defaultManager]
       containerURLForSecurityApplicationGroupIdentifier:@"group.org.adjusternetwork.app"];
+  ANRemoveExpiredSharedImages(container);
   NSURL *file = [container URLByAppendingPathComponent:@"pending-share.json"];
   NSData *data = file ? [NSData dataWithContentsOfURL:file] : nil;
-  if (file) [[NSFileManager defaultManager] removeItemAtURL:file error:nil];
-  if (!data || data.length > 12288) {
+  if (!data || data.length > 4096) {
+    if (file) [[NSFileManager defaultManager] removeItemAtURL:file error:nil];
     resolve([NSNull null]);
     return;
   }
   id decoded = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
   if (![decoded isKindOfClass:[NSDictionary class]]) {
+    if (file) [[NSFileManager defaultManager] removeItemAtURL:file error:nil];
     resolve([NSNull null]);
     return;
   }
@@ -253,7 +276,7 @@ RCT_REMAP_METHOD(consumeShareIntent,
   NSTimeInterval age = [[NSDate date] timeIntervalSince1970] - createdAt.doubleValue;
   BOOL valid = [schema isEqualToString:@"an.share-intent.v1"] &&
       [createdAt isKindOfClass:[NSNumber class]] &&
-      ([kind isEqualToString:@"url"] || [kind isEqualToString:@"text"]) &&
+      ([kind isEqualToString:@"url"] || [kind isEqualToString:@"text"] || [kind isEqualToString:@"image"]) &&
       value.length > 0 && value.length <= ([kind isEqualToString:@"url"] ? 2048 : 8192) &&
       age >= 0 && age <= 300;
   if (valid && [kind isEqualToString:@"url"]) {
@@ -261,7 +284,39 @@ RCT_REMAP_METHOD(consumeShareIntent,
     valid = [url.scheme.lowercaseString isEqualToString:@"https"] &&
         [url.host.lowercaseString isEqualToString:@"adjusternetwork.org"];
   }
-  resolve(valid ? payload : [NSNull null]);
+  NSMutableDictionary *result = [payload mutableCopy];
+  if (valid && [kind isEqualToString:@"image"]) {
+    NSString *name = payload[@"name"];
+    NSString *mimeType = payload[@"mime_type"];
+    NSNumber *size = payload[@"size"];
+    NSRegularExpression *pattern = [NSRegularExpression regularExpressionWithPattern:@"^shared-image-[0-9a-f-]{36}\\.(jpe?g|png|heic|heif|gif|webp)$" options:NSRegularExpressionCaseInsensitive error:nil];
+    NSSet *mimeTypes = [NSSet setWithArray:@[@"image/jpeg", @"image/png", @"image/heic", @"image/heif", @"image/gif", @"image/webp"]];
+    BOOL safeFilename = value.length <= 128 && [pattern numberOfMatchesInString:value options:0 range:NSMakeRange(0, value.length)] == 1;
+    NSURL *imageURL = safeFilename ? [container URLByAppendingPathComponent:value isDirectory:NO] : nil;
+    NSDictionary *attributes = imageURL ? [[NSFileManager defaultManager] attributesOfItemAtPath:imageURL.path error:nil] : nil;
+    unsigned long long actualSize = [attributes fileSize];
+    valid = safeFilename && [name isKindOfClass:[NSString class]] && name.length > 0 && name.length <= 128 &&
+        [mimeType isKindOfClass:[NSString class]] && [mimeTypes containsObject:mimeType] &&
+        [size isKindOfClass:[NSNumber class]] && size.unsignedLongLongValue == actualSize &&
+        actualSize > 0 && actualSize <= 15 * 1024 * 1024 &&
+        [attributes[NSFileType] isEqualToString:NSFileTypeRegular];
+    if (valid) result[@"uri"] = imageURL.absoluteString;
+    if (!valid && imageURL) [[NSFileManager defaultManager] removeItemAtURL:imageURL error:nil];
+  }
+  if (file) [[NSFileManager defaultManager] removeItemAtURL:file error:nil];
+  resolve(valid ? result : [NSNull null]);
+}
+
+RCT_REMAP_METHOD(discardSharedImage,
+                 discardSharedImageNamed:(NSString *)filename
+                 resolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject)
+{
+  NSRegularExpression *pattern = [NSRegularExpression regularExpressionWithPattern:@"^shared-image-[0-9a-f-]{36}\\.(jpe?g|png|heic|heif|gif|webp)$" options:NSRegularExpressionCaseInsensitive error:nil];
+  BOOL safe = filename.length <= 128 && [pattern numberOfMatchesInString:filename options:0 range:NSMakeRange(0, filename.length)] == 1;
+  NSURL *container = [[NSFileManager defaultManager] containerURLForSecurityApplicationGroupIdentifier:@"group.org.adjusternetwork.app"];
+  BOOL removed = safe && container && [[NSFileManager defaultManager] removeItemAtURL:[container URLByAppendingPathComponent:filename] error:nil];
+  resolve(@(removed));
 }
 
 RCT_REMAP_METHOD(generateSecureInstallationId,

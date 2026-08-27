@@ -36,6 +36,7 @@ export const normalizePickerAsset = asset => ({
   size: Number(asset.fileSize || asset.size || 0),
   width: asset.width || null,
   height: asset.height || null,
+  sharedFilename: asset.sharedFilename || null,
   status: 'queued',
   error: null,
   upload: null,

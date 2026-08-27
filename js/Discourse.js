@@ -383,26 +383,43 @@ class Discourse extends React.Component {
   }
 
   async _consumeShareIntent() {
-    const intent = await DiscourseKeyboardShortcuts?.consumeShareIntent?.();
-    if (!intent) return false;
     const authenticated = this._siteManager
       .listSites()
       .find(candidate => candidate.authToken);
-    if (!authenticated) {
+    if (!authenticated || !this._navigation) {
+      if (authenticated) return false;
       Alert.alert(
         'Sign in to share',
         'Open Adjuster Network and sign in before sharing member content.',
       );
       return false;
     }
+    const intent = await DiscourseKeyboardShortcuts?.consumeShareIntent?.();
+    if (!intent) return false;
     if (intent.kind === 'url') {
       this.openUrl(intent.value);
       return true;
     }
     if (intent.kind === 'text') {
-      this._navigation?.navigate('HomeWrapper', {
+      this._navigation.navigate('HomeWrapper', {
         screen: 'Ask',
         params: { sharedText: intent.value, shareIntentId: intent.id },
+      });
+      return true;
+    }
+    if (intent.kind === 'image') {
+      this._navigation.navigate('HomeWrapper', {
+        screen: 'Ask',
+        params: {
+          sharedImage: {
+            uri: intent.uri,
+            name: intent.name,
+            mimeType: intent.mime_type,
+            fileSize: intent.size,
+            sharedFilename: intent.value,
+          },
+          shareIntentId: intent.id,
+        },
       });
       return true;
     }
@@ -518,12 +535,18 @@ class Discourse extends React.Component {
             onboardingSessionId: sessionId,
             onboardingDismissedForSession: !onboardingRequired,
           },
-          this._flushPendingPushRoute,
+          () => {
+            this._flushPendingPushRoute();
+            this._consumeShareIntent();
+          },
         );
         return;
       }
 
-      this.setState({ signedIn: true }, this._flushPendingPushRoute);
+      this.setState({ signedIn: true }, () => {
+        this._flushPendingPushRoute();
+        this._consumeShareIntent();
+      });
     };
     this._siteManager.subscribe(this._productSiteSubscription);
     this._productSiteSubscription();

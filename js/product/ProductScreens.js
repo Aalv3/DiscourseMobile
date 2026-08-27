@@ -1220,6 +1220,21 @@ export function AskScreen({ navigation, route, screenProps }) {
       navigation.setParams({ sharedText: undefined, shareIntentId: undefined });
     }
   }, [navigation, route?.params?.shareIntentId, route?.params?.sharedText]);
+  useEffect(() => {
+    const sharedImage = route?.params?.sharedImage;
+    if (sharedImage?.uri && sharedImage?.sharedFilename) {
+      attachmentQueue.addAssets([sharedImage]);
+      navigation.setParams({
+        sharedImage: undefined,
+        shareIntentId: undefined,
+      });
+    }
+  }, [
+    attachmentQueue.addAssets,
+    navigation,
+    route?.params?.shareIntentId,
+    route?.params?.sharedImage,
+  ]);
   const submitQuestion = async () => {
     if (
       !site?.authToken ||

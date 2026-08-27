@@ -12,6 +12,7 @@ import {
   appendUploadMarkup,
   attachmentIsImage,
   mediaPrivacyReminder,
+  normalizePickerAsset,
   successfulUploadIds,
   uploadAttachment,
   uploadErrorMessage,
@@ -141,6 +142,24 @@ describe('native Discourse media attachments', () => {
     );
     expect(attachmentIsImage({ name: 'photo.webp' })).toBe(true);
     expect(attachmentIsImage({ name: 'estimate.pdf' })).toBe(false);
+  });
+
+  test('preserves the bounded App Group cleanup handle when normalizing a shared image', () => {
+    const normalized = normalizePickerAsset({
+      uri: 'file:///shared-image.jpg',
+      name: 'photo.jpg',
+      mimeType: 'image/jpeg',
+      fileSize: 42,
+      sharedFilename: 'shared-image-00000000-0000-0000-0000-000000000000.jpg',
+    });
+    expect(normalized).toMatchObject({
+      uri: 'file:///shared-image.jpg',
+      name: 'photo.jpg',
+      type: 'image/jpeg',
+      size: 42,
+      sharedFilename: 'shared-image-00000000-0000-0000-0000-000000000000.jpg',
+      status: 'queued',
+    });
   });
 
   test('renders cooked post and Chat upload metadata without private fields', () => {
