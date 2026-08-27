@@ -8,6 +8,15 @@ const root = path.join(__dirname, '../..');
 const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
 
 describe('Wave 1 native boundaries', () => {
+  test('pins staging pods to the SDK 54 Xcode 16.4 build image', () => {
+    const eas = JSON.parse(read('eas.json'));
+    expect(eas.build.staging.ios.image).toBe('macos-sequoia-15.6-xcode-16.4');
+    expect(eas.build.staging.ios.cocoapods).toBe('1.17.0');
+    expect(eas.build.staging.channel).toBe('staging');
+    expect(eas.build.staging.distribution).toBe('internal');
+    expect(eas.build.production.ios).toBeUndefined();
+  });
+
   test('pairs APNs and backend environments to trusted build configurations', () => {
     const project = read('ios/Discourse.xcodeproj/project.pbxproj');
     const entitlements = read('ios/Discourse/Discourse.entitlements');

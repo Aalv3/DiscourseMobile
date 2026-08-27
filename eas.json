@@ -7,6 +7,10 @@
     "staging": {
       "channel": "staging",
       "distribution": "internal",
+      "ios": {
+        "image": "macos-sequoia-15.6-xcode-16.4",
+        "cocoapods": "1.17.0"
+      },
       "env": {
         "AN_OTA_CHANNEL": "staging",
         "AN_OTA_CHANNEL_OVERRIDE": "staging"
