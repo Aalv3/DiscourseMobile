@@ -32,11 +32,11 @@ describe('Adjuster Network logged-out launch', () => {
 
     await waitFor(invitation)
       .toBeVisible()
-      .whileElement(by.type('RCTScrollView'))
+      .whileElement(by.id('logged-out-welcome-scroll'))
       .scroll(250, 'down');
     await waitFor(privacy)
       .toBeVisible()
-      .whileElement(by.type('RCTScrollView'))
+      .whileElement(by.id('logged-out-welcome-scroll'))
       .scroll(150, 'down');
 
     // The product-owned logged-out experience replaced upstream DiscourseMobile
