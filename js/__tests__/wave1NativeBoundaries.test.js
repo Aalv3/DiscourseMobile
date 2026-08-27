@@ -11,13 +11,23 @@ describe('Wave 1 native boundaries', () => {
   test('pairs APNs and backend environments to trusted build configurations', () => {
     const project = read('ios/Discourse.xcodeproj/project.pbxproj');
     const entitlements = read('ios/Discourse/Discourse.entitlements');
+    const developmentEntitlements = read(
+      'ios/Discourse/Discourse.development.entitlements',
+    );
     const info = read('ios/Discourse/Info.plist');
     const nativeModule = read('ios/DiscourseKeyboardShortcuts.m');
-    expect(project).toContain('AN_APNS_ENVIRONMENT = development;');
     expect(project).toContain('AN_PUSH_ENVIRONMENT = staging;');
-    expect(project).toContain('AN_APNS_ENVIRONMENT = production;');
     expect(project).toContain('AN_PUSH_ENVIRONMENT = production;');
-    expect(entitlements).toContain('$(AN_APNS_ENVIRONMENT)');
+    expect(project).toContain(
+      'CODE_SIGN_ENTITLEMENTS = Discourse/Discourse.development.entitlements;',
+    );
+    expect(project).toContain(
+      'CODE_SIGN_ENTITLEMENTS = Discourse/Discourse.entitlements;',
+    );
+    expect(developmentEntitlements).toContain('<string>development</string>');
+    expect(entitlements).toContain('<string>production</string>');
+    expect(developmentEntitlements).not.toContain('$(');
+    expect(entitlements).not.toContain('$(');
     expect(info).toContain('$(AN_PUSH_ENVIRONMENT)');
     expect(nativeModule).toContain('@"pushEnvironment"');
     expect(nativeModule).not.toMatch(

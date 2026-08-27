@@ -13,6 +13,9 @@ const androidManifest = read('android/app/src/main/AndroidManifest.xml');
 const iosProject = read('ios/Discourse.xcodeproj/project.pbxproj');
 const iosInfo = read('ios/Discourse/Info.plist');
 const iosEntitlements = read('ios/Discourse/Discourse.entitlements');
+const iosDevelopmentEntitlements = read(
+  'ios/Discourse/Discourse.development.entitlements',
+);
 const shareEntitlements = read(
   'ios/ShareExtension/ShareExtension.entitlements',
 );
@@ -97,11 +100,18 @@ check(
 );
 check(
   'iOS APNs build-channel separation',
-  iosProject.includes('AN_APNS_ENVIRONMENT = development;') &&
-    iosProject.includes('AN_PUSH_ENVIRONMENT = staging;') &&
-    iosProject.includes('AN_APNS_ENVIRONMENT = production;') &&
+  iosProject.includes('AN_PUSH_ENVIRONMENT = staging;') &&
     iosProject.includes('AN_PUSH_ENVIRONMENT = production;') &&
-    iosEntitlements.includes('$(AN_APNS_ENVIRONMENT)') &&
+    iosProject.includes(
+      'CODE_SIGN_ENTITLEMENTS = Discourse/Discourse.development.entitlements;',
+    ) &&
+    iosProject.includes(
+      'CODE_SIGN_ENTITLEMENTS = Discourse/Discourse.entitlements;',
+    ) &&
+    iosDevelopmentEntitlements.includes('<string>development</string>') &&
+    iosEntitlements.includes('<string>production</string>') &&
+    !iosDevelopmentEntitlements.includes('$(') &&
+    !iosEntitlements.includes('$(') &&
     iosInfo.includes('$(AN_PUSH_ENVIRONMENT)')
     ? 'PASS'
     : 'FAIL',

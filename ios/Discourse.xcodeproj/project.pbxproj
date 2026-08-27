@@ -67,6 +67,7 @@
 		A30A0A112E4B000100000001 /* adjuster-network-logo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "adjuster-network-logo.png"; path = "../img/adjuster-network-logo.png"; sourceTree = "<group>"; };
 		B52583FD1E5551D7001E9B7C /* nav-icon-gray@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "nav-icon-gray@3x.png"; path = "../img/nav-icon-gray@3x.png"; sourceTree = "<group>"; };
 		B587A4F11E5549B8003AAE26 /* Discourse.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; name = Discourse.entitlements; path = Discourse/Discourse.entitlements; sourceTree = "<group>"; };
+		B587A4F11E5549B8003AAE27 /* Discourse.development.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; name = Discourse.development.entitlements; path = Discourse/Discourse.development.entitlements; sourceTree = "<group>"; };
 		BD34D9672ADEF17500AC757D /* ShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ShareExtension.entitlements; sourceTree = "<group>"; };
 		BD4A208027B54F6500574A58 /* DiscourseKeyboardShortcuts.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DiscourseKeyboardShortcuts.h; sourceTree = "<group>"; };
 		BD4A208127B54FA300574A58 /* DiscourseKeyboardShortcuts.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = DiscourseKeyboardShortcuts.m; sourceTree = "<group>"; };
@@ -109,6 +110,7 @@
 			isa = PBXGroup;
 			children = (
 				B587A4F11E5549B8003AAE26 /* Discourse.entitlements */,
+				B587A4F11E5549B8003AAE27 /* Discourse.development.entitlements */,
 				008F07F21AC5B25A0029DE68 /* main.jsbundle */,
 				13B07FB01A68108700A75B9A /* AppDelegate.swift */,
 				BDC4F76C248B4F9C00785AF9 /* Dummy.swift */,
@@ -502,6 +504,7 @@
 				"$(SRCROOT)/.xcode.env",
 				"$(SRCROOT)/.xcode.env.local",
 				"$(SRCROOT)/Discourse/Discourse.entitlements",
+				"$(SRCROOT)/Discourse/Discourse.development.entitlements",
 				"$(SRCROOT)/Pods/Target Support Files/Pods-Discourse/expo-configure-project.sh",
 			);
 			name = "[Expo] Configure project";
@@ -571,12 +574,11 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 94936B1821688FB21A88C81D /* Pods-Discourse.debug.xcconfig */;
 			buildSettings = {
-				AN_APNS_ENVIRONMENT = development;
 				AN_OTA_CHANNEL = staging;
 				AN_PUSH_ENVIRONMENT = staging;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = Discourse/Discourse.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Discourse/Discourse.development.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 8;
 				DEAD_CODE_STRIPPING = YES;
@@ -620,7 +622,6 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 2482A32288AB770A5EC3D04B /* Pods-Discourse.release.xcconfig */;
 			buildSettings = {
-				AN_APNS_ENVIRONMENT = production;
 				AN_OTA_CHANNEL = production;
 				AN_PUSH_ENVIRONMENT = production;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
