@@ -112,6 +112,26 @@ function copyFromDevice(source, destination) {
   chmodSync(destination, 0o600);
 }
 
+function copyFromAppGroup(source, destination) {
+  execute('xcrun', [
+    'devicectl',
+    'device',
+    'copy',
+    'from',
+    '--device',
+    device().identifier,
+    '--domain-type',
+    'appGroupDataContainer',
+    '--domain-identifier',
+    'group.org.adjusternetwork.app',
+    '--source',
+    source,
+    '--destination',
+    destination,
+  ]);
+  chmodSync(destination, 0o600);
+}
+
 function otaStatus() {
   const database = join(output, 'expo-v11.db');
   copyFromDevice(
@@ -158,15 +178,42 @@ function pushDiagnostics() {
   }
 }
 
+function shareDiagnostics() {
+  const path = join(output, 'share-extension.ndjson');
+  copyFromAppGroup('share-extension.ndjson', path);
+  const allowed = new Set([
+    'timestamp',
+    'stage',
+    'category',
+    'outcome',
+    'error_domain',
+    'error_code',
+  ]);
+  for (const line of readFileSync(path, 'utf8')
+    .trim()
+    .split('\n')
+    .filter(Boolean)) {
+    const input = JSON.parse(line);
+    console.log(
+      JSON.stringify(
+        Object.fromEntries(
+          Object.entries(input).filter(([key]) => allowed.has(key)),
+        ),
+      ),
+    );
+  }
+}
+
 try {
   if (command === 'status') status();
   else if (command === 'install') install();
   else if (command === 'launch') launch();
   else if (command === 'ota-status') otaStatus();
   else if (command === 'push-diagnostics') pushDiagnostics();
+  else if (command === 'share-diagnostics') shareDiagnostics();
   else
     throw new Error(
-      'status | install --app=... | launch | ota-status | push-diagnostics',
+      'status | install --app=... | launch | ota-status | push-diagnostics | share-diagnostics',
     );
 } catch (error) {
   console.error(`native-device-harness: ${error.message}`);

@@ -17,7 +17,7 @@ static void ANRemoveExpiredSharedImages(NSURL *container)
                                    includingPropertiesForKeys:@[NSURLContentModificationDateKey]
                                                       options:NSDirectoryEnumerationSkipsHiddenFiles
                                                         error:nil];
-  NSDate *cutoff = [NSDate dateWithTimeIntervalSinceNow:-600];
+  NSDate *cutoff = [NSDate dateWithTimeIntervalSinceNow:-3600];
   NSRegularExpression *pattern = [NSRegularExpression regularExpressionWithPattern:@"^shared-image-[0-9a-f-]{36}\\.(jpe?g|png|heic|heif|gif|webp)$" options:NSRegularExpressionCaseInsensitive error:nil];
   for (NSURL *candidate in contents) {
     NSString *name = candidate.lastPathComponent;
@@ -256,15 +256,17 @@ RCT_REMAP_METHOD(consumeShareIntent,
       containerURLForSecurityApplicationGroupIdentifier:@"group.org.adjusternetwork.app"];
   ANRemoveExpiredSharedImages(container);
   NSURL *file = [container URLByAppendingPathComponent:@"pending-share.json"];
-  NSData *data = file ? [NSData dataWithContentsOfURL:file] : nil;
+  __block NSData *data = nil;
+  @synchronized([self class]) {
+    data = file ? [NSData dataWithContentsOfURL:file] : nil;
+    if (data && file) [[NSFileManager defaultManager] removeItemAtURL:file error:nil];
+  }
   if (!data || data.length > 4096) {
-    if (file) [[NSFileManager defaultManager] removeItemAtURL:file error:nil];
     resolve([NSNull null]);
     return;
   }
   id decoded = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
   if (![decoded isKindOfClass:[NSDictionary class]]) {
-    if (file) [[NSFileManager defaultManager] removeItemAtURL:file error:nil];
     resolve([NSNull null]);
     return;
   }
@@ -278,7 +280,7 @@ RCT_REMAP_METHOD(consumeShareIntent,
       [createdAt isKindOfClass:[NSNumber class]] &&
       ([kind isEqualToString:@"url"] || [kind isEqualToString:@"text"] || [kind isEqualToString:@"image"]) &&
       value.length > 0 && value.length <= ([kind isEqualToString:@"url"] ? 2048 : 8192) &&
-      age >= 0 && age <= 300;
+      age >= 0 && age <= 3600;
   if (valid && [kind isEqualToString:@"url"]) {
     NSURL *url = [NSURL URLWithString:value];
     valid = [url.scheme.lowercaseString isEqualToString:@"https"] &&
@@ -303,7 +305,6 @@ RCT_REMAP_METHOD(consumeShareIntent,
     if (valid) result[@"uri"] = imageURL.absoluteString;
     if (!valid && imageURL) [[NSFileManager defaultManager] removeItemAtURL:imageURL error:nil];
   }
-  if (file) [[NSFileManager defaultManager] removeItemAtURL:file error:nil];
   resolve(valid ? result : [NSNull null]);
 }
 

@@ -92,6 +92,7 @@ import NativeTopicScreen from './product/NativeTopicScreen';
 import NativeCollectionScreen from './product/NativeCollectionScreen';
 import NativeProfileScreen from './product/NativeProfileScreen';
 import { classifyFirstPartyMemberRoute } from './nativeMemberRouting';
+import { consumePendingShareIntent } from './shareIntentCoordinator';
 import {
   loadOnboardingState,
   onboardingSessionId,
@@ -150,6 +151,8 @@ class Discourse extends React.Component {
   _onboardingLoadGeneration = 0;
 
   _pushRestoreSessionId = null;
+
+  _shareIntentConsumption = null;
 
   constructor(props) {
     super(props);
@@ -383,47 +386,16 @@ class Discourse extends React.Component {
   }
 
   async _consumeShareIntent() {
-    const authenticated = this._siteManager
-      .listSites()
-      .find(candidate => candidate.authToken);
-    if (!authenticated || !this._navigation) {
-      if (authenticated) return false;
-      Alert.alert(
-        'Sign in to share',
-        'Open Adjuster Network and sign in before sharing member content.',
-      );
-      return false;
-    }
-    const intent = await DiscourseKeyboardShortcuts?.consumeShareIntent?.();
-    if (!intent) return false;
-    if (intent.kind === 'url') {
-      this.openUrl(intent.value);
-      return true;
-    }
-    if (intent.kind === 'text') {
-      this._navigation.navigate('HomeWrapper', {
-        screen: 'Ask',
-        params: { sharedText: intent.value, shareIntentId: intent.id },
-      });
-      return true;
-    }
-    if (intent.kind === 'image') {
-      this._navigation.navigate('HomeWrapper', {
-        screen: 'Ask',
-        params: {
-          sharedImage: {
-            uri: intent.uri,
-            name: intent.name,
-            mimeType: intent.mime_type,
-            fileSize: intent.size,
-            sharedFilename: intent.value,
-          },
-          shareIntentId: intent.id,
-        },
-      });
-      return true;
-    }
-    return false;
+    if (this._shareIntentConsumption) return this._shareIntentConsumption;
+    this._shareIntentConsumption = consumePendingShareIntent({
+      siteManager: this._siteManager,
+      navigation: this._navigation,
+      nativeModule: DiscourseKeyboardShortcuts,
+      openUrl: this.openUrl.bind(this),
+    }).finally(() => {
+      this._shareIntentConsumption = null;
+    });
+    return this._shareIntentConsumption;
   }
 
   componentDidMount() {

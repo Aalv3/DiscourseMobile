@@ -72,7 +72,10 @@ describe('Wave 1 native boundaries', () => {
     }
     expect(source).toContain('an.share-intent.v1');
     expect(source).toContain('.completeFileProtection');
-    expect(source).toContain('extensionContext?.open(callback)');
+    expect(source).not.toContain('extensionContext?.open');
+    expect(source).toContain('Saved to Adjuster Network');
+    expect(source).toContain('Open Adjuster Network to finish your Ask.');
+    expect(source).toContain('share-extension.ndjson');
     expect(source).not.toMatch(/authToken|User-Api-Key|clientId|credential/i);
     expect(source).not.toContain('UIApplication.shared');
   });
@@ -81,7 +84,6 @@ describe('Wave 1 native boundaries', () => {
     const plist = read('ios/ShareExtension/Info.plist');
     const extension = read('ios/ShareExtension/ShareViewController.swift');
     const nativeModule = read('ios/DiscourseKeyboardShortcuts.m');
-    const app = read('js/Discourse.js');
     const composer = read('js/product/AttachmentComposer.js');
     expect(plist).toContain('NSExtensionActivationSupportsImageWithMaxCount');
     expect(plist).toMatch(
@@ -96,7 +98,9 @@ describe('Wave 1 native boundaries', () => {
     expect(nativeModule).toContain('discardSharedImage');
     expect(nativeModule).toContain('ANRemoveExpiredSharedImages');
     expect(nativeModule).toContain('actualSize <= 15 * 1024 * 1024');
-    expect(app).toContain("intent.kind === 'image'");
+    expect(read('js/shareIntentCoordinator.js')).toContain(
+      "intent.kind === 'image'",
+    );
     expect(composer).toContain('discardSharedAsset');
   });
 
@@ -106,11 +110,30 @@ describe('Wave 1 native boundaries', () => {
     expect(nativeModule).toContain('consumeShareIntent');
     expect(nativeModule).toContain('removeItemAtURL:file');
     expect(nativeModule).toContain('data.length > 4096');
-    expect(nativeModule).toContain('age <= 300');
+    expect(nativeModule).toContain('age <= 3600');
+    expect(nativeModule).toContain('@synchronized([self class])');
     expect(nativeModule).toContain('adjusternetwork.org');
     expect(app).toContain("event.url === 'adjusternetwork://share'");
     expect(app).toContain('async _consumeShareIntent()');
-    expect(app).toContain('candidate => candidate.authToken');
+    expect(read('js/shareIntentCoordinator.js')).toContain(
+      'candidate => candidate.authToken',
+    );
     expect(app).not.toContain('if (params.sharedUrl)');
+  });
+
+  test('checks pending shares across cold launch, resume, and completed authentication', () => {
+    const app = read('js/Discourse.js');
+    const foreground = app.slice(
+      app.indexOf('this._handleAppStateChange'),
+      app.indexOf('this._handleOpenUrl ='),
+    );
+    const mounted = app.slice(
+      app.indexOf('componentDidMount()'),
+      app.indexOf('componentWillUnmount()'),
+    );
+    expect(foreground).toContain('this._consumeShareIntent();');
+    expect(mounted).toContain('this._consumeShareIntent();');
+    expect(app).toContain('this.setState({ signedIn: true }, () => {');
+    expect(app).toContain('this._shareIntentConsumption');
   });
 });
