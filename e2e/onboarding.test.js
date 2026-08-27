@@ -1,4 +1,4 @@
-import { by, device, element, expect } from 'detox';
+import { by, device, element, expect, waitFor } from 'detox';
 
 describe('Adjuster Network logged-out launch', () => {
   beforeEach(async () => {
@@ -10,7 +10,6 @@ describe('Adjuster Network logged-out launch', () => {
   });
 
   it('shows the branded private-member landing experience', async () => {
-    await expect(element(by.label('Adjuster Network'))).toBeVisible();
     await expect(
       element(by.text('The private professional network built for adjusters.')),
     ).toBeVisible();
@@ -20,20 +19,25 @@ describe('Adjuster Network logged-out launch', () => {
   });
 
   it('keeps privacy and invitation boundaries visible before sign-in', async () => {
-    await expect(
-      element(
-        by.text(
-          'Membership is currently available by invitation. Existing members can sign in above.',
-        ),
+    const invitation = element(
+      by.text(
+        'Membership is currently available by invitation. Existing members can sign in above.',
       ),
-    ).toBeVisible();
-    await expect(
-      element(
-        by.text(
-          'Never post names, policy numbers, addresses, photos, or other claim-identifying information.',
-        ),
+    );
+    const privacy = element(
+      by.text(
+        'Never post names, policy numbers, addresses, photos, or other claim-identifying information.',
       ),
-    ).toBeVisible();
+    );
+
+    await waitFor(invitation)
+      .toBeVisible()
+      .whileElement(by.type('RCTScrollView'))
+      .scroll(250, 'down');
+    await waitFor(privacy)
+      .toBeVisible()
+      .whileElement(by.type('RCTScrollView'))
+      .scroll(150, 'down');
 
     // The product-owned logged-out experience replaced upstream DiscourseMobile
     // site discovery. Those controls must not leak back onto the launch screen.

@@ -10,7 +10,7 @@ describe('Adjuster Network authentication boundary', () => {
   });
 
   it('starts secure member authentication from the only logged-out CTA', async () => {
-    const signIn = element(by.label('Member sign in'));
+    const signIn = element(by.text('Member sign in'));
     await expect(signIn).toBeVisible();
     await signIn.tap();
 
@@ -18,7 +18,7 @@ describe('Adjuster Network authentication boundary', () => {
     // busy state proves the CTA crossed into the canonical asynchronous auth
     // path; callback allowlisting and the exact scope contract are exercised
     // deterministically by Jest without fabricating an authenticated member.
-    await waitFor(element(by.label('Signing in')))
+    await waitFor(element(by.text('Signing in…')))
       .toBeVisible()
       .withTimeout(10000);
   });
