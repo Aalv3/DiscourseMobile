@@ -20,9 +20,7 @@ describe('native topic participation', () => {
     expect(source).toContain(
       'reply_to_post_number: composer.replyToPostNumber',
     );
-    expect(siteManagerSource).toContain(
-      "'read,write,notifications,session_info,one_time_password,adjuster-network-renaissance:member_discovery'",
-    );
+    expect(siteManagerSource).toContain('requestedUserApiKeyScopes()');
   });
 
   test('provides an accessible native composer and refreshes after posting', () => {

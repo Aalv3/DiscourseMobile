@@ -14,6 +14,10 @@ import randomBytes from './../lib/random-bytes';
 import i18n from 'i18n-js';
 import { credentialStore } from './secureCredentialStore';
 import { isCanonicalUrl } from './adjusterNetworkSecurity';
+import {
+  AUTH_REDIRECT,
+  requestedUserApiKeyScopes,
+} from './authorizationConsent';
 import { adjusterNetwork } from './adjusterNetworkConfig';
 import CookieManager from '@react-native-cookies/cookies';
 import { consumePendingAuthAttempt } from './authAttempt';
@@ -32,7 +36,7 @@ class SiteManager {
   sites = [];
   activeSite = null;
   customScheme = 'adjusternetwork';
-  urlScheme = 'adjusternetwork://auth_redirect';
+  urlScheme = AUTH_REDIRECT;
   deviceName = 'Adjuster Network - Unknown Mobile Device';
   hotTopicsHidden = false;
   siteURLsHidden = false;
@@ -489,8 +493,7 @@ class SiteManager {
           // same User API Key authorization rather than falling back to web
           // cookies or a PWA session. Member discovery is separately scoped
           // and production-authorized so profile search remains read-only.
-          let scopes =
-            'read,write,notifications,session_info,one_time_password,adjuster-network-renaissance:member_discovery';
+          const scopes = requestedUserApiKeyScopes();
 
           let params = {
             scopes: scopes,

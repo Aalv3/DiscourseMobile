@@ -36,7 +36,8 @@ describe('iOS authentication presentation failures', () => {
   });
 
   test('returns an approved callback unchanged for state and payload validation', async () => {
-    const callback = 'adjusternetwork://auth_redirect?payload=opaque';
+    const callback =
+      'adjusternetwork://adjusternetwork.org/auth_redirect?payload=opaque';
     SafariWebAuth.requestAuth.mockResolvedValueOnce(callback);
 
     await expect(

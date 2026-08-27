@@ -6,7 +6,7 @@ import {
 describe('authentication callback parsing', () => {
   test('preserves padded Base64 and separates the OTP parameter', () => {
     const params = parseAuthCallbackParameters(
-      'adjusternetwork://auth_redirect?payload=abc%2Bdef%2Fghi%3D%3D&oneTimePassword=otp%2Bvalue%3D',
+      'adjusternetwork://adjusternetwork.org/auth_redirect?payload=abc%2Bdef%2Fghi%3D%3D&oneTimePassword=otp%2Bvalue%3D',
     );
 
     expect(Object.keys(params)).toEqual(['payload', 'oneTimePassword']);
@@ -16,7 +16,7 @@ describe('authentication callback parsing', () => {
 
   test('preserves literal plus characters from native callback URLs', () => {
     const params = parseAuthCallbackParameters(
-      'adjusternetwork://auth_redirect?payload=abc+def/ghi==',
+      'adjusternetwork://adjusternetwork.org/auth_redirect?payload=abc+def/ghi==',
     );
 
     expect(params.payload).toBe('abc+def/ghi==');
