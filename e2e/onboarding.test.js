@@ -22,7 +22,10 @@ describe.each([['en'], ['fr']])(`Onboarding (locale: %s)`, locale => {
   });
 
   beforeEach(async () => {
-    await device.reloadReactNative();
+    // RN 0.81 uses the Swift ReactNativeDelegate composition API. Detox's
+    // legacy reloadReactNative hook requires RCTAppDelegate/rootViewFactory,
+    // so restart the already-built app without clearing its test state.
+    await device.launchApp({ newInstance: true });
   });
 
   it('should have onboarding screen', async () => {
