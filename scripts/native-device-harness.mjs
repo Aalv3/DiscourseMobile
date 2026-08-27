@@ -4,6 +4,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { chmodSync, mkdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import process from 'node:process';
+import { selectPhysicalIPhone } from './native-device-selection.mjs';
 
 const root = resolve(new URL('..', import.meta.url).pathname);
 const args = process.argv.slice(2);
@@ -33,14 +34,7 @@ function execute(program, commandArgs, json = null) {
 function device() {
   execute('xcrun', ['devicectl', 'list', 'devices'], deviceJson);
   const devices = JSON.parse(readFileSync(deviceJson, 'utf8')).result.devices;
-  const selected = devices.find(
-    item =>
-      item.hardwareProperties?.platform === 'iOS' &&
-      item.connectionProperties?.pairingState === 'paired' &&
-      item.connectionProperties?.tunnelState === 'connected',
-  );
-  if (!selected) throw new Error('no paired, connected physical iPhone');
-  return selected;
+  return selectPhysicalIPhone(devices, option('device'));
 }
 
 function status() {
