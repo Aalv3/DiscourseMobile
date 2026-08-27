@@ -32,7 +32,9 @@ describe('native navigation security boundary', () => {
 
   test('accepts only exact supported callback authorities', () => {
     expect(
-      isSafeAuthCallback('adjusternetwork://auth_redirect?payload=opaque'),
+      isSafeAuthCallback(
+        'adjusternetwork://adjusternetwork.org/auth_redirect?payload=opaque',
+      ),
     ).toBe(true);
     expect(isSafeAuthCallback('adjusternetwork://open?siteUrl=x')).toBe(true);
     expect(isSafeAuthCallback('adjusternetwork://share?sharedUrl=x')).toBe(
@@ -41,6 +43,9 @@ describe('native navigation security boundary', () => {
     expect(isSafeAuthCallback('discourse://auth_redirect.evil?payload=x')).toBe(
       false,
     );
+    expect(
+      isSafeAuthCallback('adjusternetwork://auth_redirect?payload=opaque'),
+    ).toBe(false);
   });
 
   test('routes ordinary HTTPS external links to the external boundary', () => {

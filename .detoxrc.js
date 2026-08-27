@@ -13,14 +13,14 @@ module.exports = {
     'ios.debug': {
       type: 'ios.app',
       binaryPath:
-        'ios/build/Build/Products/Debug-iphonesimulator/Discourse.app',
+        'ios/build/Build/Products/Debug-iphonesimulator/AdjusterNetwork.app',
       build:
         'xcodebuild -workspace ios/Discourse.xcworkspace -scheme Discourse -configuration Debug -sdk iphonesimulator -derivedDataPath ios/build',
     },
     'ios.release': {
       type: 'ios.app',
       binaryPath:
-        'ios/build/Build/Products/Release-iphonesimulator/Discourse.app',
+        'ios/build/Build/Products/Release-iphonesimulator/AdjusterNetwork.app',
       build:
         'xcodebuild -workspace ios/Discourse.xcworkspace -scheme Discourse -configuration Release -sdk iphonesimulator -derivedDataPath ios/build',
     },

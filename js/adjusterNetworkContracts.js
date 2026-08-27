@@ -1,6 +1,8 @@
 /* @flow */
 'use strict';
 
+import { AUTH_REDIRECT } from './authorizationConsent';
+
 const INTELLIGENCE_SCHEMA = 'an.home-intelligence.v1';
 const INTELLIGENCE_STATES = new Set([
   'ready',
@@ -42,7 +44,7 @@ export const nativeContracts = Object.freeze({
   authentication: Object.freeze({
     protocol: 'discourse_user_api_key_v2',
     approvalSurface: 'system_browser',
-    callback: 'adjusternetwork://auth_redirect',
+    callback: AUTH_REDIRECT,
     tokenStorage: 'async_storage',
     serverAuthoritative: true,
   }),

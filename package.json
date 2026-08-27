@@ -70,7 +70,7 @@
     "react-native-progress": "^5.0.1",
     "react-native-reanimated": "~4.1.1",
     "react-native-safari-view": "git+https://github.com/samsaffron/react-native-safari-view.git",
-    "react-native-safari-web-auth": "file:vendor/react-native-safari-web-auth",
+    "react-native-safari-web-auth": "portal:vendor/react-native-safari-web-auth",
     "react-native-safe-area-context": "^5.6.1",
     "react-native-screens": "~4.16.0",
     "react-native-siri-shortcut": "^3.2.4",

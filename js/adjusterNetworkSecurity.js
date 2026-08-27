@@ -2,9 +2,10 @@
 'use strict';
 
 import { adjusterNetwork } from './adjusterNetworkConfig';
+import { AUTH_REDIRECT } from './authorizationConsent';
 
 const CALLBACKS = Object.freeze([
-  'adjusternetwork://auth_redirect',
+  AUTH_REDIRECT,
   'adjusternetwork://open',
   'adjusternetwork://share',
 ]);

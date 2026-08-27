@@ -128,6 +128,7 @@ export function WelcomeScreen({ onConnect, busy }) {
             fontScale >= 1.6 && styles.welcomeAccessibility,
           ]}
           keyboardShouldPersistTaps="handled"
+          testID="logged-out-welcome-scroll"
         >
           <View style={styles.brandLogoPlate}>
             <Image

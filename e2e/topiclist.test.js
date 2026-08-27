@@ -1,42 +1,25 @@
-import i18n from 'i18n-js';
+import { by, device, element, expect, waitFor } from 'detox';
 
-import { by, device, element, expect } from 'detox';
-
-describe('Topic list', () => {
+describe('Adjuster Network authentication boundary', () => {
   beforeAll(async () => {
-    i18n.translations = {
-      en: require('../js/locale/en.json'),
-    };
-
-    i18n.locale = 'en';
-
     await device.launchApp({
+      delete: true,
       newInstance: true,
       permissions: { notifications: 'YES' },
     });
   });
 
-  beforeEach(async () => {
-    await device.reloadReactNative();
-  });
+  it('starts secure member authentication from the only logged-out CTA', async () => {
+    const signIn = element(by.text('Member sign in'));
+    await expect(signIn).toBeVisible();
+    await signIn.tap();
 
-  it('should show topic list when invoking Hot topics', async () => {
-    await element(by.id('nav-plus-icon')).tap();
-    await element(by.id('search-add-input')).typeText('meta.discourse.org');
-    await element(by.id('search-add-input')).tapReturnKey();
-    await element(by.id('add-site-icon')).tap();
-
-    await expect(element(by.text('Discourse Meta'))).toBeVisible();
-
-    await element(by.id('nav-plus-icon')).tap();
-    await element(by.id('search-add-input')).typeText('forums.swift.org');
-    await element(by.id('search-add-input')).tapReturnKey();
-    await element(by.id('add-site-icon')).tap();
-
-    await expect(element(by.text('Swift Forums'))).toBeVisible();
-
-    await expect(element(by.text(i18n.t('home')))).toBeVisible();
-    await element(by.text(i18n.t('hot_topics'))).tap();
-    await expect(element(by.id('topic-list'))).toExist();
+    // CI cannot approve a real production User API Key request. Reaching the
+    // busy state proves the CTA crossed into the canonical asynchronous auth
+    // path; callback allowlisting and the exact scope contract are exercised
+    // deterministically by Jest without fabricating an authenticated member.
+    await waitFor(element(by.text('Signing in…')))
+      .toBeVisible()
+      .withTimeout(10000);
   });
 });
