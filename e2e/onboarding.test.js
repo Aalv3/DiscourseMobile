@@ -1,70 +1,42 @@
 import { by, device, element, expect } from 'detox';
-import i18n from 'i18n-js';
 
-describe.each([['en'], ['fr']])(`Onboarding (locale: %s)`, locale => {
-  beforeAll(async () => {
-    i18n.translations = {
-      en: require('../js/locale/en.json'),
-      fr: require('../js/locale/fr.json'),
-    };
-
-    i18n.locale = locale;
-    i18n.fallbacks = true;
-
+describe('Adjuster Network logged-out launch', () => {
+  beforeEach(async () => {
     await device.launchApp({
+      delete: true,
       newInstance: true,
-      languageAndLocale: {
-        language: locale,
-        locale,
-      },
       permissions: { notifications: 'YES' },
     });
   });
 
-  beforeEach(async () => {
-    // RN 0.81 uses the Swift ReactNativeDelegate composition API. Detox's
-    // legacy reloadReactNative hook requires RCTAppDelegate/rootViewFactory,
-    // so restart the already-built app without clearing its test state.
-    await device.launchApp({ newInstance: true });
-  });
-
-  it('should have onboarding screen', async () => {
-    await expect(element(by.text(i18n.t('no_sites_yet')))).toBeVisible();
-    await element(by.id('nav-plus-icon')).tap();
+  it('shows the branded private-member landing experience', async () => {
+    await expect(element(by.label('Adjuster Network'))).toBeVisible();
     await expect(
-      element(by.text(i18n.t('term_placeholder_single_site'))),
+      element(by.text('The private professional network built for adjusters.')),
     ).toBeVisible();
-    await element(by.text(i18n.t('back'))).tap();
-    await expect(element(by.text(i18n.t('no_sites_yet')))).toBeVisible();
+    await expect(element(by.text('Members only'))).toBeVisible();
+    await expect(element(by.text('Invitation-only membership'))).toBeVisible();
+    await expect(element(by.label('Member sign in'))).toBeVisible();
   });
 
-  it('should show the Discover screen', async () => {
-    await element(by.text(i18n.t('discover'))).tap();
-    await expect(element(by.text(i18n.t('discover_pick_tag')))).toBeVisible();
-  });
+  it('keeps privacy and invitation boundaries visible before sign-in', async () => {
+    await expect(
+      element(
+        by.text(
+          'Membership is currently available by invitation. Existing members can sign in above.',
+        ),
+      ),
+    ).toBeVisible();
+    await expect(
+      element(
+        by.text(
+          'Never post names, policy numbers, addresses, photos, or other claim-identifying information.',
+        ),
+      ),
+    ).toBeVisible();
 
-  it('should show the Notifications screen', async () => {
-    await element(by.text(i18n.t('notifications'))).tap();
-    await expect(element(by.text(i18n.t('replies')))).toBeVisible();
-    await element(by.text(i18n.t('home'))).tap();
-    await expect(element(by.text(i18n.t('no_sites_yet')))).toBeVisible();
-  });
-
-  it('should allow adding and removing a site to the Home list', async () => {
-    await expect(element(by.text(i18n.t('no_sites_yet')))).toBeVisible();
-    await element(by.id('nav-plus-icon')).tap();
-    await element(by.id('search-add-input')).typeText('meta.discourse.org');
-    await element(by.id('search-add-input')).tapReturnKey();
-
-    await element(by.id('add-site-icon')).tap();
-    await expect(element(by.text(i18n.t('home')))).toBeVisible();
-    await expect(element(by.text('Discourse Meta'))).toBeVisible();
-    await expect(element(by.text(i18n.t('no_sites_yet')))).not.toBeVisible();
-
-    // cleanup added Home site row
-    await element(by.text('Discourse Meta')).swipe('left', 'fast', 0.5);
-    await element(by.id('site-row-delete')).tap();
-
-    await expect(element(by.text('Discourse Meta'))).not.toBeVisible();
+    // The product-owned logged-out experience replaced upstream DiscourseMobile
+    // site discovery. Those controls must not leak back onto the launch screen.
+    await expect(element(by.id('nav-plus-icon'))).not.toExist();
   });
 });
