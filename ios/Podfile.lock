@@ -3327,7 +3327,7 @@ SPEC CHECKSUMS:
   react-native-cookies: d648ab7025833b977c0b19e142503034f5f29411
   react-native-key-pair: f69098449fa3f63baac4f4280910d4acb5ec3d89
   react-native-safari-view: 07dc856a2663fef31eaca6beb79b111b8f6cf1f2
-  react-native-safari-web-auth: 36b0ddbd1618944aecbbc4fa78091c7a6183c1aa
+  react-native-safari-web-auth: d94d0bc21562c9a2a9e7cb8700d9d7d9ffb063a4
   react-native-safe-area-context: c6e2edd1c1da07bdce287fa9d9e60c5f7b514616
   react-native-segmented-control: be570ddc1678933470a39471e0ebd824f23e39a8
   react-native-vector-icons-fontawesome5: 1199fa2cf3323fac0b9b52b2aecb1329aa3602a5
