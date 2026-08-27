@@ -62,3 +62,34 @@ describe('Adjuster Network product boundary', () => {
     expect(trustedPushEnvironment('android', 'production')).toBeNull();
   });
 });
+
+describe('push backend channel routing', () => {
+  const backendOriginForUpdatesChannel = channel => {
+    jest.resetModules();
+    jest.doMock('expo-updates', () => ({ channel }));
+    return require('../adjusterNetworkConfig').adjusterNetwork.push
+      .backendOrigin;
+  };
+
+  afterEach(() => {
+    jest.dontMock('expo-updates');
+    jest.resetModules();
+  });
+
+  test('routes staging registration only to staging Discourse', () => {
+    expect(backendOriginForUpdatesChannel('staging')).toBe(
+      'https://staging.adjusternetwork.org',
+    );
+  });
+
+  test('routes production registration only to production Discourse', () => {
+    expect(backendOriginForUpdatesChannel('production')).toBe(
+      'https://adjusternetwork.org',
+    );
+  });
+
+  test('fails closed for an unknown update channel', () => {
+    expect(backendOriginForUpdatesChannel('preview')).toBeNull();
+    expect(backendOriginForUpdatesChannel(undefined)).toBeNull();
+  });
+});

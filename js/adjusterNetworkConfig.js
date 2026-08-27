@@ -51,7 +51,7 @@ export const adjusterNetwork = Object.freeze({
     publicNativePreview: false,
   }),
   push: Object.freeze({
-    backendOrigin: 'https://adjusternetwork.org',
+    backendOrigin: canonicalOriginForChannel(updateChannel),
     // Injected by signed build configuration and exported by the native
     // module. Missing or unexpected values fail closed; users cannot switch it.
     environment: pushEnvironment,

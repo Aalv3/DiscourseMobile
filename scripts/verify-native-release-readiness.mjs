@@ -252,7 +252,9 @@ if (archivePath) {
       appEntitlements.includes('applinks:adjusternetwork.org') &&
       appEntitlements.includes('group.org.adjusternetwork.app') &&
       extensionEntitlements.includes('group.org.adjusternetwork.app') &&
-      productConfig.includes("backendOrigin: 'https://adjusternetwork.org'");
+      productConfig.includes(
+        'backendOrigin: canonicalOriginForChannel(updateChannel)',
+      );
     archiveProfilesValid =
       hasStringValue(appProfile, 'Name', 'Adjuster Network App Store') &&
       hasStringValue(
