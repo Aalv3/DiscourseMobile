@@ -43,13 +43,13 @@ describe('persistent onboarding lifecycle', () => {
     );
   });
 
-  test('skip dismisses only the current login session', async () => {
+  test('canonical incomplete state overrides matching historical dismissal', async () => {
     const storage = memoryStorage();
     const skipped = await markOnboardingSkipped('session-a', storage);
 
     expect(skipped.status).toBe(ONBOARDING_STATUS.INCOMPLETE);
     expect(skipped.completedAt).toBeNull();
-    expect(shouldShowOnboarding(skipped, 'session-a')).toBe(false);
+    expect(shouldShowOnboarding(skipped, 'session-a')).toBe(true);
     expect(shouldShowOnboarding(skipped, 'session-b')).toBe(true);
     expect((await loadOnboardingState(storage)).status).toBe(
       ONBOARDING_STATUS.INCOMPLETE,
@@ -98,7 +98,7 @@ describe('persistent onboarding lifecycle', () => {
     expect(shouldShowOnboarding(state, 'new-session')).toBe(true);
   });
 
-  test('migration does not interrupt the restored session but reminds next login', async () => {
+  test('migration cannot suppress onboarding in the restored session', async () => {
     const storage = memoryStorage({
       [V2_ONBOARDING_KEY]: JSON.stringify({
         status: ONBOARDING_STATUS.COMPLETED,
@@ -107,7 +107,7 @@ describe('persistent onboarding lifecycle', () => {
     });
     const state = await loadOnboardingState(storage, 'restored-session');
 
-    expect(shouldShowOnboarding(state, 'restored-session')).toBe(false);
+    expect(shouldShowOnboarding(state, 'restored-session')).toBe(true);
     expect(shouldShowOnboarding(state, 'next-login')).toBe(true);
   });
 
@@ -128,22 +128,22 @@ describe('persistent onboarding lifecycle', () => {
     );
   });
 
-  test('repeated login lifecycle reminds until actual completion', async () => {
+  test('skip remains incomplete until actual completion', async () => {
     const storage = memoryStorage();
     const firstLogin = await loadOnboardingState(storage);
     expect(shouldShowOnboarding(firstLogin, 'login-1')).toBe(true);
 
     const firstSkip = await markOnboardingSkipped('login-1', storage);
-    expect(shouldShowOnboarding(firstSkip, 'login-1')).toBe(false);
+    expect(shouldShowOnboarding(firstSkip, 'login-1')).toBe(true);
     expect(
       shouldShowOnboarding(await loadOnboardingState(storage), 'login-1'),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldShowOnboarding(await loadOnboardingState(storage), 'login-2'),
     ).toBe(true);
 
     const secondSkip = await markOnboardingSkipped('login-2', storage);
-    expect(shouldShowOnboarding(secondSkip, 'login-2')).toBe(false);
+    expect(shouldShowOnboarding(secondSkip, 'login-2')).toBe(true);
     expect(
       shouldShowOnboarding(await loadOnboardingState(storage), 'login-3'),
     ).toBe(true);

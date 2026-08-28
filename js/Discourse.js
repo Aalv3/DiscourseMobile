@@ -289,7 +289,6 @@ class Discourse extends React.Component {
       onboardingReady: false,
       onboardingStatus: ONBOARDING_STATUS.NOT_STARTED,
       onboardingSessionId: null,
-      onboardingDismissedForSession: false,
       connecting: false,
       pushStatus: 'restoring',
       pushKnownEnabled: false,
@@ -382,8 +381,7 @@ class Discourse extends React.Component {
     const navigationReady = Boolean(
       this.state.authStatus === AUTH_STATUS.AUTHENTICATED &&
         this.state.onboardingReady &&
-        (this.state.onboardingStatus === ONBOARDING_STATUS.COMPLETED ||
-          this.state.onboardingDismissedForSession) &&
+        this.state.onboardingStatus === ONBOARDING_STATUS.COMPLETED &&
         this._navigation,
     );
     const routed = this._pushRoute.flush({
@@ -721,7 +719,6 @@ class Discourse extends React.Component {
             onboardingReady: true,
             onboardingStatus: onboarding.status,
             onboardingSessionId: sessionId,
-            onboardingDismissedForSession: !onboardingRequired,
           },
           () => {
             this._flushPendingPushRoute();
@@ -1130,8 +1127,7 @@ class Discourse extends React.Component {
 
     if (
       this.state.onboardingReady &&
-      this.state.onboardingStatus !== ONBOARDING_STATUS.COMPLETED &&
-      !this.state.onboardingDismissedForSession
+      this.state.onboardingStatus !== ONBOARDING_STATUS.COMPLETED
     ) {
       return (
         <SafeAreaProvider
@@ -1156,18 +1152,20 @@ class Discourse extends React.Component {
                 this.setState(
                   {
                     onboardingStatus: state.status,
-                    onboardingDismissedForSession: true,
                   },
-                  this._flushPendingPushRoute,
+                  () => {
+                    this._flushPendingPushRoute();
+                    this._productSiteSubscription?.();
+                  },
                 )
               }
               onComplete={state =>
                 this.setState(
                   {
                     onboardingStatus: state.status,
-                    onboardingDismissedForSession: true,
+                    onboardingReady: false,
                   },
-                  this._flushPendingPushRoute,
+                  () => this._productSiteSubscription?.(),
                 )
               }
             />

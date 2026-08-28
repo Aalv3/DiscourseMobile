@@ -355,13 +355,20 @@ export default function AdjusterCardOnboardingScreen({
     setState(current => ({ ...current, saving: true, error: null }));
     try {
       await saveFieldsFor(steps[state.step].id);
-      await saveOnboardingProgress(site, {
+      const progress = await saveOnboardingProgress(site, {
         onboarding_action: 'skip_for_now',
         step: Math.min(5, state.step + 1),
         display_name: state.values.name || '',
         bio: state.values.bio || '',
       });
       const localState = await markOnboardingSkipped(sessionId);
+      setState(current => ({
+        ...current,
+        progress,
+        saving: false,
+        error:
+          'Your progress is saved. Finish setup before entering the member network.',
+      }));
       onSkip(localState);
     } catch (error) {
       setState(current => ({

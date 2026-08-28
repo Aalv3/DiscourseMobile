@@ -89,10 +89,12 @@ async function migrateIncomplete(
 export const onboardingSessionId = site =>
   site?.createdAt ? String(site.createdAt) : 'legacy-existing-session';
 
-export function shouldShowOnboarding(state, sessionId) {
+export function shouldShowOnboarding(state) {
   if (state?.status === ONBOARDING_STATUS.COMPLETED) return false;
-  if (state?.status !== ONBOARDING_STATUS.INCOMPLETE) return true;
-  return state.dismissedSessionId !== sessionId;
+  // The server's completion state is the access authority. A historical local
+  // dismissal may preserve progress/UX context, but it can never grant access
+  // to member resources while canonical onboarding remains incomplete.
+  return true;
 }
 
 export async function markOnboardingSkipped(sessionId, storage = AsyncStorage) {

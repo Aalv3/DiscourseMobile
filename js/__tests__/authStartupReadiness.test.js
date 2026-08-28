@@ -128,4 +128,36 @@ describe('authenticated startup readiness', () => {
     expect(onboarding).toContain('AUTH_STATUS.AUTHENTICATED');
     expect(onboarding).not.toContain('AUTH_STATUS.SIGNED_OUT');
   });
+
+  test('server-incomplete onboarding cannot mount guarded member resources', () => {
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'Discourse.js'),
+      'utf8',
+    );
+    expect(source).toContain(
+      'this.state.onboardingStatus === ONBOARDING_STATUS.COMPLETED &&',
+    );
+    expect(source).toContain(
+      'this.state.onboardingStatus !== ONBOARDING_STATUS.COMPLETED',
+    );
+    expect(source).not.toContain(
+      'this.state.onboardingStatus === ONBOARDING_STATUS.COMPLETED ||',
+    );
+    expect(source).not.toContain(
+      'this.state.onboardingStatus !== ONBOARDING_STATUS.COMPLETED &&\n      !this.state.onboardingDismissedForSession',
+    );
+  });
+
+  test('completion is revalidated against the canonical server state', () => {
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'Discourse.js'),
+      'utf8',
+    );
+    const completion = source.slice(
+      source.indexOf('onComplete={state =>'),
+      source.indexOf('/>', source.indexOf('onComplete={state =>')),
+    );
+    expect(completion).toContain('onboardingReady: false');
+    expect(completion).toContain('this._productSiteSubscription?.()');
+  });
 });
