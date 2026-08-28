@@ -285,6 +285,26 @@ function requestLedger() {
   }
 }
 
+function avatarImageDiagnostics() {
+  const key = '@AdjusterNetwork.avatarImageDiagnostics.v1';
+  const directory =
+    'Library/Application Support/org.adjusternetwork.app/RCTAsyncLocalStorage_V1';
+  const manifestPath = join(output, 'async-storage-manifest.json');
+  copyFromDevice(`${directory}/manifest.json`, manifestPath);
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  let stored = manifest[key];
+  if (stored === null) {
+    const hash = createHash('md5').update(key).digest('hex');
+    const valuePath = join(output, 'avatar-image-diagnostics.json');
+    copyFromDevice(`${directory}/${hash}`, valuePath);
+    stored = readFileSync(valuePath, 'utf8');
+  }
+  const entries = stored ? JSON.parse(stored) : [];
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    console.log(JSON.stringify(entry));
+  }
+}
+
 try {
   if (command === 'status') status();
   else if (command === 'install') install();
@@ -296,9 +316,10 @@ try {
   else if (command === 'push-status-diagnostics') pushStatusDiagnostics();
   else if (command === 'profile-diagnostics') profileDiagnostics();
   else if (command === 'request-ledger') requestLedger();
+  else if (command === 'avatar-image-diagnostics') avatarImageDiagnostics();
   else
     throw new Error(
-      'status | install --app=... | launch | ota-status | push-diagnostics | push-status-diagnostics | profile-diagnostics | share-diagnostics | notification-diagnostics | request-ledger',
+      'status | install --app=... | launch | ota-status | push-diagnostics | push-status-diagnostics | profile-diagnostics | avatar-image-diagnostics | share-diagnostics | notification-diagnostics | request-ledger',
     );
 } catch (error) {
   console.error(`native-device-harness: ${error.message}`);

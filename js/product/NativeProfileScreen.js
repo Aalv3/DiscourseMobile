@@ -41,7 +41,8 @@ import {
   loadMemberProfileData,
   updateCachedMemberProfileAvatar,
 } from './memberProfileData';
-import { useAvatarAuthority } from './avatarAuthority';
+import { avatarAuthoritySnapshot, useAvatarAuthority } from './avatarAuthority';
+import { useAvatarImageDiagnostics } from '../avatarImageDiagnostics';
 import {
   canStartProfileSave,
   profileCooldownSeconds,
@@ -141,6 +142,8 @@ export default function NativeProfileScreen({
   const [profileSaveNow, setProfileSaveNow] = useState(Date.now());
   const loadSequence = useRef(0);
   const sharedAvatarTemplate = useAvatarAuthority(site, username);
+  const authorityVersion =
+    avatarAuthoritySnapshot(site, username)?.version || 0;
   const lastRenderBranch = useRef(null);
 
   const load = useCallback(async () => {
@@ -683,6 +686,27 @@ export default function NativeProfileScreen({
     sharedAvatarTemplate && state.card
       ? { ...state.card, avatarTemplate: sharedAvatarTemplate }
       : state.card;
+  const memberAvatarUri = avatarUrl(site, user?.avatar_template);
+  const memberAvatarDiagnostics = useAvatarImageDiagnostics({
+    consumer: 'member_profile',
+    componentMountId: mountId,
+    authorityVersion,
+    template: user?.avatar_template,
+    sourceIdentity: memberAvatarUri,
+    width: 120,
+    height: 120,
+  });
+  const editAvatarUri =
+    editor.photoPreviewUri || avatarUrl(site, card?.avatarTemplate);
+  const editAvatarDiagnostics = useAvatarImageDiagnostics({
+    consumer: 'edit_profile',
+    componentMountId: mountId,
+    authorityVersion,
+    template: card?.avatarTemplate,
+    sourceIdentity: editAvatarUri,
+    width: 120,
+    height: 120,
+  });
   const canEdit = card?.editable === true && user?.username === site?.username;
   const editableFields = [
     ...editableFieldsForStep(card, 'profile'),
@@ -920,12 +944,13 @@ export default function NativeProfileScreen({
               { backgroundColor: colors.surface, borderColor: colors.border },
             ]}
           >
-            {avatarUrl(site, user?.avatar_template) ? (
+            {memberAvatarUri ? (
               <Image
                 accessibilityLabel={`${
                   card?.values.name || username
                 } profile photo`}
-                source={{ uri: avatarUrl(site, user.avatar_template) }}
+                source={{ uri: memberAvatarUri }}
+                {...memberAvatarDiagnostics}
                 style={styles.avatar}
               />
             ) : (
@@ -1111,15 +1136,11 @@ export default function NativeProfileScreen({
                     },
                   ]}
                 >
-                  {editor.photoPreviewUri ||
-                  avatarUrl(site, card.avatarTemplate) ? (
+                  {editAvatarUri ? (
                     <Image
                       accessibilityLabel="Current profile photo"
-                      source={{
-                        uri:
-                          editor.photoPreviewUri ||
-                          avatarUrl(site, card.avatarTemplate),
-                      }}
+                      source={{ uri: editAvatarUri }}
+                      {...editAvatarDiagnostics}
                       style={styles.photoEditorAvatar}
                     />
                   ) : (

@@ -43,10 +43,15 @@ import AttachmentComposer, { useAttachmentQueue } from './AttachmentComposer';
 import { reconcileAskSubmission, submitAskQuestion } from './AskSubmission';
 import NotificationEducation from './NotificationEducation';
 import {
+  avatarAuthoritySnapshot,
   captureAvatarAuthorityVersion,
   reconcileAvatarAuthority,
   useAvatarAuthority,
 } from './avatarAuthority';
+import {
+  createAvatarImageMountId,
+  useAvatarImageDiagnostics,
+} from '../avatarImageDiagnostics';
 
 const Screen = ({ children, backgroundColor }) => {
   const colors = useProductTheme();
@@ -1788,6 +1793,24 @@ export function ProfileScreen({ navigation, screenProps }) {
   const username = site?.username || 'Member';
   const [adjusterCard, setAdjusterCard] = useState(null);
   const avatarTemplate = useAvatarAuthority(site, username);
+  const avatarMountId = useMemo(
+    () => createAvatarImageMountId('you_summary'),
+    [],
+  );
+  const avatarUri = avatarTemplate
+    ? avatarTemplate.startsWith('http')
+      ? avatarTemplate.replace('{size}', '120')
+      : `${site.url}${avatarTemplate.replace('{size}', '120')}`
+    : null;
+  const avatarImageDiagnostics = useAvatarImageDiagnostics({
+    consumer: 'you_summary',
+    componentMountId: avatarMountId,
+    authorityVersion: avatarAuthoritySnapshot(site, username)?.version || 0,
+    template: avatarTemplate,
+    sourceIdentity: avatarUri,
+    width: 120,
+    height: 120,
+  });
   useEffect(() => {
     let mounted = true;
     if (site?.authToken) {
@@ -1878,11 +1901,8 @@ export function ProfileScreen({ navigation, screenProps }) {
           {avatarTemplate ? (
             <Image
               accessibilityLabel={`${username} profile photo`}
-              source={{
-                uri: avatarTemplate.startsWith('http')
-                  ? avatarTemplate.replace('{size}', '120')
-                  : `${site.url}${avatarTemplate.replace('{size}', '120')}`,
-              }}
+              source={{ uri: avatarUri }}
+              {...avatarImageDiagnostics}
               style={styles.avatar}
             />
           ) : (

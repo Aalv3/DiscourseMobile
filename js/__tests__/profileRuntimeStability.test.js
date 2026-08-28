@@ -49,6 +49,17 @@ describe('profile runtime stability', () => {
     expect(manager).toContain('clearAvatarAuthorityForSite(removableSite)');
   });
 
+  test('avatar image instrumentation does not add fallback or cache behavior', () => {
+    const screen = read('product/NativeProfileScreen.js');
+    const productScreens = read('product/ProductScreens.js');
+    const combined = `${screen}\n${productScreens}`;
+
+    expect(combined).toContain('{...memberAvatarDiagnostics}');
+    expect(combined).toContain('{...editAvatarDiagnostics}');
+    expect(combined).toContain('{...avatarImageDiagnostics}');
+    expect(combined).not.toMatch(/defaultSource=|cacheKey=|resizeMethod=/);
+  });
+
   test('picker cancel and upload completion always clear the busy state', () => {
     const screen = read('product/NativeProfileScreen.js');
 
