@@ -1,9 +1,15 @@
 import Site from '../site';
 import fetch from '../../lib/fetch';
+import { apiRateLimitCoordinator } from '../apiRateLimit';
 
 jest.mock('../../lib/fetch', () => jest.fn());
 
 describe('site privacy serialization', () => {
+  beforeEach(() => {
+    fetch.mockReset();
+    apiRateLimitCoordinator.reset();
+  });
+
   test('never serializes the user API key into AsyncStorage metadata', () => {
     const site = new Site({
       url: 'https://adjusternetwork.org',
@@ -54,6 +60,93 @@ describe('site privacy serialization', () => {
     expect(fetch.mock.calls[0][0].headers.get('User-Api-Client-Id')).toBe(
       'auth-client-A',
     );
+  });
+
+  test('waits for Retry-After and succeeds on one bounded retry', async () => {
+    jest.useFakeTimers();
+    fetch
+      .mockResolvedValueOnce({
+        status: 429,
+        headers: { get: name => (name === 'Retry-After' ? '3' : null) },
+      })
+      .mockResolvedValueOnce({
+        status: 200,
+        json: () => Promise.resolve({ ok: true }),
+      });
+    const site = new Site({
+      url: 'https://staging.adjusternetwork.org',
+      authToken: 'synthetic-key',
+    });
+    const pending = site.jsonApi('/latest.json');
+    await Promise.resolve();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(2999);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(1);
+    await expect(pending).resolves.toEqual({ ok: true });
+    expect(fetch).toHaveBeenCalledTimes(2);
+    jest.useRealTimers();
+  });
+
+  test('shares fallback cooldown across concurrent API consumers', async () => {
+    jest.useFakeTimers();
+    const limited = {
+      status: 429,
+      headers: { get: () => null },
+    };
+    fetch
+      .mockResolvedValueOnce(limited)
+      .mockResolvedValueOnce(limited)
+      .mockResolvedValueOnce({
+        status: 200,
+        json: () => Promise.resolve({ topics: true }),
+      })
+      .mockResolvedValueOnce({
+        status: 200,
+        json: () => Promise.resolve({ notifications: true }),
+      });
+    const site = new Site({
+      url: 'https://staging.adjusternetwork.org',
+      authToken: 'synthetic-key',
+    });
+    const floor = site.jsonApi('/latest.json');
+    const notifications = site.jsonApi('/notifications.json');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(fetch).toHaveBeenCalledTimes(2);
+    await jest.advanceTimersByTimeAsync(1999);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    await jest.advanceTimersByTimeAsync(1);
+    await expect(Promise.all([floor, notifications])).resolves.toEqual([
+      { topics: true },
+      { notifications: true },
+    ]);
+    expect(fetch).toHaveBeenCalledTimes(4);
+    jest.useRealTimers();
+  });
+
+  test('stops after two rate-limit retries and preserves the 429 category', async () => {
+    jest.useFakeTimers();
+    fetch.mockResolvedValue({
+      status: 429,
+      headers: { get: () => null },
+    });
+    const site = new Site({
+      url: 'https://staging.adjusternetwork.org',
+      authToken: 'synthetic-key',
+    });
+    const pending = site.jsonApi('/latest.json');
+    const rejection = expect(pending).rejects.toMatchObject({
+      message: 'api_rate_limited',
+      status: 429,
+    });
+    await Promise.resolve();
+    await jest.advanceTimersByTimeAsync(2000);
+    await jest.advanceTimersByTimeAsync(5000);
+    await rejection;
+    expect(fetch).toHaveBeenCalledTimes(3);
+    apiRateLimitCoordinator.reset();
+    jest.useRealTimers();
   });
 
   test('accepts successful no-content mutations without parsing JSON', async () => {

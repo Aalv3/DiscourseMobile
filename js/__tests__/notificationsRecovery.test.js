@@ -12,6 +12,7 @@ import { classifyNotificationLoadError } from '../notificationLoadState';
 describe('notification collection recovery', () => {
   test.each([
     [{ message: 'auth_revoked', status: 401 }, 'unauthorized'],
+    [{ message: 'api_rate_limited', status: 429 }, 'rate_limited'],
     [{ message: 'api_request_failed', status: 503 }, 'backend'],
     [{ message: 'network_request_failed' }, 'network'],
   ])('classifies a bounded load failure', (error, expected) => {
@@ -55,6 +56,7 @@ describe('notification collection recovery', () => {
     );
     expect(source).toContain('surfaceErrors: true');
     expect(source).toContain('accessibilityLabel="Retry notifications"');
+    expect(source).toContain('Notifications are cooling down');
     expect(source).toContain('this.state.dataSource.size > 0');
     expect(source).toContain("i18n.t('new')");
     expect(source).toContain("i18n.t('replies')");

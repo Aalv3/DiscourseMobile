@@ -8,7 +8,12 @@ const COMMUNITY_RETRY_DELAYS_MS = [650, 1800];
 const communityLoads = new WeakMap();
 
 export const communityRequestCanRetry = error =>
-  error?.status == null || error.status === 429 || error.status >= 500;
+  error?.status == null || error.status >= 500;
+
+export const classifyCommunityLoadError = error =>
+  error?.status === 429 || error?.message === 'api_rate_limited'
+    ? 'rate_limited'
+    : 'unavailable';
 
 export async function loadCommunityResource(
   request,

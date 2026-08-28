@@ -28,6 +28,7 @@ import {
 import {
   activeMemberSite,
   askableCategories,
+  classifyCommunityLoadError,
   loadCommunity,
   topicPath,
 } from './ProductData';
@@ -244,20 +245,20 @@ const Value = ({ icon, title, body }) => {
 function useCommunity(siteManager, contentVersion) {
   const [state, setState] = useState({
     loading: true,
-    error: false,
+    error: null,
     topics: [],
     categories: [],
   });
   const refresh = useCallback(async () => {
-    setState(current => ({ ...current, loading: true, error: false }));
+    setState(current => ({ ...current, loading: true, error: null }));
     try {
       setState({
         loading: false,
-        error: false,
+        error: null,
         ...(await loadCommunity(activeMemberSite(siteManager))),
       });
-    } catch {
-      setState(current => ({ ...current, loading: false, error: true }));
+    } catch (error) {
+      setState(current => ({ ...current, loading: false, error }));
     }
   }, [contentVersion, siteManager]);
   useEffect(() => {
@@ -467,6 +468,7 @@ export function FloorScreen({ navigation, screenProps }) {
     screenProps.siteManager,
     screenProps.memberContentVersion,
   );
+  const rateLimited = classifyCommunityLoadError(data.error) === 'rate_limited';
   const memberName = memberDisplayName(site?.username);
   const greeting = new Date().getHours() < 12 ? 'Good morning' : 'Welcome back';
   const attentionTopics = data.topics.slice(0, 5);
@@ -660,8 +662,12 @@ export function FloorScreen({ navigation, screenProps }) {
       ) : data.error ? (
         <StateCard
           icon="triangle-exclamation"
-          title="Couldn’t refresh"
-          body="Your private content remains hidden. Try again when your connection is available."
+          title={rateLimited ? 'Please wait a moment' : 'Couldn’t refresh'}
+          body={
+            rateLimited
+              ? 'The Network is limiting requests briefly. Your connection and account remain available.'
+              : 'Your private content remains hidden. Try again when your connection is available.'
+          }
           action={<Action label="Try again" onPress={data.refresh} secondary />}
         />
       ) : data.topics.length ? (
@@ -1010,6 +1016,7 @@ export function DiscussionsScreen({ navigation, screenProps }) {
     screenProps.siteManager,
     screenProps.memberContentVersion,
   );
+  const rateLimited = classifyCommunityLoadError(data.error) === 'rate_limited';
   const [filter, setFilter] = useState('all');
   const [showAllCategories, setShowAllCategories] = useState(false);
   const visible = useMemo(
@@ -1149,8 +1156,14 @@ export function DiscussionsScreen({ navigation, screenProps }) {
       ) : data.error ? (
         <StateCard
           icon="triangle-exclamation"
-          title="Discussions unavailable"
-          body="We couldn’t reach the network. Nothing cached is being presented as current."
+          title={
+            rateLimited ? 'Please wait a moment' : 'Discussions unavailable'
+          }
+          body={
+            rateLimited
+              ? 'The Network is limiting requests briefly. Try again after the cooldown.'
+              : 'We couldn’t reach the network. Nothing cached is being presented as current.'
+          }
           action={<Action label="Try again" onPress={data.refresh} secondary />}
         />
       ) : visible.length ? (

@@ -2,12 +2,22 @@
 'use strict';
 
 import {
+  classifyCommunityLoadError,
   communityRequestCanRetry,
   loadCommunity,
   loadCommunityResource,
 } from '../product/ProductData';
 
 describe('community startup recovery', () => {
+  test('classifies Floor rate limiting separately from connectivity', () => {
+    expect(
+      classifyCommunityLoadError({ message: 'api_rate_limited', status: 429 }),
+    ).toBe('rate_limited');
+    expect(classifyCommunityLoadError(new TypeError('offline'))).toBe(
+      'unavailable',
+    );
+  });
+
   test('retries one transient network failure and then succeeds', async () => {
     const request = jest
       .fn()
@@ -34,7 +44,7 @@ describe('community startup recovery', () => {
   test('does not retry authorization or not-found responses', async () => {
     expect(communityRequestCanRetry({ status: 403 })).toBe(false);
     expect(communityRequestCanRetry({ status: 404 })).toBe(false);
-    expect(communityRequestCanRetry({ status: 429 })).toBe(true);
+    expect(communityRequestCanRetry({ status: 429 })).toBe(false);
     expect(communityRequestCanRetry({ status: 503 })).toBe(true);
     const denied = Object.assign(new Error('forbidden'), { status: 403 });
     const request = jest.fn().mockRejectedValue(denied);

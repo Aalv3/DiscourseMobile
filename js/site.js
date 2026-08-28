@@ -7,6 +7,11 @@ import fetch from './../lib/fetch';
 import { isCanonicalUrl } from './adjusterNetworkSecurity';
 import { credentialStore } from './secureCredentialStore';
 import { classifyAuthResponse } from './authResponsePolicy';
+import {
+  apiRateLimitCoordinator,
+  RATE_LIMIT_MAX_RETRIES,
+  rateLimitDelayMs,
+} from './apiRateLimit';
 
 class Site {
   static discoverUrl() {
@@ -137,7 +142,7 @@ class Site {
     return url;
   }
 
-  jsonApi(path, method, data) {
+  async jsonApi(path, method, data) {
     method = method || 'GET';
     let headers = {
       'User-Api-Key': this.authToken,
@@ -151,64 +156,73 @@ class Site {
       data = JSON.stringify(data);
     }
 
-    return new Promise((resolve, reject) => {
+    for (let retryIndex = 0; ; retryIndex += 1) {
+      await apiRateLimitCoordinator.wait(this.url);
       let req = new Request(this.url + path, {
         headers: headers,
         method: method,
         body: data,
       });
-      this._currentFetch = fetch(req);
-      this._currentFetch
-        .then(async r1 => {
-          if (r1.status >= 200 && r1.status < 300) {
-            return method === 'DELETE' || r1.status === 204 || r1.status === 205
-              ? null
-              : r1.json();
-          } else if (classifyAuthResponse(r1.status) === 'revoked') {
-            this.logoff();
-            credentialStore.removeSiteToken(this.url).catch(() => {});
-            const error = new Error('auth_revoked');
-            error.status = r1.status;
-            throw error;
-          } else if (classifyAuthResponse(r1.status) === 'forbidden') {
-            // A valid, narrowly scoped user API key can be forbidden from an
-            // endpoint without being revoked. Preserve the session and let the
-            // caller render an unavailable state.
-            const error = new Error('auth_forbidden');
-            error.status = r1.status;
-            try {
-              const payload = await r1.json();
-              error.userMessages = Array.isArray(payload?.errors)
-                ? payload.errors.filter(message => typeof message === 'string')
-                : [];
-            } catch {
-              error.userMessages = [];
-            }
-            throw error;
-          } else {
-            const error = new Error('api_request_failed');
-            error.status = r1.status;
-            try {
-              const payload = await r1.json();
-              error.userMessages = Array.isArray(payload?.errors)
-                ? payload.errors.filter(message => typeof message === 'string')
-                : [];
-            } catch {
-              error.userMessages = [];
-            }
-            throw error;
+      const activeFetch = fetch(req);
+      this._currentFetch = activeFetch;
+      try {
+        const r1 = await activeFetch;
+        if (r1.status >= 200 && r1.status < 300) {
+          return method === 'DELETE' || r1.status === 204 || r1.status === 205
+            ? null
+            : r1.json();
+        } else if (r1.status === 429) {
+          const retryAfterMs = rateLimitDelayMs(r1, retryIndex);
+          const cooldown = apiRateLimitCoordinator.begin(
+            this.url,
+            retryAfterMs,
+          );
+          if (retryIndex < RATE_LIMIT_MAX_RETRIES) {
+            await cooldown;
+            continue;
           }
-        })
-        .then(result => {
-          resolve(result);
-        })
-        .catch(e => {
-          reject(e);
-        })
-        .finally(() => {
-          this._currentFetch = undefined;
-        });
-    });
+          const error = new Error('api_rate_limited');
+          error.status = 429;
+          error.retryAfterMs = retryAfterMs;
+          throw error;
+        } else if (classifyAuthResponse(r1.status) === 'revoked') {
+          this.logoff();
+          credentialStore.removeSiteToken(this.url).catch(() => {});
+          const error = new Error('auth_revoked');
+          error.status = r1.status;
+          throw error;
+        } else if (classifyAuthResponse(r1.status) === 'forbidden') {
+          // A valid, narrowly scoped user API key can be forbidden from an
+          // endpoint without being revoked. Preserve the session and let the
+          // caller render an unavailable state.
+          const error = new Error('auth_forbidden');
+          error.status = r1.status;
+          try {
+            const payload = await r1.json();
+            error.userMessages = Array.isArray(payload?.errors)
+              ? payload.errors.filter(message => typeof message === 'string')
+              : [];
+          } catch {
+            error.userMessages = [];
+          }
+          throw error;
+        } else {
+          const error = new Error('api_request_failed');
+          error.status = r1.status;
+          try {
+            const payload = await r1.json();
+            error.userMessages = Array.isArray(payload?.errors)
+              ? payload.errors.filter(message => typeof message === 'string')
+              : [];
+          } catch {
+            error.userMessages = [];
+          }
+          throw error;
+        }
+      } finally {
+        if (this._currentFetch === activeFetch) this._currentFetch = undefined;
+      }
+    }
   }
 
   multipartApi(path, formData) {
