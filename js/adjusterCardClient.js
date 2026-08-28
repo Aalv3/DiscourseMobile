@@ -357,7 +357,10 @@ export async function uploadProfilePhoto(site, card, asset) {
   ) {
     throw new Error('avatar_upload_failed');
   }
-  return payload;
+  return {
+    ...payload,
+    avatarTemplate: String(payload.avatar_template || ''),
+  };
 }
 
 export async function removeProfilePhoto(site, card) {

@@ -1,18 +1,60 @@
 /* @flow */
 'use strict';
 
-export async function loadMemberProfileData(site, username) {
+const DEFAULT_TIMEOUT_MS = 15000;
+const cache = new Map();
+
+const cacheKey = (site, username) =>
+  `${String(site?.url || '')}:${String(username || '').toLowerCase()}`;
+
+const bounded = (promise, timeoutMs) =>
+  new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      const error = new Error('profile_load_timeout');
+      error.code = 'profile_load_timeout';
+      reject(error);
+    }, timeoutMs);
+    Promise.resolve(promise).then(
+      value => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      error => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+
+export function cachedMemberProfileData(site, username) {
+  return cache.get(cacheKey(site, username)) || null;
+}
+
+export function clearMemberProfileDataCache() {
+  cache.clear();
+}
+
+export async function loadMemberProfileData(
+  site,
+  username,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+) {
   const encoded = encodeURIComponent(username);
   const self = username === site.username;
   const cardPath = self
     ? '/native/v1/profile'
     : `/native/v1/profiles/${encoded}`;
-  const [profile, activity, cardPayload] = await Promise.all([
-    site.jsonApi(`/u/${encoded}.json`).catch(() => null),
-    site
-      .jsonApi(`/user_actions.json?username=${encoded}&filter=4,5`)
-      .catch(() => ({ user_actions: [] })),
-    site.jsonApi(cardPath),
-  ]);
-  return { profile, activity, cardPayload };
+  const [profile, activity, cardPayload] = await bounded(
+    Promise.all([
+      site.jsonApi(`/u/${encoded}.json`).catch(() => null),
+      site
+        .jsonApi(`/user_actions.json?username=${encoded}&filter=4,5`)
+        .catch(() => ({ user_actions: [] })),
+      site.jsonApi(cardPath),
+    ]),
+    timeoutMs,
+  );
+  const result = { profile, activity, cardPayload };
+  cache.set(cacheKey(site, username), result);
+  return result;
 }

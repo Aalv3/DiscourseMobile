@@ -1,7 +1,7 @@
 /* @flow */
 'use strict';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Image,
@@ -38,7 +38,10 @@ import {
   US_STATES,
   visibilityLabel,
 } from './adjusterCardPresentation';
-import { loadMemberProfileData } from './memberProfileData';
+import {
+  cachedMemberProfileData,
+  loadMemberProfileData,
+} from './memberProfileData';
 import {
   deletePrivateResume,
   editableFieldsForStep,
@@ -71,10 +74,11 @@ export default function NativeProfileScreen({
   const colors = useProductTheme();
   const site = activeMemberSite(screenProps.siteManager);
   const username = route.params.username;
+  const cached = cachedMemberProfileData(site, username);
   const [state, setState] = useState({
-    loading: true,
-    user: null,
-    card: null,
+    loading: cached == null,
+    user: cached?.profile?.user || cached?.profile || null,
+    card: cached?.cardPayload ? parseAdjusterCard(cached.cardPayload) : null,
     actions: [],
     error: null,
   });
@@ -99,8 +103,10 @@ export default function NativeProfileScreen({
     error: null,
   });
   const [selectionField, setSelectionField] = useState(null);
+  const loadSequence = useRef(0);
 
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     if (!site?.authToken)
       return setState({
         loading: false,
@@ -109,36 +115,45 @@ export default function NativeProfileScreen({
         actions: [],
         error: 'signed_out',
       });
-    setState(current => ({ ...current, loading: true, error: null }));
+    setState(current => ({
+      ...current,
+      loading: current.user == null && current.card == null,
+      error: null,
+    }));
     try {
       const { profile, activity, cardPayload } = await loadMemberProfileData(
         site,
         username,
       );
-      const actions = await availableContributionActions(
-        site,
-        activity?.user_actions || [],
-      );
+      if (sequence !== loadSequence.current) return;
       setState({
         loading: false,
         user: profile?.user || profile,
         card: cardPayload ? parseAdjusterCard(cardPayload) : null,
-        actions,
+        actions: [],
         error: null,
       });
+      const actions = await availableContributionActions(
+        site,
+        activity?.user_actions || [],
+      ).catch(() => []);
+      if (sequence !== loadSequence.current) return;
+      setState(current => ({ ...current, actions }));
     } catch {
-      setState({
+      if (sequence !== loadSequence.current) return;
+      setState(current => ({
+        ...current,
         loading: false,
-        user: null,
-        card: null,
-        actions: [],
         error: 'failed',
-      });
+      }));
     }
   }, [site, username]);
 
   useEffect(() => {
     load();
+    return () => {
+      loadSequence.current += 1;
+    };
   }, [load]);
 
   const openEditor = () =>
@@ -164,9 +179,31 @@ export default function NativeProfileScreen({
     });
   const saveProfile = async () => {
     setEditor(current => ({ ...current, submitting: true, error: null }));
+    let uploadedPhoto = null;
     try {
       if (editor.photoAsset) {
-        await uploadProfilePhoto(site, state.card, editor.photoAsset);
+        uploadedPhoto = await uploadProfilePhoto(
+          site,
+          state.card,
+          editor.photoAsset,
+        );
+        if (uploadedPhoto?.avatarTemplate) {
+          setState(current => ({
+            ...current,
+            user: current.user
+              ? {
+                  ...current.user,
+                  avatar_template: uploadedPhoto.avatarTemplate,
+                }
+              : current.user,
+            card: current.card
+              ? {
+                  ...current.card,
+                  avatarTemplate: uploadedPhoto.avatarTemplate,
+                }
+              : current.card,
+          }));
+        }
       }
       await saveAdjusterCardFields(
         site,
@@ -188,10 +225,12 @@ export default function NativeProfileScreen({
         editor.visibility,
       );
       setEditor(current => ({ ...current, visible: false, submitting: false }));
-      await load();
+      load();
     } catch (error) {
       setEditor(current => ({
         ...current,
+        photoAsset: uploadedPhoto ? current.photoAsset : null,
+        photoPreviewUri: uploadedPhoto ? current.photoPreviewUri : null,
         submitting: false,
         error:
           error?.userMessages?.join(' ') ||
@@ -220,6 +259,7 @@ export default function NativeProfileScreen({
         uri: asset.uri,
         name: asset.fileName || 'profile-photo.jpg',
         mimeType: asset.mimeType || 'image/jpeg',
+        size: Number(asset.fileSize || 0),
       };
       setEditor(current => ({
         ...current,
@@ -559,7 +599,7 @@ export default function NativeProfileScreen({
         <View style={styles.content}>
           <ContentSkeleton rows={4} />
         </View>
-      ) : state.error ? (
+      ) : state.error && !state.user && !state.card ? (
         <View style={styles.content}>
           <InlineState
             icon="user"
@@ -570,6 +610,14 @@ export default function NativeProfileScreen({
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
+          {state.error ? (
+            <InlineState
+              icon="sync"
+              title="Profile refresh paused"
+              body="Your last profile remains available. Try refreshing when the connection is ready."
+              action={<Action label="Try again" secondary onPress={load} />}
+            />
+          ) : null}
           <View
             style={[
               styles.profile,

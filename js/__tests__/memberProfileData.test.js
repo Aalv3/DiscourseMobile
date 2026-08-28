@@ -1,6 +1,12 @@
-import { loadMemberProfileData } from '../product/memberProfileData';
+import {
+  cachedMemberProfileData,
+  clearMemberProfileDataCache,
+  loadMemberProfileData,
+} from '../product/memberProfileData';
 
 describe('native member profile data', () => {
+  beforeEach(() => clearMemberProfileDataCache());
+
   test('renders a legitimate sparse member from the canonical member card', async () => {
     const site = {
       username: 'qa_test',
@@ -46,5 +52,49 @@ describe('native member profile data', () => {
     await expect(loadMemberProfileData(site, 'qa_test')).rejects.toThrow(
       'offline',
     );
+  });
+
+  test('bounds a profile request that never settles', async () => {
+    jest.useFakeTimers();
+    const site = {
+      url: 'https://staging.example',
+      username: 'qa_test',
+      jsonApi: jest.fn(() => new Promise(() => {})),
+    };
+    const pending = loadMemberProfileData(site, 'qa_test', 25);
+    const failure = expect(pending).rejects.toMatchObject({
+      code: 'profile_load_timeout',
+    });
+    await jest.advanceTimersByTimeAsync(25);
+    await failure;
+    jest.useRealTimers();
+  });
+
+  test('retains last-known profile data after a failed refresh', async () => {
+    const site = {
+      url: 'https://staging.example',
+      username: 'qa_test',
+      jsonApi: jest.fn(path => {
+        if (path === '/u/qa_test.json') {
+          return Promise.resolve({ user: { username: 'qa_test' } });
+        }
+        if (path.startsWith('/user_actions.json')) {
+          return Promise.resolve({ user_actions: [] });
+        }
+        return Promise.resolve({
+          schema: 'an.adjuster-card.v2',
+          schema_version: 2,
+          core: { name: 'Cached Member' },
+        });
+      }),
+    };
+    const first = await loadMemberProfileData(site, 'qa_test');
+    expect(cachedMemberProfileData(site, 'qa_test')).toBe(first);
+
+    site.jsonApi.mockRejectedValue(new Error('offline'));
+    await expect(loadMemberProfileData(site, 'qa_test')).rejects.toThrow(
+      'offline',
+    );
+    expect(cachedMemberProfileData(site, 'qa_test')).toBe(first);
   });
 });
