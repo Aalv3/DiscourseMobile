@@ -8,6 +8,10 @@ export function profileCooldownSeconds(until, now = Date.now()) {
   return Math.max(0, Math.ceil((Number(until) - now) / 1000));
 }
 
+export function canStartProfileSave(cooldownUntil, now = Date.now()) {
+  return profileCooldownSeconds(cooldownUntil, now) === 0;
+}
+
 export function profileRetryAfterMs(error) {
   const directed = Number(error?.retryAfterMs);
   if (Number.isFinite(directed) && directed > 0) {

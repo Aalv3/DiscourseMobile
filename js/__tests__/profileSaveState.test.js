@@ -1,4 +1,5 @@
 import {
+  canStartProfileSave,
   profileCooldownSeconds,
   profileRetryAfterMs,
   profileSaveErrorMessage,
@@ -76,5 +77,7 @@ describe('profile save state', () => {
     expect(profileCooldownSeconds(121000, 100000)).toBe(21);
     expect(profileCooldownSeconds(121000, 121000)).toBe(0);
     expect(profileCooldownSeconds(121000, 122000)).toBe(0);
+    expect(canStartProfileSave(121000, 120000)).toBe(false);
+    expect(canStartProfileSave(121000, 121000)).toBe(true);
   });
 });

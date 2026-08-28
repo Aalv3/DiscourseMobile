@@ -33,7 +33,11 @@ describe('profile runtime stability', () => {
     expect(screen).toContain('uploadedPhoto.avatarTemplate');
     expect(screen).toContain('photoAsset: null');
     expect(screen).toContain('cooldownUntil: cooldownMs > 0');
-    expect(screen).toContain('editor.submitting || cooldownSeconds > 0');
+    expect(screen).toContain('cooldownSeconds > 0 ?');
+    expect(screen).toContain('<ProfileSaveCooldownControl');
+    expect(screen).toContain(
+      'if (!canStartProfileSave(editor.cooldownUntil)) return;',
+    );
     expect(screen).toContain('...current,\n        submitting: false');
   });
 

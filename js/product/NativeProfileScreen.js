@@ -3,6 +3,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  canStartProfileSave,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -49,6 +50,7 @@ import {
   profileSaveErrorMessage,
   runProfileSaveSequence,
 } from './profileSaveState';
+import ProfileSaveCooldownControl from './ProfileSaveCooldownControl';
 import {
   deletePrivateResume,
   editableFieldsForStep,
@@ -209,7 +211,7 @@ export default function NativeProfileScreen({
       error: null,
     });
   const saveProfile = async () => {
-    if (editor.cooldownUntil > Date.now()) return;
+    if (!canStartProfileSave(editor.cooldownUntil)) return;
     setEditor(current => ({ ...current, submitting: true, error: null }));
     try {
       await runProfileSaveSequence({
@@ -1014,17 +1016,18 @@ export default function NativeProfileScreen({
                 </Text>
               ) : null}
               <View style={styles.edit}>
-                <Action
-                  label={
-                    editor.submitting
-                      ? 'Saving…'
-                      : cooldownSeconds > 0
-                      ? `Please wait ${cooldownSeconds}s`
-                      : 'Save profile'
-                  }
-                  disabled={editor.submitting || cooldownSeconds > 0}
-                  onPress={saveProfile}
-                />
+                {cooldownSeconds > 0 ? (
+                  <ProfileSaveCooldownControl
+                    colors={colors}
+                    seconds={cooldownSeconds}
+                  />
+                ) : (
+                  <Action
+                    label={editor.submitting ? 'Saving…' : 'Save profile'}
+                    disabled={editor.submitting}
+                    onPress={saveProfile}
+                  />
+                )}
               </View>
             </ScrollView>
             <Modal
