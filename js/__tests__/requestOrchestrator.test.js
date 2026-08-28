@@ -106,4 +106,25 @@ describe('authenticated request orchestrator', () => {
       }),
     );
   });
+
+  test('drains same-bucket retries gradually without a wake-up stampede', async () => {
+    let now = 0;
+    const orchestrator = new RequestOrchestrator({
+      now: () => now,
+      sleep: ms => {
+        now += ms;
+        return Promise.resolve();
+      },
+    });
+    const admissions = [];
+    const bucket = 'origin:user-api:client';
+    await Promise.all(
+      Array.from({ length: 3 }, () =>
+        orchestrator.admitRetry(bucket).then(() => admissions.push(now)),
+      ),
+    );
+    expect(admissions).toHaveLength(3);
+    expect(admissions[1]).toBeGreaterThan(admissions[0]);
+    expect(admissions[2]).toBeGreaterThan(admissions[1]);
+  });
 });

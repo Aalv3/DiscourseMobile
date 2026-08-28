@@ -41,6 +41,7 @@ export class RequestOrchestrator {
     this.inflight = new Map();
     this.cache = new Map();
     this.cooldowns = new Map();
+    this.retryAdmissions = new Map();
     this.queue = [];
     this.active = 0;
     this.ledger = [];
@@ -95,6 +96,26 @@ export class RequestOrchestrator {
       durationClass: delay < 10000 ? 'short' : 'long',
     });
     return delay;
+  }
+
+  admitRetry(bucket) {
+    const previous = this.retryAdmissions.get(bucket) || Promise.resolve();
+    const admission = previous
+      .catch(() => {})
+      .then(async () => {
+        await this.waitForBucket(bucket);
+        await this.sleep(120 + (this.sequence++ % 4) * 40);
+        await this.waitForBucket(bucket);
+      });
+    this.retryAdmissions.set(bucket, admission);
+    admission
+      .finally(() => {
+        if (this.retryAdmissions.get(bucket) === admission) {
+          this.retryAdmissions.delete(bucket);
+        }
+      })
+      .catch(() => {});
+    return admission;
   }
 
   request({ key, task, priority = 'visible', ttlMs = 0, allowStale = false }) {
@@ -182,6 +203,7 @@ export class RequestOrchestrator {
     this.inflight.clear();
     this.cache.clear();
     this.cooldowns.clear();
+    this.retryAdmissions.clear();
     this.queue = [];
     this.ledger = [];
     this.active = 0;

@@ -214,7 +214,7 @@ class Site {
             retryIndex,
           );
           if (retryIndex < RATE_LIMIT_MAX_RETRIES) {
-            await requestOrchestrator.waitForBucket(bucket);
+            await requestOrchestrator.admitRetry(bucket);
             continue;
           }
           const error = new Error('api_rate_limited');
