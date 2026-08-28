@@ -154,6 +154,8 @@ class Discourse extends React.Component {
 
   _shareIntentConsumption = null;
 
+  _navigationReady = false;
+
   constructor(props) {
     super(props);
     this._siteManager = new SiteManager();
@@ -196,6 +198,7 @@ class Discourse extends React.Component {
 
     this._handleOpenUrl = this._handleOpenUrl.bind(this);
     this._consumeShareIntent = this._consumeShareIntent.bind(this);
+    this._handleNavigationReady = this._handleNavigationReady.bind(this);
     this._flushPendingPushRoute = this._flushPendingPushRoute.bind(this);
 
     if (
@@ -390,12 +393,20 @@ class Discourse extends React.Component {
     this._shareIntentConsumption = consumePendingShareIntent({
       siteManager: this._siteManager,
       navigation: this._navigation,
+      navigationReady: this._navigationReady,
       nativeModule: DiscourseKeyboardShortcuts,
       openUrl: this.openUrl.bind(this),
     }).finally(() => {
       this._shareIntentConsumption = null;
     });
     return this._shareIntentConsumption;
+  }
+
+  async _handleNavigationReady() {
+    this._navigationReady = true;
+    this._flushPendingPushRoute();
+    if (this._shareIntentConsumption) await this._shareIntentConsumption;
+    this._consumeShareIntent();
   }
 
   componentDidMount() {
@@ -656,6 +667,7 @@ class Discourse extends React.Component {
   }
 
   componentWillUnmount() {
+    this._navigationReady = false;
     this._siteManager.unsubscribe(this._productSiteSubscription);
     this.eventEmitter?.removeAllListeners('keyInputEvent');
     this._appStateSubscription?.remove();
@@ -915,7 +927,7 @@ class Discourse extends React.Component {
       >
         <NavigationContainer
           theme={navigationTheme}
-          onReady={this._flushPendingPushRoute}
+          onReady={this._handleNavigationReady}
         >
           <ThemeContext.Provider value={theme}>
             <StatusBar barStyle={theme.barStyle} translucent={false} />

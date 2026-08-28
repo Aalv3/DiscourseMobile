@@ -135,5 +135,14 @@ describe('Wave 1 native boundaries', () => {
     expect(mounted).toContain('this._consumeShareIntent();');
     expect(app).toContain('this.setState({ signedIn: true }, () => {');
     expect(app).toContain('this._shareIntentConsumption');
+    expect(app).toContain('onReady={this._handleNavigationReady}');
+    expect(app).toContain('this._navigationReady = true;');
+    expect(app).toContain(
+      'if (this._shareIntentConsumption) await this._shareIntentConsumption;',
+    );
+    expect(app).toContain('navigationReady: this._navigationReady');
+    expect(read('js/shareIntentCoordinator.js')).toContain(
+      '!navigationReady || !navigation',
+    );
   });
 });

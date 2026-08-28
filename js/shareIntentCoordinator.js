@@ -4,6 +4,7 @@
 export async function consumePendingShareIntent({
   siteManager,
   navigation,
+  navigationReady,
   nativeModule,
   openUrl,
 }) {
@@ -11,7 +12,8 @@ export async function consumePendingShareIntent({
     .listSites()
     .find(candidate => candidate.authToken);
   if (!authenticated) return { disposition: 'deferred_auth' };
-  if (!navigation) return { disposition: 'deferred_navigation' };
+  if (!navigationReady || !navigation)
+    return { disposition: 'deferred_navigation' };
   const intent = await nativeModule?.consumeShareIntent?.();
   if (!intent) return { disposition: 'empty' };
   if (intent.kind === 'url') {

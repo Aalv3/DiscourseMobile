@@ -3,6 +3,7 @@ import { consumePendingShareIntent } from '../shareIntentCoordinator';
 const context = overrides => ({
   siteManager: { listSites: () => [{ authToken: 'token' }] },
   navigation: { navigate: jest.fn() },
+  navigationReady: true,
   nativeModule: { consumeShareIntent: jest.fn().mockResolvedValue(null) },
   openUrl: jest.fn(),
   ...overrides,
@@ -22,6 +23,15 @@ describe('pending share coordination', () => {
     const nativeModule = { consumeShareIntent: jest.fn() };
     const result = await consumePendingShareIntent(
       context({ navigation: null, nativeModule }),
+    );
+    expect(result.disposition).toBe('deferred_navigation');
+    expect(nativeModule.consumeShareIntent).not.toHaveBeenCalled();
+  });
+
+  test('does not claim the descriptor before the navigation container is ready', async () => {
+    const nativeModule = { consumeShareIntent: jest.fn() };
+    const result = await consumePendingShareIntent(
+      context({ navigationReady: false, nativeModule }),
     );
     expect(result.disposition).toBe('deferred_navigation');
     expect(nativeModule.consumeShareIntent).not.toHaveBeenCalled();
