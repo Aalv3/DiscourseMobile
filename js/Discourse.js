@@ -72,6 +72,13 @@ import {
   classifyAuthFailure,
 } from './authFailure';
 import {
+  beginAdmissionHandoff,
+  parseAdmissionReturn,
+  reconcileAdmissionReturn,
+  reconcilePendingAdmission,
+} from './admissionHandoff';
+import { authorizationProfileCurrent } from './authorizationProfile';
+import {
   AskScreen,
   DiscussionsScreen,
   FloorScreen,
@@ -227,6 +234,7 @@ class Discourse extends React.Component {
         this.setState({ privacyShield: false });
         StatusBar.setHidden(false);
         this._refreshAuthenticatedResources('foreground');
+        this._reconcilePendingAdmission();
         this._consumeShareIntent();
 
         clearTimeout(this.refreshTimerId);
@@ -235,6 +243,9 @@ class Discourse extends React.Component {
     };
 
     this._handleOpenUrl = this._handleOpenUrl.bind(this);
+    this._offerAdmissionHandoff = this._offerAdmissionHandoff.bind(this);
+    this._reconcilePendingAdmission =
+      this._reconcilePendingAdmission.bind(this);
     this._consumeShareIntent = this._consumeShareIntent.bind(this);
     this._handleNavigationReady = this._handleNavigationReady.bind(this);
     this._flushPendingPushRoute = this._flushPendingPushRoute.bind(this);
@@ -396,6 +407,24 @@ class Discourse extends React.Component {
       const params = this._siteManager.parseURLparameters(event.url);
       const site = this._siteManager.activeSite;
 
+      if (parseAdmissionReturn(event.url)) {
+        const authenticatedSite =
+          site ||
+          this._siteManager.listSites().find(candidate => candidate.authToken);
+        if (!authenticatedSite) return;
+        try {
+          const result = await reconcileAdmissionReturn(
+            authenticatedSite,
+            event.url,
+          );
+          securityEvent(`admission.handoff.${result.result}`);
+          await this._productSiteSubscription?.();
+        } catch {
+          securityEvent('admission.handoff.reconcile_failed');
+        }
+        return;
+      }
+
       if (event.url === 'adjusternetwork://share') {
         await this._consumeShareIntent();
         return;
@@ -458,6 +487,67 @@ class Discourse extends React.Component {
     } else if (kind === 'external') {
       Linking.openURL(event.url).catch(() => {});
     }
+  }
+
+  async _reconcilePendingAdmission() {
+    const site = this._siteManager
+      .listSites()
+      .find(candidate => candidate.authToken);
+    if (!site) return;
+    try {
+      const result = await reconcilePendingAdmission(site);
+      if (result) {
+        securityEvent(`admission.handoff.${result.result}`);
+        if (result.admissionComplete) await this._productSiteSubscription?.();
+      }
+    } catch {
+      // A browser interruption or transient network failure must leave the app
+      // blocked and retryable; it never implies acceptance or key revocation.
+      securityEvent('admission.handoff.reconcile_failed');
+    }
+  }
+
+  async _offerAdmissionHandoff(site) {
+    if (this._admissionPromptVisible) return;
+    this._admissionPromptVisible = true;
+    const profileCurrent = await authorizationProfileCurrent(site?.clientId);
+    Alert.alert(
+      profileCurrent ? 'Complete membership setup' : 'Update secure access',
+      profileCurrent
+        ? 'Continue securely in your browser, then return here. Closing or refusing does not accept any policy.'
+        : 'This update needs your approval for narrowly scoped setup and account-deletion access. Your current access remains in place unless the replacement authorization succeeds.',
+      [
+        {
+          text: 'Not now',
+          style: 'cancel',
+          onPress: () => {
+            this._admissionPromptVisible = false;
+          },
+        },
+        {
+          text: 'Continue',
+          onPress: async () => {
+            try {
+              if (profileCurrent) {
+                await beginAdmissionHandoff(site);
+                securityEvent('admission.handoff.browser_opened');
+              } else {
+                await this.connectCanonical();
+                securityEvent('admission.scope_upgrade.started');
+              }
+            } catch {
+              securityEvent('admission.handoff.issue_failed');
+              Alert.alert(
+                'Unable to continue',
+                'Check your connection and try membership setup again.',
+              );
+            } finally {
+              this._admissionPromptVisible = false;
+            }
+          },
+        },
+      ],
+    );
   }
 
   async _consumeShareIntent() {
@@ -586,7 +676,10 @@ class Discourse extends React.Component {
                 : null,
             schemaVersion: 3,
           };
-        } catch {
+        } catch (error) {
+          if (error?.code === 'admission_required') {
+            this._offerAdmissionHandoff(site);
+          }
           // The server contract is canonical when available. A transient load
           // failure must not let a legacy local completion override it. Keep
           // only the current-session dismissal marker and fail toward
