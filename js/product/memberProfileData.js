@@ -6,7 +6,6 @@ import {
   recordProfileDiagnostic,
 } from '../profileDiagnostics';
 
-const DEFAULT_TIMEOUT_MS = 15000;
 const cache = new Map();
 
 const cacheKey = (site, username) =>
@@ -51,47 +50,6 @@ const trackedRequest = (stage, request, context) => {
   );
 };
 
-const bounded = (promise, timeoutMs, context) =>
-  new Promise((resolve, reject) => {
-    diagnostic(context, {
-      event: 'timer',
-      stage: 'profile_bundle',
-      outcome: 'created',
-    });
-    const timer = setTimeout(() => {
-      const error = new Error('profile_load_timeout');
-      error.code = 'profile_load_timeout';
-      diagnostic(context, {
-        event: 'timer',
-        stage: 'profile_bundle',
-        outcome: 'fired',
-        category: 'timeout',
-      });
-      reject(error);
-    }, timeoutMs);
-    Promise.resolve(promise).then(
-      value => {
-        clearTimeout(timer);
-        diagnostic(context, {
-          event: 'timer',
-          stage: 'profile_bundle',
-          outcome: 'settled_before_firing',
-        });
-        resolve(value);
-      },
-      error => {
-        clearTimeout(timer);
-        diagnostic(context, {
-          event: 'timer',
-          stage: 'profile_bundle',
-          outcome: 'settled_before_firing',
-          category: profileErrorCategory(error),
-        });
-        reject(error);
-      },
-    );
-  });
-
 export function cachedMemberProfileData(site, username) {
   return cache.get(cacheKey(site, username)) || null;
 }
@@ -130,7 +88,6 @@ export function updateCachedMemberProfileAvatar(site, username, template) {
 export async function loadMemberProfileData(
   site,
   username,
-  timeoutMs = DEFAULT_TIMEOUT_MS,
   diagnosticContext = null,
 ) {
   const encoded = encodeURIComponent(username);
@@ -140,28 +97,28 @@ export async function loadMemberProfileData(
     : `/native/v1/profiles/${encoded}`;
   let bundle;
   try {
-    bundle = await bounded(
-      Promise.all([
-        trackedRequest(
-          'member_core',
-          () => site.jsonApi(`/u/${encoded}.json`),
-          diagnosticContext,
-        ).catch(() => null),
-        trackedRequest(
-          'member_activity',
-          () =>
-            site.jsonApi(`/user_actions.json?username=${encoded}&filter=4,5`),
-          diagnosticContext,
-        ).catch(() => ({ user_actions: [] })),
-        trackedRequest(
-          'adjuster_card',
-          () => site.jsonApi(cardPath),
-          diagnosticContext,
-        ),
-      ]),
-      timeoutMs,
-      diagnosticContext,
-    );
+    diagnostic(diagnosticContext, {
+      event: 'timer',
+      stage: 'network_transport',
+      outcome: 'delegated',
+    });
+    bundle = await Promise.all([
+      trackedRequest(
+        'member_core',
+        () => site.jsonApi(`/u/${encoded}.json`),
+        diagnosticContext,
+      ).catch(() => null),
+      trackedRequest(
+        'member_activity',
+        () => site.jsonApi(`/user_actions.json?username=${encoded}&filter=4,5`),
+        diagnosticContext,
+      ).catch(() => ({ user_actions: [] })),
+      trackedRequest(
+        'adjuster_card',
+        () => site.jsonApi(cardPath),
+        diagnosticContext,
+      ),
+    ]);
   } catch (error) {
     diagnostic(diagnosticContext, {
       event: 'promise_all',

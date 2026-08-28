@@ -25,7 +25,6 @@ import { activeMemberSite } from './ProductData';
 import { availableContributionActions } from '../memberContentAvailability';
 import {
   Action,
-  ContentSkeleton,
   InlineState,
   NestedHeader,
   useProductTheme,
@@ -109,7 +108,8 @@ export default function NativeProfileScreen({
     });
   }
   const [state, setState] = useState({
-    loading: cached == null,
+    loading: false,
+    refreshing: true,
     user: cached?.profile?.user || cached?.profile || null,
     card: cached?.cardPayload ? parseAdjusterCard(cached.cardPayload) : null,
     actions: [],
@@ -154,6 +154,7 @@ export default function NativeProfileScreen({
     if (!site?.authToken)
       return setState({
         loading: false,
+        refreshing: false,
         user: null,
         card: null,
         actions: [],
@@ -161,7 +162,7 @@ export default function NativeProfileScreen({
         source: 'none',
       });
     setState(current => {
-      const loading = current.user == null && current.card == null;
+      const loading = false;
       recordProfileDiagnostic({
         event: 'state',
         mountId,
@@ -170,13 +171,12 @@ export default function NativeProfileScreen({
         loading,
         error: 'none',
       });
-      return { ...current, loading, error: null };
+      return { ...current, loading, refreshing: true, error: null };
     });
     try {
       const { profile, activity, cardPayload } = await loadMemberProfileData(
         site,
         username,
-        15000,
         { mountId, sequence },
       );
       const accepted = sequence === loadSequence.current;
@@ -204,6 +204,7 @@ export default function NativeProfileScreen({
         }
         return {
           loading: false,
+          refreshing: false,
           user,
           card,
           actions: [],
@@ -217,6 +218,7 @@ export default function NativeProfileScreen({
         sequence,
         stage: 'profile_loaded',
         loading: false,
+        refreshing: false,
         error: 'none',
       });
       recordProfileDiagnostic({
@@ -334,13 +336,14 @@ export default function NativeProfileScreen({
     return () => clearInterval(timer);
   }, [editor.cooldownUntil]);
 
-  const diagnosticRenderBranch = state.loading
-    ? 'skeleton'
-    : state.error && !state.user && !state.card
-    ? 'error_retry'
-    : state.source === 'cached'
-    ? 'cached_profile'
-    : 'loaded_profile';
+  const diagnosticRenderBranch =
+    state.error && !state.user && !state.card
+      ? 'error_retry'
+      : state.refreshing && !state.user && !state.card
+      ? 'profile_shell'
+      : state.source === 'cached'
+      ? 'cached_profile'
+      : 'loaded_profile';
   useEffect(() => {
     if (lastRenderBranch.current === diagnosticRenderBranch) return;
     lastRenderBranch.current = diagnosticRenderBranch;
@@ -814,11 +817,7 @@ export default function NativeProfileScreen({
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.canvas }]}>
       <NestedHeader title="Member profile" onBack={() => navigation.goBack()} />
-      {state.loading ? (
-        <View style={styles.content}>
-          <ContentSkeleton rows={4} />
-        </View>
-      ) : state.error && !state.user && !state.card ? (
+      {state.error && !state.user && !state.card ? (
         <View style={styles.content}>
           <InlineState
             icon="user"
@@ -829,6 +828,13 @@ export default function NativeProfileScreen({
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
+          {state.refreshing ? (
+            <Text style={[styles.refreshing, { color: colors.muted }]}>
+              {state.user || state.card
+                ? 'Refreshing…'
+                : 'Waiting briefly for member details…'}
+            </Text>
+          ) : null}
           {state.error ? (
             <InlineState
               icon="sync"
@@ -1337,6 +1343,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   profileFact: { fontSize: 15, lineHeight: 21, fontWeight: '550' },
+  refreshing: { fontSize: 13, lineHeight: 18, fontWeight: '650' },
   valueChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   valueChip: {
     minHeight: 32,

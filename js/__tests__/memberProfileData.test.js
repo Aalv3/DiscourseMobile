@@ -55,20 +55,27 @@ describe('native member profile data', () => {
     );
   });
 
-  test('bounds a profile request that never settles', async () => {
-    jest.useFakeTimers();
+  test('does not wrap cooldown-aware requests in an aggregate timer', async () => {
     const site = {
       url: 'https://staging.example',
       username: 'qa_test',
-      jsonApi: jest.fn(() => new Promise(() => {})),
+      jsonApi: jest.fn(path => {
+        if (path === '/native/v1/profile') {
+          return Promise.resolve({ schema: 'an.adjuster-card.v2' });
+        }
+        return Promise.resolve(
+          path.startsWith('/user_actions')
+            ? { user_actions: [] }
+            : { user: { username: 'qa_test' } },
+        );
+      }),
     };
-    const pending = loadMemberProfileData(site, 'qa_test', 25);
-    const failure = expect(pending).rejects.toMatchObject({
-      code: 'profile_load_timeout',
-    });
-    await jest.advanceTimersByTimeAsync(25);
-    await failure;
-    jest.useRealTimers();
+    await expect(loadMemberProfileData(site, 'qa_test')).resolves.toEqual(
+      expect.objectContaining({
+        cardPayload: { schema: 'an.adjuster-card.v2' },
+      }),
+    );
+    expect(site.jsonApi).toHaveBeenCalledTimes(3);
   });
 
   test('retains last-known profile data after a failed refresh', async () => {

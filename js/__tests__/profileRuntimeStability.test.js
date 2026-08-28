@@ -7,13 +7,26 @@ describe('profile runtime stability', () => {
   test('profile loading is bounded and preserves last-known state', () => {
     const screen = read('product/NativeProfileScreen.js');
     const data = read('product/memberProfileData.js');
+    const site = read('site.js');
+    const transport = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'lib', 'fetch.js'),
+      'utf8',
+    );
 
-    expect(data).toContain('profile_load_timeout');
+    expect(data).toContain("stage: 'network_transport'");
+    expect(data).toContain("outcome: 'delegated'");
+    expect(data).not.toContain('const bounded =');
+    expect(site.indexOf('apiRateLimitCoordinator.wait(this.url)')).toBeLessThan(
+      site.indexOf('const activeFetch = fetch(req)'),
+    );
+    expect(transport).toContain('var _timeout = 10000');
+    expect(transport).toContain('xhr.timeout = _timeout');
     expect(data).toContain('cache.set(cacheKey(site, username), result)');
     expect(screen).toContain('cachedMemberProfileData(site, username)');
-    expect(screen).toContain(
-      'const loading = current.user == null && current.card == null',
-    );
+    expect(screen).toContain('const loading = false');
+    expect(screen).toContain("'Waiting briefly for member details…'");
+    expect(screen).toContain("'Refreshing…'");
+    expect(screen).not.toContain('<ContentSkeleton');
     expect(screen).toContain('...current,\n        loading: false');
     expect(screen).toContain('Your last profile remains available.');
     expect(screen).toContain('sequence === loadSequence.current');
