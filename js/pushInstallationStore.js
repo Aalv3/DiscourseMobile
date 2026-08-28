@@ -7,6 +7,8 @@ import { credentialStore } from './secureCredentialStore';
 
 const INSTALLATION_MARKER = '@AdjusterNetwork.push-installation.v1';
 const PREFERENCE_KEY = '@AdjusterNetwork.push-preference.v1';
+const REGISTRATION_IDENTITY_KEY =
+  '@AdjusterNetwork.push-registration-identity.v1';
 
 async function secureRandomId() {
   if (Platform.OS === 'ios') {
@@ -80,8 +82,25 @@ export class PushInstallationStore {
     return this.storage.setItem(PREFERENCE_KEY, value);
   }
 
+  registrationIdentity() {
+    return this.storage.getItem(REGISTRATION_IDENTITY_KEY);
+  }
+
+  setRegistrationIdentity(value) {
+    if (value !== null && !/^[0-9a-f]{16}$/.test(value)) {
+      return Promise.reject(new Error('invalid_push_registration_identity'));
+    }
+    return value === null
+      ? this.storage.removeItem(REGISTRATION_IDENTITY_KEY)
+      : this.storage.setItem(REGISTRATION_IDENTITY_KEY, value);
+  }
+
   async resetForTest() {
-    await this.storage.multiRemove([INSTALLATION_MARKER, PREFERENCE_KEY]);
+    await this.storage.multiRemove([
+      INSTALLATION_MARKER,
+      PREFERENCE_KEY,
+      REGISTRATION_IDENTITY_KEY,
+    ]);
     await this.secureStore.removePushInstallationId();
   }
 }

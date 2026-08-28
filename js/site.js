@@ -7,11 +7,8 @@ import fetch from './../lib/fetch';
 import { isCanonicalUrl } from './adjusterNetworkSecurity';
 import { credentialStore } from './secureCredentialStore';
 import { classifyAuthResponse } from './authResponsePolicy';
-import {
-  apiRateLimitCoordinator,
-  RATE_LIMIT_MAX_RETRIES,
-  rateLimitDelayMs,
-} from './apiRateLimit';
+import { RATE_LIMIT_MAX_RETRIES } from './apiRateLimit';
+import { limiterBucket, requestOrchestrator } from './requestOrchestrator';
 import { recordNotificationDiagnostic } from './notificationState';
 
 class Site {
@@ -143,7 +140,31 @@ class Site {
     return url;
   }
 
-  async jsonApi(path, method, data) {
+  jsonApi(path, method, data) {
+    const normalizedMethod = method || 'GET';
+    const key = this.apiRequestKey(path, normalizedMethod);
+    const ttlMs =
+      normalizedMethod === 'GET' && path.startsWith('/native/v1/') ? 30000 : 0;
+    return requestOrchestrator.request({
+      key,
+      ttlMs,
+      allowStale: normalizedMethod === 'GET' && path.startsWith('/native/v1/'),
+      priority: normalizedMethod === 'GET' ? 'visible' : 'bootstrap',
+      task: () => this._jsonApi(path, normalizedMethod, data),
+    });
+  }
+
+  apiRequestKey(path, method = 'GET') {
+    return `${this.url}:${this.clientId || ''}:${method}:${path}`;
+  }
+
+  invalidateApiCache(paths) {
+    requestOrchestrator.invalidate(
+      paths.map(path => this.apiRequestKey(path, 'GET')),
+    );
+  }
+
+  async _jsonApi(path, method, data) {
     method = method || 'GET';
     let headers = {
       'User-Api-Key': this.authToken,
@@ -158,7 +179,20 @@ class Site {
     }
 
     for (let retryIndex = 0; ; retryIndex += 1) {
-      await apiRateLimitCoordinator.wait(this.url);
+      const fallbackBucket = limiterBucket({
+        origin: this.url,
+        clientId: this.clientId,
+        path,
+        errorCode: null,
+      });
+      const globalUserBucket = limiterBucket({
+        origin: this.url,
+        clientId: this.clientId,
+        path,
+        errorCode: 'user_api_key_limiter_60_secs',
+      });
+      await requestOrchestrator.waitForBucket(globalUserBucket);
+      await requestOrchestrator.waitForBucket(fallbackBucket);
       let req = new Request(this.url + path, {
         headers: headers,
         method: method,
@@ -173,18 +207,28 @@ class Site {
             ? null
             : r1.json();
         } else if (r1.status === 429) {
-          const retryAfterMs = rateLimitDelayMs(r1, retryIndex);
-          const cooldown = apiRateLimitCoordinator.begin(
-            this.url,
-            retryAfterMs,
+          const errorCode = r1.headers?.get?.(
+            'Discourse-Rate-Limit-Error-Code',
+          );
+          const bucket = limiterBucket({
+            origin: this.url,
+            clientId: this.clientId,
+            path,
+            errorCode,
+          });
+          const retryAfterMs = requestOrchestrator.beginCooldown(
+            bucket,
+            r1,
+            retryIndex,
           );
           if (retryIndex < RATE_LIMIT_MAX_RETRIES) {
-            await cooldown;
+            await requestOrchestrator.admitRetry(bucket);
             continue;
           }
           const error = new Error('api_rate_limited');
           error.status = 429;
           error.retryAfterMs = retryAfterMs;
+          error.rateLimitCode = errorCode || null;
           throw error;
         } else if (classifyAuthResponse(r1.status) === 'revoked') {
           this.logoff();
@@ -448,13 +492,14 @@ class Site {
     }
 
     if (!this._notificationRequest) {
-      this._notificationRequest = this.jsonApi(
-        '/notifications.json?recent=true&limit=25' +
-          (forceRefresh ? '' : '&silent=true'),
-      )
+      this._notificationRequest = this.jsonApi('/native/v1/notifications')
         .then(results => {
           this._notifications = (results && results.notifications) || [];
           this._seenNotificationId = results && results.seen_notification_id;
+          this._authoritativeNotificationCount =
+            results && Number.isFinite(results.actionable_unread_count)
+              ? results.actionable_unread_count
+              : null;
         })
         .finally(() => {
           this._notificationRequest = null;

@@ -4,9 +4,11 @@
 import React from 'react';
 import { ThemeContext, themes } from './ThemeContext';
 import {
+  ActivityIndicator,
   Alert,
   Appearance,
   AppState,
+  Image,
   Linking,
   Platform,
   NativeModules,
@@ -14,6 +16,7 @@ import {
   Settings,
   StatusBar,
   StyleSheet,
+  Text,
   View,
 } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
@@ -104,6 +107,8 @@ import {
   loadCanonicalOnboarding,
   localStatusForProgress,
 } from './adjusterCardClient';
+import { notificationStatusAfterRegistration } from './notificationStatus';
+import { recordPushStatusTransition } from './pushStatusDiagnostics';
 
 const { DiscourseKeyboardShortcuts } = NativeModules;
 
@@ -145,6 +150,33 @@ enableScreens();
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
+const AUTH_STATUS = Object.freeze({
+  RESTORING: 'authRestoring',
+  AUTHENTICATED: 'authenticated',
+  SIGNED_OUT: 'signedOut',
+});
+
+const AuthInitializationScreen = ({ colors, message }) => (
+  <SafeAreaProvider style={{ flex: 1, backgroundColor: colors.canvas }}>
+    <SafeAreaView
+      accessibilityLabel={message}
+      accessibilityRole="progressbar"
+      style={styles.authInitialization}
+    >
+      <Image
+        accessibilityLabel="Adjuster Network"
+        resizeMode="contain"
+        source={require('../img/adjuster-network-logo.png')}
+        style={styles.authInitializationLogo}
+      />
+      <ActivityIndicator color={colors.accent} size="small" />
+      <Text style={[styles.authInitializationText, { color: colors.muted }]}>
+        {message}
+      </Text>
+    </SafeAreaView>
+  </SafeAreaProvider>
+);
+
 class Discourse extends React.Component {
   refreshTimerId = null;
 
@@ -153,6 +185,10 @@ class Discourse extends React.Component {
   _pushRestoreSessionId = null;
 
   _shareIntentConsumption = null;
+
+  _foregroundRefreshGeneration = 0;
+
+  _lastForegroundRefreshAt = 0;
 
   _navigationReady = false;
 
@@ -178,6 +214,8 @@ class Discourse extends React.Component {
     });
     this._siteManager.setPushFoundation(this._pushFoundation);
     this._refresh = this._refresh.bind(this);
+    this._refreshAuthenticatedResources =
+      this._refreshAuthenticatedResources.bind(this);
     this._initBackgroundFetch = this._initBackgroundFetch.bind(this);
 
     this._handleAppStateChange = nextAppState => {
@@ -188,7 +226,7 @@ class Discourse extends React.Component {
       } else {
         this.setState({ privacyShield: false });
         StatusBar.setHidden(false);
-        this._siteManager.refreshSites();
+        this._refreshAuthenticatedResources('foreground');
         this._consumeShareIntent();
 
         clearTimeout(this.refreshTimerId);
@@ -236,13 +274,14 @@ class Discourse extends React.Component {
       theme: themes.light,
       themePreference: 'light',
       privacyShield: false,
-      signedIn: false,
+      authStatus: AUTH_STATUS.RESTORING,
       onboardingReady: false,
       onboardingStatus: ONBOARDING_STATUS.NOT_STARTED,
       onboardingSessionId: null,
       onboardingDismissedForSession: false,
       connecting: false,
-      pushStatus: 'unknown',
+      pushStatus: 'restoring',
+      pushKnownEnabled: false,
       pushAttemptResult: null,
       memberContentVersion: 0,
     };
@@ -292,13 +331,45 @@ class Discourse extends React.Component {
     return this._flushPendingPushRoute();
   }
 
+  _applyPushStatus({
+    status,
+    knownEnabled,
+    attemptResult,
+    diagnosticResult,
+    reason,
+  }) {
+    this.setState(current => {
+      const nextKnownEnabled =
+        knownEnabled === undefined
+          ? current.pushKnownEnabled
+          : knownEnabled === true;
+      recordPushStatusTransition({
+        reason,
+        previous: current.pushStatus,
+        next: status,
+        knownEnabled: nextKnownEnabled,
+        foundation: this._pushFoundation.diagnosticState(),
+        result:
+          diagnosticResult === undefined ? attemptResult : diagnosticResult,
+      });
+      return {
+        pushStatus: status,
+        pushKnownEnabled: nextKnownEnabled,
+        pushAttemptResult:
+          attemptResult === undefined
+            ? current.pushAttemptResult
+            : attemptResult,
+      };
+    });
+  }
+
   _flushPendingPushRoute() {
     if (!this.state) {
       return false;
     }
     const site = this._siteManager.activeSite || this._siteManager.sites[0];
     const navigationReady = Boolean(
-      this.state.signedIn &&
+      this.state.authStatus === AUTH_STATUS.AUTHENTICATED &&
         this.state.onboardingReady &&
         (this.state.onboardingStatus === ONBOARDING_STATUS.COMPLETED ||
           this.state.onboardingDismissedForSession) &&
@@ -413,34 +484,74 @@ class Discourse extends React.Component {
   componentDidMount() {
     this._productSiteSubscription = async () => {
       const loadGeneration = ++this._onboardingLoadGeneration;
+      if (this._siteManager.isLoading()) {
+        if (this.state.authStatus !== AUTH_STATUS.AUTHENTICATED) {
+          this.setState({ authStatus: AUTH_STATUS.RESTORING });
+        }
+        return;
+      }
       const site = this._siteManager
         .listSites()
         .find(candidate => candidate.authToken);
       const signedIn = Boolean(site);
       if (!signedIn) {
-        this.setState({ signedIn: false }, this._flushPendingPushRoute);
+        this.setState(
+          {
+            authStatus: AUTH_STATUS.SIGNED_OUT,
+            onboardingReady: false,
+            onboardingSessionId: null,
+          },
+          this._flushPendingPushRoute,
+        );
         return;
       }
 
       const sessionId = onboardingSessionId(site);
+      const needsOnboardingDecision =
+        this.state.authStatus !== AUTH_STATUS.AUTHENTICATED ||
+        this.state.onboardingSessionId !== sessionId ||
+        !this.state.onboardingReady;
+      this.setState({
+        authStatus: AUTH_STATUS.AUTHENTICATED,
+        onboardingReady: needsOnboardingDecision
+          ? false
+          : this.state.onboardingReady,
+        onboardingSessionId: sessionId,
+      });
       if (this._pushRestoreSessionId !== sessionId) {
         this._pushRestoreSessionId = sessionId;
         this._pushFoundation
           .status()
           .then(async preference => {
-            this.setState({ pushStatus: preference });
+            this._applyPushStatus({
+              status: preference,
+              knownEnabled: preference === 'enabled',
+              attemptResult: null,
+              reason: 'persisted_status',
+            });
             if (preference !== 'enabled') return;
-            this.setState({ pushStatus: 'working' });
             try {
-              const result = await this._pushFoundation.enable(site);
-              this.setState({ pushStatus: result.category || result });
+              await this._pushFoundation.enable(site);
+              this._applyPushStatus({
+                status: 'enabled',
+                knownEnabled: true,
+                attemptResult: null,
+                reason: 'background_registration_success',
+              });
             } catch (error) {
               const result = resultFromPushError(
                 error,
                 PUSH_REGISTRATION_STAGE.UNKNOWN,
               );
-              this.setState({
-                pushStatus: result.category,
+              this._applyPushStatus({
+                status: notificationStatusAfterRegistration(
+                  preference,
+                  result,
+                  true,
+                ),
+                knownEnabled: true,
+                attemptResult: null,
+                reason: 'background_registration_failure',
               });
             }
           })
@@ -450,15 +561,15 @@ class Discourse extends React.Component {
               PUSH_REGISTRATION_STAGE.PERMISSION_CHECK,
             );
             recordPushRegistrationResult(result);
-            this.setState({
-              pushStatus: result.category,
+            this._applyPushStatus({
+              status: result.category,
+              knownEnabled: false,
+              attemptResult: null,
+              reason: 'status_restore_failure',
             });
           });
       }
-      if (
-        !this.state.signedIn ||
-        this.state.onboardingSessionId !== sessionId
-      ) {
+      if (needsOnboardingDecision) {
         const localOnboarding = await loadOnboardingState(undefined, sessionId);
         let onboarding = localOnboarding;
         try {
@@ -513,7 +624,7 @@ class Discourse extends React.Component {
         }
         this.setState(
           {
-            signedIn: true,
+            authStatus: AUTH_STATUS.AUTHENTICATED,
             onboardingReady: true,
             onboardingStatus: onboarding.status,
             onboardingSessionId: sessionId,
@@ -527,7 +638,7 @@ class Discourse extends React.Component {
         return;
       }
 
-      this.setState({ signedIn: true }, () => {
+      this.setState({ authStatus: AUTH_STATUS.AUTHENTICATED }, () => {
         this._flushPendingPushRoute();
         this._consumeShareIntent();
       });
@@ -615,9 +726,29 @@ class Discourse extends React.Component {
     console.log('[BackgroundFetch] configure status: ', status);
   }
 
+  async _refreshAuthenticatedResources(reason) {
+    const site =
+      this._siteManager.activeSite ||
+      this._siteManager.listSites().find(candidate => candidate.authToken);
+    if (!site?.authToken) return false;
+    const now = Date.now();
+    if (now - this._lastForegroundRefreshAt < 30000) return false;
+    this._lastForegroundRefreshAt = now;
+    const generation = ++this._foregroundRefreshGeneration;
+    await this._siteManager.refreshNotificationState(reason).catch(() => []);
+    if (generation !== this._foregroundRefreshGeneration) return false;
+    this.setState(current => ({
+      memberContentVersion: current.memberContentVersion + 1,
+    }));
+    return true;
+  }
+
   async _refresh() {
     clearTimeout(this.refreshTimerId);
-    if (!this.state.signedIn && !this._siteManager.activeSite) {
+    if (
+      this.state.authStatus === AUTH_STATUS.SIGNED_OUT &&
+      !this._siteManager.activeSite
+    ) {
       // The native authenticated shell loads bounded collections itself.
       // Preserve the legacy multi-site refresh only while signed out and no
       // site is active, otherwise it can continuously extend rate limits.
@@ -822,21 +953,34 @@ class Discourse extends React.Component {
         if (!site) return;
         const started = startedPushRegistration();
         recordPushRegistrationResult(started);
-        this.setState({ pushStatus: 'working', pushAttemptResult: started });
+        this._applyPushStatus({
+          status: this.state.pushKnownEnabled ? 'enabled' : 'working',
+          attemptResult: started,
+          reason: 'manual_registration_started',
+        });
         try {
           const result = await this._pushFoundation.enable(site);
-          this.setState({
-            pushStatus: result.category || result,
-            pushAttemptResult: result,
+          this._applyPushStatus({
+            status: 'enabled',
+            knownEnabled: true,
+            attemptResult: result,
+            reason: 'manual_registration_success',
           });
         } catch (error) {
           const result = resultFromPushError(
             error,
             PUSH_REGISTRATION_STAGE.UNKNOWN,
           );
-          this.setState({
-            pushStatus: result.category,
-            pushAttemptResult: result,
+          const knownEnabled = this.state.pushKnownEnabled;
+          this._applyPushStatus({
+            status: notificationStatusAfterRegistration(
+              this.state.pushStatus,
+              result,
+              knownEnabled,
+            ),
+            attemptResult: knownEnabled ? null : result,
+            diagnosticResult: result,
+            reason: 'manual_registration_failure',
           });
         }
       },
@@ -856,7 +1000,16 @@ class Discourse extends React.Component {
       },
     };
 
-    if (!this.state.signedIn) {
+    if (this.state.authStatus === AUTH_STATUS.RESTORING) {
+      return (
+        <AuthInitializationScreen
+          colors={shellColors}
+          message="Restoring your secure session…"
+        />
+      );
+    }
+
+    if (this.state.authStatus === AUTH_STATUS.SIGNED_OUT) {
       return (
         <SafeAreaProvider
           style={{ flex: 1, backgroundColor: shellColors.canvas }}
@@ -870,6 +1023,15 @@ class Discourse extends React.Component {
             {this.state.privacyShield && this._blurView(theme.name)}
           </ThemeContext.Provider>
         </SafeAreaProvider>
+      );
+    }
+
+    if (!this.state.onboardingReady) {
+      return (
+        <AuthInitializationScreen
+          colors={shellColors}
+          message="Preparing your member account…"
+        />
       );
     }
 
@@ -1289,3 +1451,20 @@ class Discourse extends React.Component {
 }
 
 export default Discourse;
+
+const styles = StyleSheet.create({
+  authInitialization: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    gap: 18,
+  },
+  authInitializationLogo: { width: 220, height: 72 },
+  authInitializationText: {
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+});

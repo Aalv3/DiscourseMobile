@@ -23,7 +23,8 @@ describe('first-party native surfaces', () => {
     const dataSource = read('product/memberProfileData.js');
     expect(source).toContain('loadMemberProfileData(');
     expect(dataSource).toContain('site.jsonApi(`/u/${encoded}.json`)');
-    expect(dataSource).toContain('filter=4,5');
+    expect(dataSource).toContain('cardPayload?.contributions || []');
+    expect(dataSource).not.toContain('/user_actions.json');
     expect(dataSource).toContain("? '/native/v1/profile'");
     expect(dataSource).toContain('`/native/v1/profiles/${encoded}`');
     expect(source).toContain('saveAdjusterCardFields(');

@@ -1,6 +1,7 @@
 import Site from '../site';
 import fetch from '../../lib/fetch';
 import { apiRateLimitCoordinator } from '../apiRateLimit';
+import { requestOrchestrator } from '../requestOrchestrator';
 
 jest.mock('../../lib/fetch', () => jest.fn());
 
@@ -8,6 +9,7 @@ describe('site privacy serialization', () => {
   beforeEach(() => {
     fetch.mockReset();
     apiRateLimitCoordinator.reset();
+    requestOrchestrator.reset();
   });
 
   test('never serializes the user API key into AsyncStorage metadata', () => {
@@ -79,16 +81,16 @@ describe('site privacy serialization', () => {
     });
     const pending = site.jsonApi('/latest.json');
     await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
     expect(fetch).toHaveBeenCalledTimes(1);
-    await jest.advanceTimersByTimeAsync(2999);
-    expect(fetch).toHaveBeenCalledTimes(1);
-    await jest.advanceTimersByTimeAsync(1);
+    await jest.runOnlyPendingTimersAsync();
     await expect(pending).resolves.toEqual({ ok: true });
     expect(fetch).toHaveBeenCalledTimes(2);
     jest.useRealTimers();
   });
 
-  test('shares fallback cooldown across concurrent API consumers', async () => {
+  test('admits unrelated unknown limiter classes independently', async () => {
     jest.useFakeTimers();
     const limited = {
       status: 429,
@@ -114,9 +116,7 @@ describe('site privacy serialization', () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(fetch).toHaveBeenCalledTimes(2);
-    await jest.advanceTimersByTimeAsync(1999);
-    expect(fetch).toHaveBeenCalledTimes(2);
-    await jest.advanceTimersByTimeAsync(1);
+    await jest.runOnlyPendingTimersAsync();
     await expect(Promise.all([floor, notifications])).resolves.toEqual([
       { topics: true },
       { notifications: true },

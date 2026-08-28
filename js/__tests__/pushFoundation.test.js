@@ -12,6 +12,8 @@ function fixture(permission = 'granted') {
     preference: jest.fn(() => Promise.resolve('unknown')),
     setPreference: jest.fn(() => Promise.resolve()),
     installationId: jest.fn(() => Promise.resolve('installation')),
+    registrationIdentity: jest.fn(() => Promise.resolve(null)),
+    setRegistrationIdentity: jest.fn(() => Promise.resolve()),
   };
   let refreshHandler;
   const remove = jest.fn();
@@ -163,6 +165,28 @@ describe('push foundation lifecycle', () => {
     await expect(deps.foundation.status()).resolves.toBe('permission_denied');
   });
 
+  test('restores a privacy-safe last-known enabled diagnostic state', async () => {
+    const deps = fixture('granted');
+    deps.store.preference.mockResolvedValue('enabled');
+    await expect(deps.foundation.status()).resolves.toBe('enabled');
+    expect(deps.foundation.diagnosticState()).toEqual({
+      permission: 'granted',
+      preference: 'enabled',
+      backend: 'last_known_enabled',
+    });
+  });
+
+  test('successful registration promotes backend diagnostics to confirmed', async () => {
+    const deps = fixture('granted');
+    deps.client.register.mockResolvedValue('2xx');
+    await deps.foundation.enable(account);
+    expect(deps.foundation.diagnosticState()).toEqual({
+      permission: 'granted',
+      preference: 'enabled',
+      backend: 'confirmed',
+    });
+  });
+
   test('bounds startup preference acquisition', async () => {
     jest.useFakeTimers();
     const deps = fixture();
@@ -213,6 +237,23 @@ describe('push foundation lifecycle', () => {
       expect.objectContaining({ category: 'enabled' }),
     ]);
     expect(deps.client.register).toHaveBeenCalledTimes(1);
+  });
+
+  test('unchanged persisted identity performs zero registration mutations', async () => {
+    const deps = fixture();
+    const identity = deps.foundation.registrationIdentity(
+      'installation',
+      'transport-token',
+      account,
+    );
+    deps.store.registrationIdentity.mockResolvedValue(identity);
+
+    await expect(deps.foundation.enable(account)).resolves.toMatchObject({
+      category: 'enabled',
+    });
+
+    expect(deps.client.register).not.toHaveBeenCalled();
+    expect(deps.store.setPreference).toHaveBeenCalledWith('enabled');
   });
 
   test('turns backend rate limiting into a bounded member-safe cooldown', async () => {

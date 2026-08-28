@@ -1,7 +1,7 @@
 /* @flow */
 'use strict';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Image,
@@ -21,10 +21,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { decode } from 'html-entities';
 import { activeMemberSite } from './ProductData';
-import { availableContributionActions } from '../memberContentAvailability';
 import {
   Action,
-  ContentSkeleton,
   InlineState,
   NestedHeader,
   useProductTheme,
@@ -38,7 +36,25 @@ import {
   US_STATES,
   visibilityLabel,
 } from './adjusterCardPresentation';
-import { loadMemberProfileData } from './memberProfileData';
+import {
+  cachedMemberProfileData,
+  loadMemberProfileData,
+  updateCachedMemberProfileAvatar,
+} from './memberProfileData';
+import { useAvatarAuthority } from './avatarAuthority';
+import {
+  canStartProfileSave,
+  profileCooldownSeconds,
+  profileRetryAfterMs,
+  profileSaveErrorMessage,
+  runProfileSaveSequence,
+} from './profileSaveState';
+import ProfileSaveCooldownControl from './ProfileSaveCooldownControl';
+import {
+  createProfileMountId,
+  profileErrorCategory,
+  recordProfileDiagnostic,
+} from '../profileDiagnostics';
 import {
   deletePrivateResume,
   editableFieldsForStep,
@@ -71,12 +87,34 @@ export default function NativeProfileScreen({
   const colors = useProductTheme();
   const site = activeMemberSite(screenProps.siteManager);
   const username = route.params.username;
+  const mountIdRef = useRef(null);
+  if (mountIdRef.current == null) {
+    mountIdRef.current = createProfileMountId();
+    recordProfileDiagnostic({
+      event: 'cache',
+      mountId: mountIdRef.current,
+      outcome: 'attempted',
+    });
+  }
+  const mountId = mountIdRef.current;
+  const cached = cachedMemberProfileData(site, username);
+  const cacheResultRecorded = useRef(false);
+  if (!cacheResultRecorded.current) {
+    cacheResultRecorded.current = true;
+    recordProfileDiagnostic({
+      event: 'cache',
+      mountId,
+      outcome: cached == null ? 'miss' : 'hit',
+    });
+  }
   const [state, setState] = useState({
-    loading: true,
-    user: null,
-    card: null,
+    loading: false,
+    refreshing: true,
+    user: cached?.profile?.user || cached?.profile || null,
+    card: cached?.cardPayload ? parseAdjusterCard(cached.cardPayload) : null,
     actions: [],
     error: null,
+    source: cached == null ? 'none' : 'cached',
   });
   const [editor, setEditor] = useState({
     visible: false,
@@ -96,50 +134,221 @@ export default function NativeProfileScreen({
     photoAsset: null,
     photoPreviewUri: null,
     submitting: false,
+    cooldownUntil: 0,
     error: null,
   });
   const [selectionField, setSelectionField] = useState(null);
+  const [profileSaveNow, setProfileSaveNow] = useState(Date.now());
+  const loadSequence = useRef(0);
+  const sharedAvatarTemplate = useAvatarAuthority(site, username);
+  const lastRenderBranch = useRef(null);
 
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
+    recordProfileDiagnostic({
+      event: 'load',
+      mountId,
+      sequence,
+      outcome: 'invoked',
+    });
     if (!site?.authToken)
       return setState({
         loading: false,
+        refreshing: false,
         user: null,
         card: null,
         actions: [],
         error: 'signed_out',
+        source: 'none',
       });
-    setState(current => ({ ...current, loading: true, error: null }));
+    setState(current => {
+      const loading = false;
+      recordProfileDiagnostic({
+        event: 'state',
+        mountId,
+        sequence,
+        stage: 'loading',
+        loading,
+        error: 'none',
+      });
+      return { ...current, loading, refreshing: true, error: null };
+    });
     try {
       const { profile, activity, cardPayload } = await loadMemberProfileData(
         site,
         username,
+        { mountId, sequence },
       );
-      const actions = await availableContributionActions(
-        site,
-        activity?.user_actions || [],
-      );
-      setState({
-        loading: false,
-        user: profile?.user || profile,
-        card: cardPayload ? parseAdjusterCard(cardPayload) : null,
-        actions,
-        error: null,
+      const accepted = sequence === loadSequence.current;
+      recordProfileDiagnostic({
+        event: 'sequence',
+        mountId,
+        sequence,
+        currentSequence: loadSequence.current,
+        outcome: accepted ? 'accepted' : 'discarded',
+        stage: 'profile_bundle',
       });
-    } catch {
-      setState({
+      if (!accepted) return;
+      setState(() => {
+        const user = profile?.user || profile;
+        const card = cardPayload ? parseAdjusterCard(cardPayload) : null;
+        return {
+          loading: false,
+          refreshing: false,
+          user,
+          card,
+          actions: [],
+          error: null,
+          source: 'loaded',
+        };
+      });
+      recordProfileDiagnostic({
+        event: 'state',
+        mountId,
+        sequence,
+        stage: 'profile_loaded',
         loading: false,
-        user: null,
-        card: null,
-        actions: [],
+        refreshing: false,
+        error: 'none',
+      });
+      recordProfileDiagnostic({
+        event: 'contributions',
+        mountId,
+        sequence,
+        outcome: 'started',
+      });
+      const actions = activity?.user_actions || [];
+      recordProfileDiagnostic({
+        event: 'contributions',
+        mountId,
+        sequence,
+        outcome: 'settled',
+      });
+      const acceptedActions = sequence === loadSequence.current;
+      recordProfileDiagnostic({
+        event: 'sequence',
+        mountId,
+        sequence,
+        currentSequence: loadSequence.current,
+        outcome: acceptedActions ? 'accepted' : 'discarded',
+        stage: 'contributions',
+      });
+      if (!acceptedActions) return;
+      setState(current => ({ ...current, actions }));
+    } catch (error) {
+      const accepted = sequence === loadSequence.current;
+      recordProfileDiagnostic({
+        event: 'sequence',
+        mountId,
+        sequence,
+        currentSequence: loadSequence.current,
+        outcome: accepted ? 'accepted' : 'discarded',
+        stage: 'profile_error',
+        category: profileErrorCategory(error),
+      });
+      if (!accepted) return;
+      setState(current => ({
+        ...current,
+        loading: false,
         error: 'failed',
+      }));
+      recordProfileDiagnostic({
+        event: 'state',
+        mountId,
+        sequence,
+        stage: 'profile_error',
+        loading: false,
+        error: 'failed',
+        category: profileErrorCategory(error),
       });
     }
-  }, [site, username]);
+  }, [mountId, site, username]);
 
   useEffect(() => {
+    recordProfileDiagnostic({ event: 'mount', mountId, outcome: 'mounted' });
+    return () => {
+      recordProfileDiagnostic({
+        event: 'mount',
+        mountId,
+        outcome: 'unmounted',
+      });
+    };
+  }, [mountId]);
+
+  useEffect(() => {
+    recordProfileDiagnostic({
+      event: 'effect',
+      mountId,
+      outcome: 'setup',
+      dependency: 'load',
+      currentSequence: loadSequence.current,
+    });
     load();
-  }, [load]);
+    return () => {
+      loadSequence.current += 1;
+      recordProfileDiagnostic({
+        event: 'effect',
+        mountId,
+        outcome: 'cleanup',
+        dependency: 'load',
+        currentSequence: loadSequence.current,
+      });
+    };
+  }, [load, mountId]);
+
+  useEffect(() => {
+    const unsubscribeFocus = navigation.addListener?.('focus', () =>
+      recordProfileDiagnostic({
+        event: 'navigation',
+        mountId,
+        outcome: 'focus',
+      }),
+    );
+    const unsubscribeBlur = navigation.addListener?.('blur', () =>
+      recordProfileDiagnostic({
+        event: 'navigation',
+        mountId,
+        outcome: 'blur',
+      }),
+    );
+    return () => {
+      unsubscribeFocus?.();
+      unsubscribeBlur?.();
+    };
+  }, [mountId, navigation]);
+
+  useEffect(() => {
+    if (editor.cooldownUntil <= Date.now()) return undefined;
+    const timer = setInterval(() => setProfileSaveNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [editor.cooldownUntil]);
+
+  const diagnosticRenderBranch =
+    state.error && !state.user && !state.card
+      ? 'error_retry'
+      : state.refreshing && !state.user && !state.card
+      ? 'profile_shell'
+      : state.source === 'cached'
+      ? 'cached_profile'
+      : 'loaded_profile';
+  useEffect(() => {
+    if (lastRenderBranch.current === diagnosticRenderBranch) return;
+    lastRenderBranch.current = diagnosticRenderBranch;
+    recordProfileDiagnostic({
+      event: 'render',
+      mountId,
+      branch: diagnosticRenderBranch,
+      loading: state.loading,
+      error: state.error || 'none',
+      source: state.source,
+    });
+  }, [
+    diagnosticRenderBranch,
+    mountId,
+    state.error,
+    state.loading,
+    state.source,
+  ]);
 
   const openEditor = () =>
     setEditor({
@@ -160,42 +369,155 @@ export default function NativeProfileScreen({
       photoAsset: null,
       photoPreviewUri: null,
       submitting: false,
+      cooldownUntil: 0,
       error: null,
     });
   const saveProfile = async () => {
+    recordProfileDiagnostic({
+      event: 'save_handler_started',
+      mountId,
+      outcome: 'invoked',
+      category: editor.photoAsset ? 'photo_pending' : 'fields_only',
+    });
+    if (!canStartProfileSave(editor.cooldownUntil)) {
+      recordProfileDiagnostic({
+        event: 'save_guard_blocked',
+        mountId,
+        outcome: 'cooldown',
+      });
+      return;
+    }
+    recordProfileDiagnostic({
+      event: 'save_guard_passed',
+      mountId,
+      outcome: 'accepted',
+    });
     setEditor(current => ({ ...current, submitting: true, error: null }));
     try {
-      if (editor.photoAsset) {
-        await uploadProfilePhoto(site, state.card, editor.photoAsset);
-      }
-      await saveAdjusterCardFields(
-        site,
-        state.card,
-        {
-          name: editor.name.trim(),
-          professional_headline: editor.professional_headline.trim(),
-          bio: editor.bio.trim(),
-          base_state: editor.base_state.trim().toUpperCase(),
-          licensed_states: editor.licensed_states,
-          specialties: editor.specialties,
-          adjuster_type: editor.adjuster_type,
-          years_experience: editor.years_experience,
-          cat_experience: editor.cat_experience,
-          cat_availability: editor.cat_availability,
-          work_mode: editor.work_mode,
-          travel_preference: editor.travel_preference,
+      await runProfileSaveSequence({
+        photoAsset: editor.photoAsset,
+        uploadPhoto: async asset => {
+          recordProfileDiagnostic({
+            event: 'photo_upload_started',
+            mountId,
+            outcome: 'started',
+          });
+          try {
+            const uploaded = await uploadProfilePhoto(site, state.card, asset);
+            recordProfileDiagnostic({
+              event: 'photo_upload_result',
+              mountId,
+              outcome: 'success',
+            });
+            return uploaded;
+          } catch (error) {
+            recordProfileDiagnostic({
+              event: 'photo_upload_result',
+              mountId,
+              outcome: 'failure',
+              category: profileErrorCategory(error),
+            });
+            throw error;
+          }
         },
-        editor.visibility,
-      );
+        onPhotoUploaded: uploadedPhoto => {
+          if (uploadedPhoto?.avatarTemplate) {
+            updateCachedMemberProfileAvatar(
+              site,
+              username,
+              uploadedPhoto.avatarTemplate,
+            );
+            site.invalidateApiCache?.([
+              '/native/v1/profile',
+              `/native/v1/profiles/${encodeURIComponent(username)}`,
+              `/u/${encodeURIComponent(username)}.json`,
+            ]);
+            setState(current => ({
+              ...current,
+              user: current.user
+                ? {
+                    ...current.user,
+                    avatar_template: uploadedPhoto.avatarTemplate,
+                  }
+                : current.user,
+              card: current.card
+                ? {
+                    ...current.card,
+                    avatarTemplate: uploadedPhoto.avatarTemplate,
+                  }
+                : current.card,
+            }));
+          }
+          setEditor(current => ({
+            ...current,
+            photoAsset: null,
+            photoPreviewUri: current.photoPreviewUri,
+          }));
+        },
+        saveFields: async () => {
+          recordProfileDiagnostic({
+            event: 'profile_patch_started',
+            mountId,
+            outcome: 'started',
+          });
+          try {
+            const saved = await saveAdjusterCardFields(
+              site,
+              state.card,
+              {
+                name: editor.name.trim(),
+                professional_headline: editor.professional_headline.trim(),
+                bio: editor.bio.trim(),
+                base_state: editor.base_state.trim().toUpperCase(),
+                licensed_states: editor.licensed_states,
+                specialties: editor.specialties,
+                adjuster_type: editor.adjuster_type,
+                years_experience: editor.years_experience,
+                cat_experience: editor.cat_experience,
+                cat_availability: editor.cat_availability,
+                work_mode: editor.work_mode,
+                travel_preference: editor.travel_preference,
+              },
+              editor.visibility,
+            );
+            recordProfileDiagnostic({
+              event: 'profile_patch_result',
+              mountId,
+              outcome: 'success',
+            });
+            return saved;
+          } catch (error) {
+            recordProfileDiagnostic({
+              event: 'profile_patch_result',
+              mountId,
+              outcome: 'failure',
+              category: profileErrorCategory(error),
+            });
+            throw error;
+          }
+        },
+      });
+      recordProfileDiagnostic({
+        event: 'save_completed',
+        mountId,
+        outcome: 'success',
+      });
       setEditor(current => ({ ...current, visible: false, submitting: false }));
-      await load();
+      load();
     } catch (error) {
+      recordProfileDiagnostic({
+        event: 'save_failed',
+        mountId,
+        outcome: 'failure',
+        category: profileErrorCategory(error),
+      });
+      const cooldownMs = profileRetryAfterMs(error);
+      setProfileSaveNow(Date.now());
       setEditor(current => ({
         ...current,
         submitting: false,
-        error:
-          error?.userMessages?.join(' ') ||
-          'Profile changes could not be saved.',
+        cooldownUntil: cooldownMs > 0 ? Date.now() + cooldownMs : 0,
+        error: profileSaveErrorMessage(error, cooldownMs),
       }));
     }
   };
@@ -220,6 +542,7 @@ export default function NativeProfileScreen({
         uri: asset.uri,
         name: asset.fileName || 'profile-photo.jpg',
         mimeType: asset.mimeType || 'image/jpeg',
+        size: Number(asset.fileSize || 0),
       };
       setEditor(current => ({
         ...current,
@@ -345,11 +668,21 @@ export default function NativeProfileScreen({
     );
   };
 
-  const user = state.user || {
+  const baseUser = state.user || {
     username,
     avatar_template: state.card?.avatarTemplate,
   };
-  const card = state.card;
+  const user = sharedAvatarTemplate
+    ? { ...baseUser, avatar_template: sharedAvatarTemplate }
+    : baseUser;
+  const cooldownSeconds = profileCooldownSeconds(
+    editor.cooldownUntil,
+    profileSaveNow,
+  );
+  const card =
+    sharedAvatarTemplate && state.card
+      ? { ...state.card, avatarTemplate: sharedAvatarTemplate }
+      : state.card;
   const canEdit = card?.editable === true && user?.username === site?.username;
   const editableFields = [
     ...editableFieldsForStep(card, 'profile'),
@@ -555,11 +888,7 @@ export default function NativeProfileScreen({
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.canvas }]}>
       <NestedHeader title="Member profile" onBack={() => navigation.goBack()} />
-      {state.loading ? (
-        <View style={styles.content}>
-          <ContentSkeleton rows={4} />
-        </View>
-      ) : state.error ? (
+      {state.error && !state.user && !state.card ? (
         <View style={styles.content}>
           <InlineState
             icon="user"
@@ -570,6 +899,21 @@ export default function NativeProfileScreen({
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
+          {state.refreshing ? (
+            <Text style={[styles.refreshing, { color: colors.muted }]}>
+              {state.user || state.card
+                ? 'Refreshing…'
+                : 'Waiting briefly for member details…'}
+            </Text>
+          ) : null}
+          {state.error ? (
+            <InlineState
+              icon="sync"
+              title="Profile refresh paused"
+              body="Your last profile remains available. Try refreshing when the connection is ready."
+              action={<Action label="Try again" secondary onPress={load} />}
+            />
+          ) : null}
           <View
             style={[
               styles.profile,
@@ -921,11 +1265,18 @@ export default function NativeProfileScreen({
                 </Text>
               ) : null}
               <View style={styles.edit}>
-                <Action
-                  label={editor.submitting ? 'Saving…' : 'Save profile'}
-                  disabled={editor.submitting}
-                  onPress={saveProfile}
-                />
+                {cooldownSeconds > 0 ? (
+                  <ProfileSaveCooldownControl
+                    colors={colors}
+                    seconds={cooldownSeconds}
+                  />
+                ) : (
+                  <Action
+                    label={editor.submitting ? 'Saving…' : 'Save profile'}
+                    disabled={editor.submitting}
+                    onPress={saveProfile}
+                  />
+                )}
               </View>
             </ScrollView>
             <Modal
@@ -1063,6 +1414,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   profileFact: { fontSize: 15, lineHeight: 21, fontWeight: '550' },
+  refreshing: { fontSize: 13, lineHeight: 18, fontWeight: '650' },
   valueChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   valueChip: {
     minHeight: 32,

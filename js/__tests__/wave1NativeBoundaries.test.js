@@ -173,7 +173,9 @@ describe('Wave 1 native boundaries', () => {
     );
     expect(foreground).toContain('this._consumeShareIntent();');
     expect(mounted).toContain('this._consumeShareIntent();');
-    expect(app).toContain('this.setState({ signedIn: true }, () => {');
+    expect(app).toContain(
+      'this.setState({ authStatus: AUTH_STATUS.AUTHENTICATED }, () => {',
+    );
     expect(app).toContain('this._shareIntentConsumption');
     expect(app).toContain('onReady={this._handleNavigationReady}');
     expect(app).toContain('this._navigationReady = true;');

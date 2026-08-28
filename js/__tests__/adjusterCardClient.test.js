@@ -329,6 +329,7 @@ describe('AN-2870 Adjuster Card contracts', () => {
           .mockResolvedValueOnce({
             schema: 'an.adjuster-card-photo.v1',
             configured: true,
+            avatar_template: '/user_avatar/example/{size}/2.png',
           }),
         jsonApi: jest.fn(() =>
           Promise.resolve({
@@ -346,10 +347,14 @@ describe('AN-2870 Adjuster Card contracts', () => {
           size: 100,
         }),
       ).resolves.toEqual({ state: 'available', public_url: false });
-      await uploadProfilePhoto(site, card, {
-        uri: 'file:///synthetic.jpg',
-        name: 'synthetic.jpg',
-        mimeType: 'image/jpeg',
+      await expect(
+        uploadProfilePhoto(site, card, {
+          uri: 'file:///synthetic.jpg',
+          name: 'synthetic.jpg',
+          mimeType: 'image/jpeg',
+        }),
+      ).resolves.toMatchObject({
+        avatarTemplate: '/user_avatar/example/{size}/2.png',
       });
       await removeProfilePhoto(site, card);
 

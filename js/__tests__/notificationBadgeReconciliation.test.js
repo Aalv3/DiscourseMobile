@@ -24,13 +24,20 @@ jest.mock('../memberContentAvailability', () => ({
 }));
 
 describe('notification badge reconciliation', () => {
-  test('cold-launch metadata failure cannot suppress authenticated refresh', () => {
+  test('cold launch owns one canonical notification snapshot without metadata fan-out', () => {
     const source = fs.readFileSync(
       path.join(__dirname, '..', 'site_manager.js'),
       'utf8',
     );
-    expect(source).toContain('Promise.allSettled(promises)');
-    expect(source).toContain('this.refreshSites();');
+    expect(source).toContain(
+      "this.refreshNotificationState('cold_launch').catch(() => []);",
+    );
+    const loadBody = source.slice(
+      source.indexOf('  load() {'),
+      source.indexOf('  totalUnread() {'),
+    );
+    expect(loadBody).not.toContain('ensureLatestApi()');
+    expect(loadBody).not.toContain('refreshSites()');
   });
   test('a partial totals response cannot replace a valid notification count', async () => {
     const site = new Site({
