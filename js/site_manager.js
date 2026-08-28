@@ -265,11 +265,7 @@ class SiteManager {
     let count = 0;
     this.sites.forEach(site => {
       if (site.authToken) {
-        count +=
-          (site.unreadNotifications || 0) +
-          (site.flagCount || 0) +
-          (site.unreadPrivateMessages || 0) +
-          (site.chatNotifications || 0);
+        count += site.unreadNotifications || 0;
       }
     });
     return count;
@@ -585,7 +581,7 @@ class SiteManager {
         let opts = options;
 
         if (opts.onlyNew) {
-          opts = _.merge(_.clone(opts), { minId: opts.newMap[site.url] });
+          opts = _.merge(_.clone(opts), { onlyUnread: true });
         }
 
         let promise = site.notifications(types, opts).then(notifications => {
@@ -614,7 +610,31 @@ class SiteManager {
               ['asc', 'desc'],
             )
             .value();
-          resolve(await availableNotificationRows(ordered));
+          const available = await availableNotificationRows(ordered);
+          if (options?.onlyNew) {
+            const actionableBySite = new Map();
+            available.forEach(row => {
+              actionableBySite.set(
+                row.site,
+                (actionableBySite.get(row.site) || 0) + 1,
+              );
+            });
+            let countersChanged = false;
+            this.sites.forEach(site => {
+              if (!site.authToken) return;
+              const actionable = actionableBySite.get(site) || 0;
+              if (site.unreadNotifications !== actionable) {
+                site.unreadNotifications = actionable;
+                countersChanged = true;
+              }
+            });
+            if (countersChanged) {
+              this.save();
+              this._onChange();
+              this.updateUnreadBadge();
+            }
+          }
+          resolve(available);
         })
         .catch(reject);
     });

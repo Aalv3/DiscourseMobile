@@ -445,9 +445,13 @@ class Site {
 
       if (this._notifications && silent) {
         let filtered = this._notifications;
-        let minId = options && options.minId;
-        if (types || minId) {
+        const onlyUnread = options?.onlyUnread === true;
+        let minId = onlyUnread ? null : options && options.minId;
+        if (types || minId || onlyUnread) {
           filtered = _.filter(filtered, notification => {
+            if (onlyUnread && notification.read) {
+              return false;
+            }
             // for new always show unread PMs and suppress read
             if (minId) {
               if (notification.read) {
