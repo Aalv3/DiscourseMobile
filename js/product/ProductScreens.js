@@ -28,6 +28,7 @@ import {
 import {
   activeMemberSite,
   askableCategories,
+  cachedCommunity,
   classifyCommunityLoadError,
   loadCommunity,
   topicPath,
@@ -248,24 +249,30 @@ const Value = ({ icon, title, body }) => {
 };
 
 function useCommunity(siteManager, contentVersion) {
+  const site = activeMemberSite(siteManager);
+  const initialSnapshot = cachedCommunity(site);
   const [state, setState] = useState({
-    loading: true,
+    loading: !initialSnapshot,
     error: null,
-    topics: [],
-    categories: [],
+    topics: initialSnapshot?.topics || [],
+    categories: initialSnapshot?.categories || [],
   });
   const refresh = useCallback(async () => {
-    setState(current => ({ ...current, loading: true, error: null }));
+    setState(current => ({
+      ...current,
+      loading: current.topics.length === 0 && current.categories.length === 0,
+      error: null,
+    }));
     try {
       setState({
         loading: false,
         error: null,
-        ...(await loadCommunity(activeMemberSite(siteManager))),
+        ...(await loadCommunity(site)),
       });
     } catch (error) {
       setState(current => ({ ...current, loading: false, error }));
     }
-  }, [contentVersion, siteManager]);
+  }, [contentVersion, site, siteManager]);
   useEffect(() => {
     refresh();
   }, [refresh]);
@@ -481,6 +488,10 @@ export function FloorScreen({ navigation, screenProps }) {
   const unanswered = data.topics.filter(
     topic => (topic.posts_count || 1) <= 1,
   ).length;
+  const unavailableWithoutSnapshot =
+    Boolean(data.error) &&
+    data.topics.length === 0 &&
+    data.categories.length === 0;
   return (
     <Screen backgroundColor={colors.isDark ? colors.canvas : floorV2.canvas}>
       <FloorHeader navigation={navigation} screenProps={screenProps} />
@@ -589,7 +600,7 @@ export function FloorScreen({ navigation, screenProps }) {
           icon="comments"
           label="Discussions"
           detail="Latest topics"
-          value={data.topics.length}
+          value={unavailableWithoutSnapshot ? '—' : data.topics.length}
           onPress={() => navigation.navigate('Discussions')}
           accessibleLayout={fontScale >= 1.6}
         />
@@ -598,7 +609,7 @@ export function FloorScreen({ navigation, screenProps }) {
           icon="question"
           label="Unanswered"
           detail="Need a reply"
-          value={unanswered}
+          value={unavailableWithoutSnapshot ? '—' : unanswered}
           onPress={() => navigation.navigate('Discussions')}
           tone="red"
           accessibleLayout={fontScale >= 1.6}
@@ -608,7 +619,7 @@ export function FloorScreen({ navigation, screenProps }) {
           icon="layer-group"
           label="Knowledge"
           detail="Browse categories"
-          value={data.categories.length}
+          value={unavailableWithoutSnapshot ? '—' : data.categories.length}
           onPress={() => navigation.navigate('Discussions')}
           tone="teal"
           accessibleLayout={fontScale >= 1.6}

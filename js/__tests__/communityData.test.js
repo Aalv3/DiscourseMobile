@@ -2,6 +2,7 @@
 'use strict';
 
 import {
+  cachedCommunity,
   classifyCommunityLoadError,
   communityRequestCanRetry,
   loadCommunity,
@@ -112,6 +113,56 @@ describe('community startup recovery', () => {
       categories: [{ id: 2 }],
     });
     expect(site.jsonApi).toHaveBeenCalledTimes(4);
+  });
+
+  test('retains the last successful snapshot when a later refresh fails', async () => {
+    const site = {
+      jsonApi: jest.fn(path =>
+        Promise.resolve(
+          path === '/latest.json'
+            ? { topic_list: { topics: [{ id: 7 }] } }
+            : { categories: [{ id: 8 }] },
+        ),
+      ),
+    };
+    await expect(loadCommunity(site)).resolves.toEqual({
+      topics: [{ id: 7 }],
+      categories: [{ id: 8 }],
+    });
+    expect(cachedCommunity(site)).toEqual({
+      topics: [{ id: 7 }],
+      categories: [{ id: 8 }],
+    });
+
+    site.jsonApi.mockRejectedValue(
+      Object.assign(new Error('offline'), { status: 503 }),
+    );
+    jest.useFakeTimers();
+    const failed = loadCommunity(site);
+    const failureExpectation = expect(failed).rejects.toMatchObject({
+      status: 503,
+    });
+    await jest.runAllTimersAsync();
+    await failureExpectation;
+    jest.useRealTimers();
+    expect(cachedCommunity(site)).toEqual({
+      topics: [{ id: 7 }],
+      categories: [{ id: 8 }],
+    });
+  });
+
+  test('Floor labels a cache-miss failure as unavailable instead of zero', () => {
+    const source = require('fs').readFileSync(
+      require('path').join(__dirname, '..', 'product', 'ProductScreens.js'),
+      'utf8',
+    );
+    expect(source).toContain(
+      "unavailableWithoutSnapshot ? '—' : data.topics.length",
+    );
+    expect(source).toContain("unavailableWithoutSnapshot ? '—' : unanswered");
+    expect(source).toContain(
+      "unavailableWithoutSnapshot ? '—' : data.categories.length",
+    );
   });
 
   test('Ask confirmation invalidates shared Floor and Discussions content', () => {

@@ -6,6 +6,14 @@ export const activeMemberSite = siteManager =>
 
 const COMMUNITY_RETRY_DELAYS_MS = [650, 1800];
 const communityLoads = new WeakMap();
+const communitySnapshots = new WeakMap();
+
+export function cachedCommunity(site) {
+  if (!site || (typeof site !== 'object' && typeof site !== 'function')) {
+    return null;
+  }
+  return communitySnapshots.get(site) || null;
+}
 
 export const communityRequestCanRetry = error =>
   error?.status == null || error.status >= 500;
@@ -36,10 +44,12 @@ async function loadCommunityUncached(site) {
     loadCommunityResource(() => site.jsonApi('/latest.json')),
     loadCommunityResource(() => site.jsonApi('/site.json')),
   ]);
-  return {
+  const snapshot = {
     topics: latest?.topic_list?.topics || [],
     categories: siteInfo?.categories || [],
   };
+  communitySnapshots.set(site, snapshot);
+  return snapshot;
 }
 
 // Floor, Discussions, and Ask remain mounted as sibling tabs. A shared
