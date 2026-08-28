@@ -163,6 +163,28 @@ describe('push foundation lifecycle', () => {
     await expect(deps.foundation.status()).resolves.toBe('permission_denied');
   });
 
+  test('restores a privacy-safe last-known enabled diagnostic state', async () => {
+    const deps = fixture('granted');
+    deps.store.preference.mockResolvedValue('enabled');
+    await expect(deps.foundation.status()).resolves.toBe('enabled');
+    expect(deps.foundation.diagnosticState()).toEqual({
+      permission: 'granted',
+      preference: 'enabled',
+      backend: 'last_known_enabled',
+    });
+  });
+
+  test('successful registration promotes backend diagnostics to confirmed', async () => {
+    const deps = fixture('granted');
+    deps.client.register.mockResolvedValue('2xx');
+    await deps.foundation.enable(account);
+    expect(deps.foundation.diagnosticState()).toEqual({
+      permission: 'granted',
+      preference: 'enabled',
+      backend: 'confirmed',
+    });
+  });
+
   test('bounds startup preference acquisition', async () => {
     jest.useFakeTimers();
     const deps = fixture();

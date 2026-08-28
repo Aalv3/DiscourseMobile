@@ -225,6 +225,26 @@ function notificationDiagnostics() {
   }
 }
 
+function pushStatusDiagnostics() {
+  const key = '@AdjusterNetwork.pushStatusDiagnostics.v1';
+  const directory =
+    'Library/Application Support/org.adjusternetwork.app/RCTAsyncLocalStorage_V1';
+  const manifestPath = join(output, 'async-storage-manifest.json');
+  copyFromDevice(`${directory}/manifest.json`, manifestPath);
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  let stored = manifest[key];
+  if (stored === null) {
+    const hash = createHash('md5').update(key).digest('hex');
+    const valuePath = join(output, 'push-status-diagnostics.json');
+    copyFromDevice(`${directory}/${hash}`, valuePath);
+    stored = readFileSync(valuePath, 'utf8');
+  }
+  const entries = stored ? JSON.parse(stored) : [];
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    console.log(JSON.stringify(entry));
+  }
+}
+
 try {
   if (command === 'status') status();
   else if (command === 'install') install();
@@ -233,9 +253,10 @@ try {
   else if (command === 'push-diagnostics') pushDiagnostics();
   else if (command === 'share-diagnostics') shareDiagnostics();
   else if (command === 'notification-diagnostics') notificationDiagnostics();
+  else if (command === 'push-status-diagnostics') pushStatusDiagnostics();
   else
     throw new Error(
-      'status | install --app=... | launch | ota-status | push-diagnostics | share-diagnostics | notification-diagnostics',
+      'status | install --app=... | launch | ota-status | push-diagnostics | push-status-diagnostics | share-diagnostics | notification-diagnostics',
     );
 } catch (error) {
   console.error(`native-device-harness: ${error.message}`);

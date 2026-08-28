@@ -108,6 +108,7 @@ import {
   localStatusForProgress,
 } from './adjusterCardClient';
 import { notificationStatusAfterRegistration } from './notificationStatus';
+import { recordPushStatusTransition } from './pushStatusDiagnostics';
 
 const { DiscourseKeyboardShortcuts } = NativeModules;
 
@@ -273,7 +274,8 @@ class Discourse extends React.Component {
       onboardingSessionId: null,
       onboardingDismissedForSession: false,
       connecting: false,
-      pushStatus: 'unknown',
+      pushStatus: 'restoring',
+      pushKnownEnabled: false,
       pushAttemptResult: null,
       memberContentVersion: 0,
     };
@@ -321,6 +323,38 @@ class Discourse extends React.Component {
     this._siteManager.refreshNotificationState('push').catch(() => {});
     securityEvent('push.route.pending');
     return this._flushPendingPushRoute();
+  }
+
+  _applyPushStatus({
+    status,
+    knownEnabled,
+    attemptResult,
+    diagnosticResult,
+    reason,
+  }) {
+    this.setState(current => {
+      const nextKnownEnabled =
+        knownEnabled === undefined
+          ? current.pushKnownEnabled
+          : knownEnabled === true;
+      recordPushStatusTransition({
+        reason,
+        previous: current.pushStatus,
+        next: status,
+        knownEnabled: nextKnownEnabled,
+        foundation: this._pushFoundation.diagnosticState(),
+        result:
+          diagnosticResult === undefined ? attemptResult : diagnosticResult,
+      });
+      return {
+        pushStatus: status,
+        pushKnownEnabled: nextKnownEnabled,
+        pushAttemptResult:
+          attemptResult === undefined
+            ? current.pushAttemptResult
+            : attemptResult,
+      };
+    });
   }
 
   _flushPendingPushRoute() {
@@ -483,27 +517,36 @@ class Discourse extends React.Component {
         this._pushFoundation
           .status()
           .then(async preference => {
-            this.setState({ pushStatus: preference });
+            this._applyPushStatus({
+              status: preference,
+              knownEnabled: preference === 'enabled',
+              attemptResult: null,
+              reason: 'persisted_status',
+            });
             if (preference !== 'enabled') return;
             try {
-              const result = await this._pushFoundation.enable(site);
-              this.setState(current => ({
-                pushStatus: notificationStatusAfterRegistration(
-                  current.pushStatus,
-                  result,
-                ),
-              }));
+              await this._pushFoundation.enable(site);
+              this._applyPushStatus({
+                status: 'enabled',
+                knownEnabled: true,
+                attemptResult: null,
+                reason: 'background_registration_success',
+              });
             } catch (error) {
               const result = resultFromPushError(
                 error,
                 PUSH_REGISTRATION_STAGE.UNKNOWN,
               );
-              this.setState(current => ({
-                pushStatus: notificationStatusAfterRegistration(
-                  current.pushStatus,
+              this._applyPushStatus({
+                status: notificationStatusAfterRegistration(
+                  preference,
                   result,
+                  true,
                 ),
-              }));
+                knownEnabled: true,
+                attemptResult: null,
+                reason: 'background_registration_failure',
+              });
             }
           })
           .catch(error => {
@@ -512,8 +555,11 @@ class Discourse extends React.Component {
               PUSH_REGISTRATION_STAGE.PERMISSION_CHECK,
             );
             recordPushRegistrationResult(result);
-            this.setState({
-              pushStatus: result.category,
+            this._applyPushStatus({
+              status: result.category,
+              knownEnabled: false,
+              attemptResult: null,
+              reason: 'status_restore_failure',
             });
           });
       }
@@ -884,28 +930,35 @@ class Discourse extends React.Component {
         if (!site) return;
         const started = startedPushRegistration();
         recordPushRegistrationResult(started);
-        this.setState({ pushStatus: 'working', pushAttemptResult: started });
+        this._applyPushStatus({
+          status: this.state.pushKnownEnabled ? 'enabled' : 'working',
+          attemptResult: started,
+          reason: 'manual_registration_started',
+        });
         try {
           const result = await this._pushFoundation.enable(site);
-          this.setState(current => ({
-            pushStatus: notificationStatusAfterRegistration(
-              current.pushStatus,
-              result,
-            ),
-            pushAttemptResult: result,
-          }));
+          this._applyPushStatus({
+            status: 'enabled',
+            knownEnabled: true,
+            attemptResult: result,
+            reason: 'manual_registration_success',
+          });
         } catch (error) {
           const result = resultFromPushError(
             error,
             PUSH_REGISTRATION_STAGE.UNKNOWN,
           );
-          this.setState(current => ({
-            pushStatus: notificationStatusAfterRegistration(
-              current.pushStatus,
+          const knownEnabled = this.state.pushKnownEnabled;
+          this._applyPushStatus({
+            status: notificationStatusAfterRegistration(
+              this.state.pushStatus,
               result,
+              knownEnabled,
             ),
-            pushAttemptResult: result,
-          }));
+            attemptResult: knownEnabled ? null : result,
+            diagnosticResult: result,
+            reason: 'manual_registration_failure',
+          });
         }
       },
     };

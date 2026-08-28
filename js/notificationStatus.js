@@ -7,6 +7,7 @@ export const NOTIFICATION_STATUS = Object.freeze({
   PERMISSION_DENIED: 'permission_denied',
   PERMISSION_FAILURE: 'permission_failure',
   SETUP_REQUIRED: 'unknown',
+  RESTORING: 'restoring',
   DEVELOPMENT_BUILD_LIMITATION: 'development_build_limitation',
   TEMPORARY_ERROR: 'push_registration_failed',
   APNS_TOKEN_FAILURE: 'apns_token_failure',
@@ -76,13 +77,18 @@ export function canAttemptNotificationSetup(status) {
   return ![
     NOTIFICATION_STATUS.ENABLED,
     'working',
+    NOTIFICATION_STATUS.RESTORING,
     NOTIFICATION_STATUS.DEVELOPMENT_BUILD_LIMITATION,
   ].includes(status);
 }
 
-export function notificationStatusAfterRegistration(previousStatus, result) {
+export function notificationStatusAfterRegistration(
+  previousStatus,
+  result,
+  knownEnabled = false,
+) {
   if (
-    previousStatus === NOTIFICATION_STATUS.ENABLED &&
+    (knownEnabled || previousStatus === NOTIFICATION_STATUS.ENABLED) &&
     result?.outcome === 'failed'
   ) {
     return NOTIFICATION_STATUS.ENABLED;
@@ -92,6 +98,7 @@ export function notificationStatusAfterRegistration(previousStatus, result) {
 
 export function notificationSetupActionLabel(status) {
   if (status === NOTIFICATION_STATUS.PERMISSION_DENIED) return 'Open Settings';
+  if (status === NOTIFICATION_STATUS.RESTORING) return 'Checking…';
   return [
     NOTIFICATION_STATUS.DISABLED_BY_USER,
     NOTIFICATION_STATUS.SETUP_REQUIRED,
@@ -104,6 +111,8 @@ export function notificationStatusMessage(status) {
   switch (status) {
     case NOTIFICATION_STATUS.ENABLED:
       return 'Important member activity is enabled for this device.';
+    case NOTIFICATION_STATUS.RESTORING:
+      return 'Checking this device’s notification setup…';
     case 'working':
       return 'Finishing secure registration for this device…';
     case NOTIFICATION_STATUS.DEVELOPMENT_BUILD_LIMITATION:

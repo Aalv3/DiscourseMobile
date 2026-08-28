@@ -32,6 +32,7 @@ describe('notification status model', () => {
 
   test.each([
     [NOTIFICATION_STATUS.ENABLED, false],
+    [NOTIFICATION_STATUS.RESTORING, false],
     [NOTIFICATION_STATUS.DISABLED_BY_USER, true],
     [NOTIFICATION_STATUS.SETUP_REQUIRED, true],
     [NOTIFICATION_STATUS.TEMPORARY_ERROR, true],
@@ -70,6 +71,12 @@ describe('notification status model', () => {
     expect(
       notificationStatusMessage(NOTIFICATION_STATUS.NONCE_FAILURE),
     ).not.toMatch(/nonce|backend|token/i);
+    expect(notificationSetupActionLabel(NOTIFICATION_STATUS.RESTORING)).toBe(
+      'Checking…',
+    );
+    expect(notificationStatusMessage(NOTIFICATION_STATUS.RESTORING)).toMatch(
+      /Checking this device/,
+    );
   });
 
   test('healthy registered push survives an unrelated authenticated API 429', () => {
@@ -87,6 +94,9 @@ describe('notification status model', () => {
     expect(
       notificationStatusAfterRegistration(NOTIFICATION_STATUS.ENABLED, result),
     ).toBe(NOTIFICATION_STATUS.ENABLED);
+    expect(notificationStatusAfterRegistration('working', result, true)).toBe(
+      NOTIFICATION_STATUS.ENABLED,
+    );
     expect(
       notificationStatusAfterRegistration(
         NOTIFICATION_STATUS.SETUP_REQUIRED,
@@ -116,5 +126,7 @@ describe('notification status model', () => {
     expect(restore).toContain("if (preference !== 'enabled') return;");
     expect(restore).not.toContain("pushStatus: 'working'");
     expect(restore).toContain('notificationStatusAfterRegistration');
+    expect(source).toContain("pushStatus: 'restoring'");
+    expect(source).toContain('pushKnownEnabled: false');
   });
 });

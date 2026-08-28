@@ -59,6 +59,8 @@ export class PushFoundation {
     this.retryAfter = 0;
     this.refreshPromise = null;
     this.pendingRefreshToken = null;
+    this.lastPermissionState = 'unknown';
+    this.lastPersistedPreference = 'unknown';
   }
 
   async status() {
@@ -77,6 +79,7 @@ export class PushFoundation {
         PUSH_REGISTRATION_CATEGORY.PREFERENCE_PERSISTENCE_FAILURE,
       );
     }
+    this.lastPersistedPreference = preference;
     if (
       ['enabled', 'denied'].includes(preference) &&
       this.transport.permissionState
@@ -99,6 +102,7 @@ export class PushFoundation {
           PUSH_REGISTRATION_CATEGORY.PERMISSION_FAILURE,
         );
       }
+      this.lastPermissionState = permission;
       if (permission === 'denied') {
         this.emitResult(
           resultFromPushError(
@@ -117,6 +121,19 @@ export class PushFoundation {
       );
     }
     return preference;
+  }
+
+  diagnosticState() {
+    return {
+      permission: this.lastPermissionState,
+      preference: this.lastPersistedPreference,
+      backend:
+        this.lastBackendStatusClass === PUSH_HTTP_STATUS_CLASS.SUCCESS
+          ? 'confirmed'
+          : this.lastPersistedPreference === 'enabled'
+          ? 'last_known_enabled'
+          : 'unknown',
+    };
   }
 
   registration(token) {
@@ -187,6 +204,7 @@ export class PushFoundation {
         PUSH_REGISTRATION_CATEGORY.PERMISSION_FAILURE,
       );
     }
+    this.lastPermissionState = permission;
     this.emitResult(
       succeededPushRegistrationStage(PUSH_REGISTRATION_STAGE.PERMISSION_CHECK),
     );
@@ -210,6 +228,7 @@ export class PushFoundation {
           PUSH_REGISTRATION_CATEGORY.PERMISSION_FAILURE,
         );
       }
+      this.lastPermissionState = permission;
       this.emitResult(
         succeededPushRegistrationStage(
           PUSH_REGISTRATION_STAGE.PERMISSION_REQUEST,
@@ -222,6 +241,7 @@ export class PushFoundation {
           timeoutMs: this.preferenceTimeoutMs,
           timeoutCode: 'push_preference_write_timeout',
         });
+        this.lastPersistedPreference = 'denied';
       } catch {
         throw pushRegistrationFailure(
           PUSH_REGISTRATION_STAGE.PREFERENCE_PERSISTENCE,
@@ -321,6 +341,7 @@ export class PushFoundation {
         timeoutMs: this.preferenceTimeoutMs,
         timeoutCode: 'push_preference_write_timeout',
       });
+      this.lastPersistedPreference = 'enabled';
     } catch {
       // The backend registration is valid. Keep the in-memory identity so a
       // retry is idempotent, while reporting only the local persistence stage.
@@ -472,6 +493,7 @@ export class PushFoundation {
           timeoutCode: 'push_preference_write_timeout',
         },
       );
+      this.lastPersistedPreference = enabled ? 'enabled' : 'denied';
     } catch {
       throw pushRegistrationFailure(
         PUSH_REGISTRATION_STAGE.PREFERENCE_PERSISTENCE,
@@ -511,6 +533,7 @@ export class PushFoundation {
       timeoutMs: this.preferenceTimeoutMs,
       timeoutCode: 'push_preference_write_timeout',
     }).catch(() => {});
+    this.lastPersistedPreference = 'unknown';
     return true;
   }
 }
