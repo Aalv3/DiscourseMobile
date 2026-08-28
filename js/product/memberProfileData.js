@@ -34,6 +34,33 @@ export function clearMemberProfileDataCache() {
   cache.clear();
 }
 
+export function updateCachedMemberProfileAvatar(site, username, template) {
+  const key = cacheKey(site, username);
+  const current = cache.get(key);
+  if (!current || !template) return;
+  const profileUser = current.profile?.user;
+  cache.set(key, {
+    ...current,
+    profile: profileUser
+      ? {
+          ...current.profile,
+          user: { ...profileUser, avatar_template: template },
+        }
+      : current.profile
+      ? { ...current.profile, avatar_template: template }
+      : current.profile,
+    cardPayload: current.cardPayload
+      ? {
+          ...current.cardPayload,
+          core: {
+            ...(current.cardPayload.core || {}),
+            avatar_template: template,
+          },
+        }
+      : current.cardPayload,
+  });
+}
+
 export async function loadMemberProfileData(
   site,
   username,

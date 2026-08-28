@@ -2,6 +2,7 @@ import {
   cachedMemberProfileData,
   clearMemberProfileDataCache,
   loadMemberProfileData,
+  updateCachedMemberProfileAvatar,
 } from '../product/memberProfileData';
 
 describe('native member profile data', () => {
@@ -96,5 +97,32 @@ describe('native member profile data', () => {
       'offline',
     );
     expect(cachedMemberProfileData(site, 'qa_test')).toBe(first);
+  });
+
+  test('makes a successfully uploaded avatar authoritative in cached data', async () => {
+    const site = {
+      url: 'https://staging.example',
+      username: 'qa_test',
+      jsonApi: jest.fn(path => {
+        if (path === '/u/qa_test.json') {
+          return Promise.resolve({
+            user: { username: 'qa_test', avatar_template: '/old/{size}.png' },
+          });
+        }
+        if (path.startsWith('/user_actions.json')) {
+          return Promise.resolve({ user_actions: [] });
+        }
+        return Promise.resolve({
+          schema: 'an.adjuster-card.v2',
+          core: { avatar_template: '/old/{size}.png' },
+        });
+      }),
+    };
+    await loadMemberProfileData(site, 'qa_test');
+    updateCachedMemberProfileAvatar(site, 'qa_test', '/new/{size}.png');
+    expect(cachedMemberProfileData(site, 'qa_test')).toMatchObject({
+      profile: { user: { avatar_template: '/new/{size}.png' } },
+      cardPayload: { core: { avatar_template: '/new/{size}.png' } },
+    });
   });
 });

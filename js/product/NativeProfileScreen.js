@@ -41,7 +41,14 @@ import {
 import {
   cachedMemberProfileData,
   loadMemberProfileData,
+  updateCachedMemberProfileAvatar,
 } from './memberProfileData';
+import {
+  profileCooldownSeconds,
+  profileRetryAfterMs,
+  profileSaveErrorMessage,
+  runProfileSaveSequence,
+} from './profileSaveState';
 import {
   deletePrivateResume,
   editableFieldsForStep,
@@ -100,10 +107,13 @@ export default function NativeProfileScreen({
     photoAsset: null,
     photoPreviewUri: null,
     submitting: false,
+    cooldownUntil: 0,
     error: null,
   });
   const [selectionField, setSelectionField] = useState(null);
+  const [profileSaveNow, setProfileSaveNow] = useState(Date.now());
   const loadSequence = useRef(0);
+  const authoritativeAvatar = useRef(null);
 
   const load = useCallback(async () => {
     const sequence = ++loadSequence.current;
@@ -126,12 +136,26 @@ export default function NativeProfileScreen({
         username,
       );
       if (sequence !== loadSequence.current) return;
-      setState({
-        loading: false,
-        user: profile?.user || profile,
-        card: cardPayload ? parseAdjusterCard(cardPayload) : null,
-        actions: [],
-        error: null,
+      setState(() => {
+        let user = profile?.user || profile;
+        let card = cardPayload ? parseAdjusterCard(cardPayload) : null;
+        const latestAvatar = authoritativeAvatar.current;
+        const responseAvatar =
+          card?.avatarTemplate || user?.avatar_template || null;
+        if (latestAvatar && responseAvatar !== latestAvatar) {
+          user = user ? { ...user, avatar_template: latestAvatar } : user;
+          card = card ? { ...card, avatarTemplate: latestAvatar } : card;
+          updateCachedMemberProfileAvatar(site, username, latestAvatar);
+        } else if (latestAvatar && responseAvatar === latestAvatar) {
+          authoritativeAvatar.current = null;
+        }
+        return {
+          loading: false,
+          user,
+          card,
+          actions: [],
+          error: null,
+        };
       });
       const actions = await availableContributionActions(
         site,
@@ -156,6 +180,12 @@ export default function NativeProfileScreen({
     };
   }, [load]);
 
+  useEffect(() => {
+    if (editor.cooldownUntil <= Date.now()) return undefined;
+    const timer = setInterval(() => setProfileSaveNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [editor.cooldownUntil]);
+
   const openEditor = () =>
     setEditor({
       visible: true,
@@ -175,66 +205,77 @@ export default function NativeProfileScreen({
       photoAsset: null,
       photoPreviewUri: null,
       submitting: false,
+      cooldownUntil: 0,
       error: null,
     });
   const saveProfile = async () => {
+    if (editor.cooldownUntil > Date.now()) return;
     setEditor(current => ({ ...current, submitting: true, error: null }));
-    let uploadedPhoto = null;
     try {
-      if (editor.photoAsset) {
-        uploadedPhoto = await uploadProfilePhoto(
-          site,
-          state.card,
-          editor.photoAsset,
-        );
-        if (uploadedPhoto?.avatarTemplate) {
-          setState(current => ({
+      await runProfileSaveSequence({
+        photoAsset: editor.photoAsset,
+        uploadPhoto: asset => uploadProfilePhoto(site, state.card, asset),
+        onPhotoUploaded: uploadedPhoto => {
+          if (uploadedPhoto?.avatarTemplate) {
+            authoritativeAvatar.current = uploadedPhoto.avatarTemplate;
+            updateCachedMemberProfileAvatar(
+              site,
+              username,
+              uploadedPhoto.avatarTemplate,
+            );
+            setState(current => ({
+              ...current,
+              user: current.user
+                ? {
+                    ...current.user,
+                    avatar_template: uploadedPhoto.avatarTemplate,
+                  }
+                : current.user,
+              card: current.card
+                ? {
+                    ...current.card,
+                    avatarTemplate: uploadedPhoto.avatarTemplate,
+                  }
+                : current.card,
+            }));
+          }
+          setEditor(current => ({
             ...current,
-            user: current.user
-              ? {
-                  ...current.user,
-                  avatar_template: uploadedPhoto.avatarTemplate,
-                }
-              : current.user,
-            card: current.card
-              ? {
-                  ...current.card,
-                  avatarTemplate: uploadedPhoto.avatarTemplate,
-                }
-              : current.card,
+            photoAsset: null,
+            photoPreviewUri: current.photoPreviewUri,
           }));
-        }
-      }
-      await saveAdjusterCardFields(
-        site,
-        state.card,
-        {
-          name: editor.name.trim(),
-          professional_headline: editor.professional_headline.trim(),
-          bio: editor.bio.trim(),
-          base_state: editor.base_state.trim().toUpperCase(),
-          licensed_states: editor.licensed_states,
-          specialties: editor.specialties,
-          adjuster_type: editor.adjuster_type,
-          years_experience: editor.years_experience,
-          cat_experience: editor.cat_experience,
-          cat_availability: editor.cat_availability,
-          work_mode: editor.work_mode,
-          travel_preference: editor.travel_preference,
         },
-        editor.visibility,
-      );
+        saveFields: () =>
+          saveAdjusterCardFields(
+            site,
+            state.card,
+            {
+              name: editor.name.trim(),
+              professional_headline: editor.professional_headline.trim(),
+              bio: editor.bio.trim(),
+              base_state: editor.base_state.trim().toUpperCase(),
+              licensed_states: editor.licensed_states,
+              specialties: editor.specialties,
+              adjuster_type: editor.adjuster_type,
+              years_experience: editor.years_experience,
+              cat_experience: editor.cat_experience,
+              cat_availability: editor.cat_availability,
+              work_mode: editor.work_mode,
+              travel_preference: editor.travel_preference,
+            },
+            editor.visibility,
+          ),
+      });
       setEditor(current => ({ ...current, visible: false, submitting: false }));
       load();
     } catch (error) {
+      const cooldownMs = profileRetryAfterMs(error);
+      setProfileSaveNow(Date.now());
       setEditor(current => ({
         ...current,
-        photoAsset: uploadedPhoto ? current.photoAsset : null,
-        photoPreviewUri: uploadedPhoto ? current.photoPreviewUri : null,
         submitting: false,
-        error:
-          error?.userMessages?.join(' ') ||
-          'Profile changes could not be saved.',
+        cooldownUntil: cooldownMs > 0 ? Date.now() + cooldownMs : 0,
+        error: profileSaveErrorMessage(error, cooldownMs),
       }));
     }
   };
@@ -389,6 +430,10 @@ export default function NativeProfileScreen({
     username,
     avatar_template: state.card?.avatarTemplate,
   };
+  const cooldownSeconds = profileCooldownSeconds(
+    editor.cooldownUntil,
+    profileSaveNow,
+  );
   const card = state.card;
   const canEdit = card?.editable === true && user?.username === site?.username;
   const editableFields = [
@@ -970,8 +1015,14 @@ export default function NativeProfileScreen({
               ) : null}
               <View style={styles.edit}>
                 <Action
-                  label={editor.submitting ? 'Saving…' : 'Save profile'}
-                  disabled={editor.submitting}
+                  label={
+                    editor.submitting
+                      ? 'Saving…'
+                      : cooldownSeconds > 0
+                      ? `Please wait ${cooldownSeconds}s`
+                      : 'Save profile'
+                  }
+                  disabled={editor.submitting || cooldownSeconds > 0}
                   onPress={saveProfile}
                 />
               </View>

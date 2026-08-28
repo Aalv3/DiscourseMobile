@@ -17,6 +17,8 @@ describe('profile runtime stability', () => {
     expect(screen).toContain('...current,\n        loading: false');
     expect(screen).toContain('Your last profile remains available.');
     expect(screen).toContain('sequence !== loadSequence.current');
+    expect(screen).toContain('authoritativeAvatar.current');
+    expect(screen).toContain('responseAvatar !== latestAvatar');
     expect(screen.indexOf('setState({')).toBeLessThan(
       screen.indexOf('const actions = await availableContributionActions('),
     );
@@ -29,9 +31,10 @@ describe('profile runtime stability', () => {
     expect(screen).toContain('photoPreviewUri: asset.uri');
     expect(screen).toContain('submitting: false');
     expect(screen).toContain('uploadedPhoto.avatarTemplate');
-    expect(screen).toContain(
-      'photoAsset: uploadedPhoto ? current.photoAsset : null',
-    );
+    expect(screen).toContain('photoAsset: null');
+    expect(screen).toContain('cooldownUntil: cooldownMs > 0');
+    expect(screen).toContain('editor.submitting || cooldownSeconds > 0');
+    expect(screen).toContain('...current,\n        submitting: false');
   });
 
   test('profile code does not cross protected application boundaries', () => {
