@@ -12,11 +12,11 @@ describe('profile runtime stability', () => {
     expect(data).toContain('cache.set(cacheKey(site, username), result)');
     expect(screen).toContain('cachedMemberProfileData(site, username)');
     expect(screen).toContain(
-      'loading: current.user == null && current.card == null',
+      'const loading = current.user == null && current.card == null',
     );
     expect(screen).toContain('...current,\n        loading: false');
     expect(screen).toContain('Your last profile remains available.');
-    expect(screen).toContain('sequence !== loadSequence.current');
+    expect(screen).toContain('sequence === loadSequence.current');
     expect(screen).toContain('authoritativeAvatar.current');
     expect(screen).toContain('responseAvatar !== latestAvatar');
     expect(screen.indexOf('setState({')).toBeLessThan(
@@ -52,5 +52,17 @@ describe('profile runtime stability', () => {
     expect(combined).not.toMatch(
       /AppDelegate|ShareExtension|RCTLinkingManager/,
     );
+  });
+
+  test('records mount, effect, sequence, state, navigation and render lifecycle', () => {
+    const screen = read('product/NativeProfileScreen.js');
+    expect(screen).toContain("event: 'mount'");
+    expect(screen).toContain("event: 'effect'");
+    expect(screen).toContain("event: 'sequence'");
+    expect(screen).toContain("event: 'state'");
+    expect(screen).toContain("event: 'navigation'");
+    expect(screen).toContain("event: 'render'");
+    expect(screen).toContain('branch: diagnosticRenderBranch');
+    expect(screen).toContain("outcome: accepted ? 'accepted' : 'discarded'");
   });
 });
