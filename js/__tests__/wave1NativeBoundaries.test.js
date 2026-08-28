@@ -44,6 +44,20 @@ describe('Wave 1 native boundaries', () => {
     );
   });
 
+  test('declares only fonts that are bundled by the native target', () => {
+    const info = read('ios/Discourse/Info.plist');
+    const project = read('ios/Discourse.xcodeproj/project.pbxproj');
+    for (const font of [
+      'FontAwesome5_Brands.ttf',
+      'FontAwesome5_Regular.ttf',
+      'FontAwesome5_Solid.ttf',
+    ]) {
+      expect(info).toContain(`<string>${font}</string>`);
+      expect(project).toContain(font);
+    }
+    expect(info).not.toContain('Ionicons.ttf');
+  });
+
   test('enforces production APNs identity on the final archive only', () => {
     const readiness = read('scripts/verify-native-release-readiness.mjs');
     expect(readiness).toContain('signedEntitlements(app)');
