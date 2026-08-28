@@ -48,9 +48,26 @@ describe('profile runtime stability', () => {
     expect(screen).toContain('cooldownSeconds > 0 ?');
     expect(screen).toContain('<ProfileSaveCooldownControl');
     expect(screen).toContain(
-      'if (!canStartProfileSave(editor.cooldownUntil)) return;',
+      'if (!canStartProfileSave(editor.cooldownUntil)) {',
     );
     expect(screen).toContain('...current,\n        submitting: false');
+    expect(screen).not.toMatch(
+      /import \{\s*canStartProfileSave,[\s\S]*?\} from 'react-native'/,
+    );
+    expect(screen).toMatch(
+      /import \{\s*canStartProfileSave,[\s\S]*?\} from '\.\/profileSaveState'/,
+    );
+    [
+      'save_handler_started',
+      'save_guard_passed',
+      'save_guard_blocked',
+      'photo_upload_started',
+      'photo_upload_result',
+      'profile_patch_started',
+      'profile_patch_result',
+      'save_completed',
+      'save_failed',
+    ].forEach(event => expect(screen).toContain(`event: '${event}'`));
   });
 
   test('profile code does not cross protected application boundaries', () => {

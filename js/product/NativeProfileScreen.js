@@ -3,7 +3,6 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  canStartProfileSave,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -43,6 +42,7 @@ import {
   updateCachedMemberProfileAvatar,
 } from './memberProfileData';
 import {
+  canStartProfileSave,
   profileCooldownSeconds,
   profileRetryAfterMs,
   profileSaveErrorMessage,
@@ -382,12 +382,53 @@ export default function NativeProfileScreen({
       error: null,
     });
   const saveProfile = async () => {
-    if (!canStartProfileSave(editor.cooldownUntil)) return;
+    recordProfileDiagnostic({
+      event: 'save_handler_started',
+      mountId,
+      outcome: 'invoked',
+      category: editor.photoAsset ? 'photo_pending' : 'fields_only',
+    });
+    if (!canStartProfileSave(editor.cooldownUntil)) {
+      recordProfileDiagnostic({
+        event: 'save_guard_blocked',
+        mountId,
+        outcome: 'cooldown',
+      });
+      return;
+    }
+    recordProfileDiagnostic({
+      event: 'save_guard_passed',
+      mountId,
+      outcome: 'accepted',
+    });
     setEditor(current => ({ ...current, submitting: true, error: null }));
     try {
       await runProfileSaveSequence({
         photoAsset: editor.photoAsset,
-        uploadPhoto: asset => uploadProfilePhoto(site, state.card, asset),
+        uploadPhoto: async asset => {
+          recordProfileDiagnostic({
+            event: 'photo_upload_started',
+            mountId,
+            outcome: 'started',
+          });
+          try {
+            const uploaded = await uploadProfilePhoto(site, state.card, asset);
+            recordProfileDiagnostic({
+              event: 'photo_upload_result',
+              mountId,
+              outcome: 'success',
+            });
+            return uploaded;
+          } catch (error) {
+            recordProfileDiagnostic({
+              event: 'photo_upload_result',
+              mountId,
+              outcome: 'failure',
+              category: profileErrorCategory(error),
+            });
+            throw error;
+          }
+        },
         onPhotoUploaded: uploadedPhoto => {
           if (uploadedPhoto?.avatarTemplate) {
             authoritativeAvatar.current = uploadedPhoto.avatarTemplate;
@@ -418,30 +459,63 @@ export default function NativeProfileScreen({
             photoPreviewUri: current.photoPreviewUri,
           }));
         },
-        saveFields: () =>
-          saveAdjusterCardFields(
-            site,
-            state.card,
-            {
-              name: editor.name.trim(),
-              professional_headline: editor.professional_headline.trim(),
-              bio: editor.bio.trim(),
-              base_state: editor.base_state.trim().toUpperCase(),
-              licensed_states: editor.licensed_states,
-              specialties: editor.specialties,
-              adjuster_type: editor.adjuster_type,
-              years_experience: editor.years_experience,
-              cat_experience: editor.cat_experience,
-              cat_availability: editor.cat_availability,
-              work_mode: editor.work_mode,
-              travel_preference: editor.travel_preference,
-            },
-            editor.visibility,
-          ),
+        saveFields: async () => {
+          recordProfileDiagnostic({
+            event: 'profile_patch_started',
+            mountId,
+            outcome: 'started',
+          });
+          try {
+            const saved = await saveAdjusterCardFields(
+              site,
+              state.card,
+              {
+                name: editor.name.trim(),
+                professional_headline: editor.professional_headline.trim(),
+                bio: editor.bio.trim(),
+                base_state: editor.base_state.trim().toUpperCase(),
+                licensed_states: editor.licensed_states,
+                specialties: editor.specialties,
+                adjuster_type: editor.adjuster_type,
+                years_experience: editor.years_experience,
+                cat_experience: editor.cat_experience,
+                cat_availability: editor.cat_availability,
+                work_mode: editor.work_mode,
+                travel_preference: editor.travel_preference,
+              },
+              editor.visibility,
+            );
+            recordProfileDiagnostic({
+              event: 'profile_patch_result',
+              mountId,
+              outcome: 'success',
+            });
+            return saved;
+          } catch (error) {
+            recordProfileDiagnostic({
+              event: 'profile_patch_result',
+              mountId,
+              outcome: 'failure',
+              category: profileErrorCategory(error),
+            });
+            throw error;
+          }
+        },
+      });
+      recordProfileDiagnostic({
+        event: 'save_completed',
+        mountId,
+        outcome: 'success',
       });
       setEditor(current => ({ ...current, visible: false, submitting: false }));
       load();
     } catch (error) {
+      recordProfileDiagnostic({
+        event: 'save_failed',
+        mountId,
+        outcome: 'failure',
+        category: profileErrorCategory(error),
+      });
       const cooldownMs = profileRetryAfterMs(error);
       setProfileSaveNow(Date.now());
       setEditor(current => ({

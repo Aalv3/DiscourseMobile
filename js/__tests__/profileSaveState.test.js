@@ -7,6 +7,27 @@ import {
 } from '../product/profileSaveState';
 
 describe('profile save state', () => {
+  test('profile Save resolves its guard and invokes photo upload before PATCH', async () => {
+    expect(typeof canStartProfileSave).toBe('function');
+    expect(canStartProfileSave(0, 120000)).toBe(true);
+    const calls = [];
+
+    await runProfileSaveSequence({
+      photoAsset: { uri: 'file:///selected.jpg' },
+      uploadPhoto: jest.fn(async () => {
+        calls.push('photo');
+        return { avatarTemplate: '/avatar/{size}/2.png' };
+      }),
+      onPhotoUploaded: jest.fn(async () => calls.push('photo_applied')),
+      saveFields: jest.fn(async () => {
+        calls.push('patch');
+        return { lockVersion: 2 };
+      }),
+    });
+
+    expect(calls).toEqual(['photo', 'photo_applied', 'patch']);
+  });
+
   test('a fields 429 cannot undo an already successful photo upload', async () => {
     const uploaded = {
       avatarTemplate: '/user_avatar/example/{size}/2.png',
