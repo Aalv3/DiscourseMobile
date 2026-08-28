@@ -121,6 +121,22 @@ describe('Wave 1 native boundaries', () => {
     expect(app).not.toContain('if (params.sharedUrl)');
   });
 
+  test('forwards custom URLs to both React Native and the superclass', () => {
+    const appDelegate = read('ios/Discourse/AppDelegate.swift');
+    const openUrlHandler = appDelegate.slice(
+      appDelegate.indexOf('open url: URL'),
+      appDelegate.indexOf('continue userActivity: NSUserActivity'),
+    );
+    expect(openUrlHandler).toContain(
+      'let linked = RCTLinkingManager.application(',
+    );
+    expect(openUrlHandler).toContain('let handled = super.application(');
+    expect(openUrlHandler).toContain('return linked || handled');
+    expect(openUrlHandler).not.toMatch(
+      /super\.application[\s\S]*\|\|\s*RCTLinkingManager\.application/,
+    );
+  });
+
   test('checks pending shares across cold launch, resume, and completed authentication', () => {
     const app = read('js/Discourse.js');
     const foreground = app.slice(

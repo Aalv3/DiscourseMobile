@@ -52,8 +52,13 @@ public class AppDelegate: ExpoAppDelegate, UNUserNotificationCenterDelegate {
     open url: URL,
     options: [UIApplication.OpenURLOptionsKey: Any] = [:]
   ) -> Bool {
-    super.application(app, open: url, options: options)
-      || RCTLinkingManager.application(app, open: url, options: options)
+    let linked = RCTLinkingManager.application(
+      app,
+      open: url,
+      options: options
+    )
+    let handled = super.application(app, open: url, options: options)
+    return linked || handled
   }
 
   public override func application(
