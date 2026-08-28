@@ -76,6 +76,16 @@ describe('Wave 1 native boundaries', () => {
     expect(source).toContain('Saved to Adjuster Network');
     expect(source).toContain('Open Adjuster Network to finish your Ask.');
     expect(source).toContain('share-extension.ndjson');
+    expect(source).toContain('adjusternetwork://share');
+    expect(source).toContain('current as? UIApplication');
+    expect(source).toContain('application.canOpenURL(url)');
+    expect(source).toContain('application.open(url, options: [:])');
+    expect(source).toContain('activation_attempt');
+    expect(source).toContain('activation_success');
+    expect(source).toContain('activation_unavailable');
+    expect(source).toContain('activation_failure');
+    expect(source).toContain('fallback_presented');
+    expect(source).toContain('open_timeout');
     expect(source).not.toMatch(/authToken|User-Api-Key|clientId|credential/i);
     expect(source).not.toContain('UIApplication.shared');
   });

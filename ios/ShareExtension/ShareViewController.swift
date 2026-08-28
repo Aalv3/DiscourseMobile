@@ -12,6 +12,7 @@ final class ShareViewController: UIViewController {
   private let messageLabel = UILabel()
   private let closeButton = UIButton(type: .system)
   private let spinner = UIActivityIndicatorView(style: .medium)
+  private var activationResolved = false
 
   override func viewDidLoad() {
     super.viewDidLoad()
@@ -189,7 +190,7 @@ final class ShareViewController: UIViewController {
         try? FileManager.default.removeItem(at: replacedURL)
       }
       record(stage: "descriptor", category: kind, outcome: "persisted")
-      showSuccess()
+      attemptHostActivation()
     } catch {
       if let cleanupURL { try? FileManager.default.removeItem(at: cleanupURL) }
       try? FileManager.default.removeItem(at: destination)
@@ -198,12 +199,77 @@ final class ShareViewController: UIViewController {
   }
 
   private func showSuccess() {
+    record(stage: "fallback_presented", category: "confirmation", outcome: "presented")
     DispatchQueue.main.async { [weak self] in
       self?.spinner.stopAnimating()
       self?.titleLabel.text = "Saved to Adjuster Network"
       self?.messageLabel.text = "Open Adjuster Network to finish your Ask."
       self?.closeButton.setTitle("Done", for: .normal)
       self?.closeButton.isHidden = false
+    }
+  }
+
+  private func attemptHostActivation() {
+    DispatchQueue.main.async { [weak self] in
+      guard let self else { return }
+      self.activationResolved = false
+      self.record(stage: "activation_attempt", category: "custom_url", outcome: "started")
+      guard let url = URL(string: "adjusternetwork://share") else {
+        self.finishActivation(success: false, stage: "activation_failure", category: "invalid_url")
+        return
+      }
+
+      var responder: UIResponder? = self
+      while let current = responder {
+        if let application = current as? UIApplication {
+          guard application.canOpenURL(url) else {
+            self.finishActivation(
+              success: false,
+              stage: "activation_unavailable",
+              category: "cannot_open_url"
+            )
+            return
+          }
+          application.open(url, options: [:]) { [weak self] opened in
+            self?.finishActivation(
+              success: opened,
+              stage: opened ? "activation_success" : "activation_failure",
+              category: "open_callback"
+            )
+          }
+          DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            self?.finishActivation(
+              success: false,
+              stage: "activation_failure",
+              category: "open_timeout"
+            )
+          }
+          return
+        }
+        responder = current.next
+      }
+      finishActivation(
+        success: false,
+        stage: "activation_unavailable",
+        category: "application_responder"
+      )
+    }
+  }
+
+  private func finishActivation(success: Bool, stage: String, category: String) {
+    guard Thread.isMainThread else {
+      DispatchQueue.main.async { [weak self] in
+        self?.finishActivation(success: success, stage: stage, category: category)
+      }
+      return
+    }
+    guard !activationResolved else { return }
+    activationResolved = true
+    record(stage: stage, category: category, outcome: success ? "succeeded" : "failed")
+    if success {
+      extensionContext?.completeRequest(returningItems: nil)
+    } else {
+      showSuccess()
     }
   }
 
