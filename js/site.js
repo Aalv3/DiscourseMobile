@@ -12,6 +12,7 @@ import {
   RATE_LIMIT_MAX_RETRIES,
   rateLimitDelayMs,
 } from './apiRateLimit';
+import { recordNotificationDiagnostic } from './notificationState';
 
 class Site {
   static discoverUrl() {
@@ -363,7 +364,8 @@ class Site {
       // with a chat_notifications key, user has chat enabled
       this.hasChatEnabled = typeof totals.chat_notifications === 'number';
 
-      this.unreadNotifications = totals.unread_notifications || 0;
+      // The actionable notifications collection is authoritative for this
+      // value. Totals can be stale or omit the field during partial responses.
       this.unreadPrivateMessages = totals.unread_personal_messages || 0;
       this.flagCount = totals.unseen_reviewables || 0;
       this.chatNotifications = totals.chat_notifications || 0;
@@ -385,19 +387,24 @@ class Site {
           url: this.url,
         };
       }
-    } catch {
+    } catch (error) {
+      recordNotificationDiagnostic({
+        event: 'totals_refresh',
+        reason: options.reason || 'site_refresh',
+        outcome: 'preserved',
+        status: error?.status || 'network',
+        prior: this.unreadNotifications || 0,
+      });
       // Preserve last-known counters without logging private response data.
     }
   }
 
-  readNotification(notification) {
-    return new Promise((resolve, reject) => {
-      this.jsonApi('/notifications/read', 'PUT', { id: notification.id })
-        .catch(e => {
-          reject(e);
-        })
-        .finally(() => resolve());
-    });
+  async readNotification(notification) {
+    await this.jsonApi('/notifications/read', 'PUT', { id: notification.id });
+    const cached = this._notifications?.find(
+      item => item.id === notification.id,
+    );
+    if (cached) cached.read = true;
   }
 
   getSeenNotificationId() {
@@ -418,86 +425,56 @@ class Site {
     });
   }
 
-  notifications(types, options) {
-    if (this._loadingNotifications) {
-      // avoid double json
-      return new Promise((resolve, reject) => {
-        let retries = 100;
-        let interval = setInterval(() => {
-          retries--;
-          if (retries === 0 || this._notifications) {
-            clearInterval(interval);
-            this.notifications(types, options).then(resolve).catch(reject);
-          }
-        }, 50);
+  _filterNotifications(types, options) {
+    let filtered = this._notifications || [];
+    const onlyUnread = options?.onlyUnread === true;
+    const minId = onlyUnread ? null : options?.minId;
+    if (types || minId || onlyUnread) {
+      filtered = _.filter(filtered, notification => {
+        if (onlyUnread && notification.read) return false;
+        if (minId && notification.read) return false;
+        if (minId && minId >= notification.id) return false;
+        return !types || _.includes(types, notification.notification_type);
       });
     }
+    return filtered;
+  }
 
-    return new Promise((resolve, reject) => {
-      if (!this.authToken) {
-        resolve([]);
-        return;
-      }
+  async notifications(types, options = {}) {
+    if (!this.authToken) return [];
+    const forceRefresh = options.silent === false;
+    if (this._notifications && !forceRefresh) {
+      return this._filterNotifications(types, options);
+    }
 
-      let silent = !(options && options.silent === false);
-      // avoid json call when no unread
-      silent = silent || this.unreadNotifications === 0;
-
-      if (this._notifications && silent) {
-        let filtered = this._notifications;
-        const onlyUnread = options?.onlyUnread === true;
-        let minId = onlyUnread ? null : options && options.minId;
-        if (types || minId || onlyUnread) {
-          filtered = _.filter(filtered, notification => {
-            if (onlyUnread && notification.read) {
-              return false;
-            }
-            // for new always show unread PMs and suppress read
-            if (minId) {
-              if (notification.read) {
-                return false;
-              }
-              if (!notification.read && notification.notification_type === 6) {
-                return true;
-              }
-              if (!notification.read && notification.notification_type === 24) {
-                return true;
-              }
-            }
-            if (minId && minId >= notification.id) {
-              return false;
-            }
-            return !types || _.includes(types, notification.notification_type);
-          });
-        }
-        resolve(filtered);
-        return;
-      }
-
-      this._loadingNotifications = true;
-      this.jsonApi(
+    if (!this._notificationRequest) {
+      this._notificationRequest = this.jsonApi(
         '/notifications.json?recent=true&limit=25' +
-          (options && options.silent === false ? '' : '&silent=true'),
+          (forceRefresh ? '' : '&silent=true'),
       )
         .then(results => {
-          this._loadingNotifications = false;
           this._notifications = (results && results.notifications) || [];
           this._seenNotificationId = results && results.seen_notification_id;
-          this.notifications(types, _.merge(options, { silent: true })).then(
-            n => resolve(n),
-          );
-        })
-        .catch(error => {
-          if (options?.surfaceErrors === true) {
-            reject(error);
-          } else {
-            resolve([]);
-          }
         })
         .finally(() => {
-          this._loadingNotifications = false;
+          this._notificationRequest = null;
         });
-    });
+    }
+
+    try {
+      await this._notificationRequest;
+      return this._filterNotifications(types, options);
+    } catch (error) {
+      recordNotificationDiagnostic({
+        event: 'list_refresh',
+        reason: options.reason || 'notification_list',
+        outcome: 'preserved',
+        status: error?.status || 'network',
+        prior: this.unreadNotifications || 0,
+      });
+      if (options.surfaceErrors === true) throw error;
+      return [];
+    }
   }
 
   toJSON() {

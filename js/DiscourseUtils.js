@@ -63,6 +63,7 @@ class DiscourseUtils {
         endpoint = `/chat/channel/${data.chat_channel_id}/${data.chat_channel_title}`;
         break;
       case 37:
+      case 38:
         endpoint = '/admin';
         break;
       case 800:
@@ -143,6 +144,8 @@ class DiscourseUtils {
         return 'comments';
       case 37:
         return 'gift';
+      case 38:
+        return 'exclamation-triangle';
 
       default:
         return 'exclamation-circle';

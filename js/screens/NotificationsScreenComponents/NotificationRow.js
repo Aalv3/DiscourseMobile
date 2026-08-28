@@ -363,6 +363,11 @@ class NotificationRow extends React.Component {
       case 37:
         innerText = <Text style={textStyle}>{i18n.t('new_features')}</Text>;
         break;
+      case 38:
+        innerText = (
+          <Text style={textStyle}>Site administration needs attention</Text>
+        );
+        break;
       case 34:
         innerText = (
           <Text style={textStyle}>
@@ -385,11 +390,7 @@ class NotificationRow extends React.Component {
         break;
 
       default:
-        innerText = (
-          <Text style={textStyle}>
-            Unmapped type: {notification.notification_type}
-          </Text>
-        );
+        return null;
     }
 
     return (

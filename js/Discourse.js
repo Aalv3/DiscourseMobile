@@ -287,6 +287,7 @@ class Discourse extends React.Component {
       securityEvent('push.route.rejected');
       return false;
     }
+    this._siteManager.refreshNotificationState('push').catch(() => {});
     securityEvent('push.route.pending');
     return this._flushPendingPushRoute();
   }

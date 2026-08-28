@@ -22,6 +22,58 @@ jest.mock('../memberContentAvailability', () => ({
 }));
 
 describe('notification badge reconciliation', () => {
+  test('a partial totals response cannot replace a valid notification count', async () => {
+    const site = new Site({
+      authToken: 'synthetic-token',
+      url: 'https://adjusternetwork.org',
+      unreadNotifications: 10,
+    });
+    site.jsonApi = jest.fn().mockResolvedValue({
+      topic_tracking: { unread: 0, new: 0 },
+      username: 'synthetic-user',
+    });
+
+    await site.refresh({ reason: 'foreground' });
+    expect(site.unreadNotifications).toBe(10);
+  });
+
+  test('an explicit refresh bypasses a stale cached zero', async () => {
+    const site = new Site({
+      authToken: 'synthetic-token',
+      url: 'https://adjusternetwork.org',
+      unreadNotifications: 0,
+    });
+    site._notifications = [];
+    site.jsonApi = jest.fn().mockResolvedValue({
+      notifications: [{ id: 41, read: false, notification_type: 1 }],
+    });
+
+    await expect(
+      site.notifications(undefined, { silent: false, surfaceErrors: true }),
+    ).resolves.toHaveLength(1);
+    expect(site.jsonApi).toHaveBeenCalledTimes(1);
+  });
+
+  test('concurrent list consumers share one settling API request', async () => {
+    const site = new Site({
+      authToken: 'synthetic-token',
+      url: 'https://adjusternetwork.org',
+      unreadNotifications: 10,
+    });
+    let resolveRequest;
+    site.jsonApi = jest.fn(
+      () =>
+        new Promise(resolve => {
+          resolveRequest = resolve;
+        }),
+    );
+    const first = site.notifications(undefined, { silent: false });
+    const second = site.notifications(undefined, { silent: false });
+    expect(site.jsonApi).toHaveBeenCalledTimes(1);
+    resolveRequest({ notifications: [] });
+    await expect(Promise.all([first, second])).resolves.toEqual([[], []]);
+  });
+
   test('the New collection contains every actionable unread notification', async () => {
     const site = new Site({
       authToken: 'synthetic-token',
@@ -79,5 +131,23 @@ describe('notification badge reconciliation', () => {
     );
     expect(site.unreadNotifications).toBe(0);
     expect(manager.updateUnreadBadge).toHaveBeenCalledTimes(1);
+  });
+
+  test('failed authoritative refresh preserves the last valid count', async () => {
+    const manager = Object.create(SiteManager.prototype);
+    const failure = Object.assign(new Error('api_rate_limited'), {
+      status: 429,
+    });
+    const site = {
+      authToken: 'synthetic-token',
+      unreadNotifications: 10,
+      notifications: jest.fn().mockRejectedValue(failure),
+    };
+    manager.sites = [site];
+
+    await expect(manager.refreshNotificationState('foreground')).rejects.toBe(
+      failure,
+    );
+    expect(site.unreadNotifications).toBe(10);
   });
 });

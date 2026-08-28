@@ -26,6 +26,11 @@ import {
   parseAuthCallbackParameters,
   parseDecryptedAuthPayload,
 } from './authCallback';
+import {
+  actionableUnreadRows,
+  recordNotificationDiagnostic,
+  supportedNotification,
+} from './notificationState';
 
 const { DiscourseKeyboardShortcuts } = NativeModules;
 const REFRESH_THROTTLE_MS = 5000;
@@ -151,10 +156,17 @@ class SiteManager {
   }
 
   updateUnreadBadge() {
+    const count = this.totalUnread();
+    recordNotificationDiagnostic({
+      event: 'badge_write',
+      reason: 'state_sync',
+      outcome: 'requested',
+      authoritative: count,
+    });
     if (Platform.OS === 'ios') {
       PushNotificationIOS.checkPermissions(p => {
         if (p.badge) {
-          PushNotificationIOS.setApplicationIconBadgeNumber(this.totalUnread());
+          PushNotificationIOS.setApplicationIconBadgeNumber(count);
         }
       });
     }
@@ -221,6 +233,12 @@ class SiteManager {
                 await credentialStore.storeSiteToken(site.url, obj.authToken);
               }
               site.authToken = await credentialStore.readSiteToken(site.url);
+              recordNotificationDiagnostic({
+                event: 'cache_hydrated',
+                reason: 'cold_launch',
+                outcome: 'preserved',
+                authoritative: site.unreadNotifications || 0,
+              });
               return site;
             }),
           );
@@ -330,11 +348,12 @@ class SiteManager {
     return new Promise((resolve, reject) => {
       sites.forEach(site => {
         if (site.authToken) {
-          promises.push(site.refresh());
+          promises.push(site.refresh({ reason: 'foreground' }));
         }
       });
 
       Promise.all(promises)
+        .then(() => this.refreshNotificationState('foreground').catch(() => []))
         .then(() => {
           this.save();
           this._onChange();
@@ -348,38 +367,36 @@ class SiteManager {
   }
 
   async iOSbackgroundRefresh() {
-    const results = await Promise.all(
-      this.sites.map(site => site.refresh({ bgTask: true })),
+    const priorBySite = new Map(
+      this.sites.map(site => [site, site.unreadNotifications || 0]),
     );
+    await Promise.all(
+      this.sites.map(site => site.refresh({ reason: 'background' })),
+    );
+    await this.refreshNotificationState('background').catch(() => []);
 
-    let badgeCount = 0;
-    results.forEach(result => {
-      if (result) {
-        badgeCount += result.newTotal;
+    this.sites.forEach(site => {
+      if (site.authToken) {
+        const prior = priorBySite.get(site) || 0;
+        const authoritative = site.unreadNotifications || 0;
         // schedule a local notification for sites with no push capability
         // there is room for improvement here, this currently does not show you
         // a notification if new count is lower than old count (but it might have a
         // new notification nonetheless...)
-        if (!result.hasPush && result.newTotal > result.oldTotal) {
+        if (!site.hasPush && authoritative > prior) {
           PushNotificationIOS.scheduleLocalNotification({
             alertTitle: i18n.t('generic_notification_title', {
-              count: result.newTotal - result.oldTotal,
+              count: authoritative - prior,
             }),
             alertBody: i18n.t('generic_notification_body', {
-              url: result.url.replace(/^https?:\/\//, ''),
+              url: site.url.replace(/^https?:\/\//, ''),
             }),
-            userInfo: { discourse_url: result.url },
+            userInfo: { discourse_url: site.url },
           });
         }
       }
     });
-
-    PushNotificationIOS.checkPermissions(p => {
-      if (p.badge) {
-        PushNotificationIOS.setApplicationIconBadgeNumber(badgeCount);
-      }
-    });
-
+    this.updateUnreadBadge();
     this.save();
   }
 
@@ -580,7 +597,7 @@ class SiteManager {
       this.sites.forEach(site => {
         let opts = options;
 
-        if (opts.onlyNew) {
+        if (opts?.onlyNew) {
           opts = _.merge(_.clone(opts), { onlyUnread: true });
         }
 
@@ -597,6 +614,7 @@ class SiteManager {
         .then(async results => {
           const ordered = _.chain(results)
             .flatten()
+            .filter(row => supportedNotification(row.notification))
             .orderBy(
               [
                 o => {
@@ -611,9 +629,10 @@ class SiteManager {
             )
             .value();
           const available = await availableNotificationRows(ordered);
-          if (options?.onlyNew) {
+          if (options?.onlyNew || options?.authoritative) {
+            const actionableRows = actionableUnreadRows(available);
             const actionableBySite = new Map();
-            available.forEach(row => {
+            actionableRows.forEach(row => {
               actionableBySite.set(
                 row.site,
                 (actionableBySite.get(row.site) || 0) + 1,
@@ -624,8 +643,17 @@ class SiteManager {
               if (!site.authToken) return;
               const actionable = actionableBySite.get(site) || 0;
               if (site.unreadNotifications !== actionable) {
+                const prior = site.unreadNotifications || 0;
                 site.unreadNotifications = actionable;
                 countersChanged = true;
+                recordNotificationDiagnostic({
+                  event: 'authoritative_transition',
+                  reason: options?.reason || 'list_refresh',
+                  outcome: 'applied',
+                  prior,
+                  result: available.length,
+                  authoritative: actionable,
+                });
               }
             });
             if (countersChanged) {
@@ -637,6 +665,68 @@ class SiteManager {
           resolve(available);
         })
         .catch(reject);
+    });
+  }
+
+  refreshNotificationState(reason = 'manual') {
+    if (this._notificationRefresh) return this._notificationRefresh;
+    const prior = this.totalUnread();
+    const request = this.notifications(undefined, {
+      authoritative: true,
+      reason,
+      silent: false,
+      surfaceErrors: true,
+    })
+      .then(rows => {
+        recordNotificationDiagnostic({
+          event: 'list_refresh',
+          reason,
+          outcome: 'succeeded',
+          status: '2xx',
+          prior,
+          result: rows.length,
+          authoritative: this.totalUnread(),
+        });
+        return rows;
+      })
+      .catch(error => {
+        recordNotificationDiagnostic({
+          event: 'list_refresh',
+          reason,
+          outcome: 'preserved',
+          status: error?.status || 'network',
+          prior,
+          authoritative: this.totalUnread(),
+        });
+        throw error;
+      })
+      .finally(() => {
+        if (this._notificationRefresh === request) {
+          this._notificationRefresh = null;
+        }
+      });
+    this._notificationRefresh = request;
+    return request;
+  }
+
+  async markNotificationRead(site, notification) {
+    const prior = this.totalUnread();
+    const wasUnread = !notification.read;
+    await site.readNotification(notification);
+    const next = wasUnread
+      ? Math.max(0, (site.unreadNotifications || 0) - 1)
+      : site.unreadNotifications || 0;
+    notification.read = true;
+    site.unreadNotifications = next;
+    this.save();
+    this._onChange();
+    this.updateUnreadBadge();
+    recordNotificationDiagnostic({
+      event: 'read_transition',
+      reason: 'notification_open',
+      outcome: 'applied',
+      prior,
+      authoritative: this.totalUnread(),
     });
   }
 

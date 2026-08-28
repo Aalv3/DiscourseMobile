@@ -244,7 +244,7 @@ class NotificationsScreen extends React.Component {
   }
 
   _openNotificationForSite(notification, site) {
-    site.readNotification(notification).catch(() => {});
+    this._siteManager.markNotificationRead(site, notification).catch(() => {});
 
     let url = DiscourseUtils.endpointForSiteNotification(site, notification);
     this._siteManager.setActiveSite(site);

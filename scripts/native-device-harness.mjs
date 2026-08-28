@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { chmodSync, mkdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import process from 'node:process';
@@ -204,6 +205,26 @@ function shareDiagnostics() {
   }
 }
 
+function notificationDiagnostics() {
+  const key = '@AdjusterNetwork.notificationDiagnostics.v1';
+  const directory =
+    'Library/Application Support/org.adjusternetwork.app/RCTAsyncLocalStorage_V1';
+  const manifestPath = join(output, 'async-storage-manifest.json');
+  copyFromDevice(`${directory}/manifest.json`, manifestPath);
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  let stored = manifest[key];
+  if (stored === null) {
+    const hash = createHash('md5').update(key).digest('hex');
+    const valuePath = join(output, 'notification-diagnostics.json');
+    copyFromDevice(`${directory}/${hash}`, valuePath);
+    stored = readFileSync(valuePath, 'utf8');
+  }
+  const entries = stored ? JSON.parse(stored) : [];
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    console.log(JSON.stringify(entry));
+  }
+}
+
 try {
   if (command === 'status') status();
   else if (command === 'install') install();
@@ -211,9 +232,10 @@ try {
   else if (command === 'ota-status') otaStatus();
   else if (command === 'push-diagnostics') pushDiagnostics();
   else if (command === 'share-diagnostics') shareDiagnostics();
+  else if (command === 'notification-diagnostics') notificationDiagnostics();
   else
     throw new Error(
-      'status | install --app=... | launch | ota-status | push-diagnostics | share-diagnostics',
+      'status | install --app=... | launch | ota-status | push-diagnostics | share-diagnostics | notification-diagnostics',
     );
 } catch (error) {
   console.error(`native-device-harness: ${error.message}`);
