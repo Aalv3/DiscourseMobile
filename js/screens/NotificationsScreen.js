@@ -141,6 +141,7 @@ class NotificationsScreen extends React.Component {
   _renderLoadError() {
     const colors = productTheme(this.context.name);
     const unauthorized = this.state.loadError === 'unauthorized';
+    const rateLimited = this.state.loadError === 'rate_limited';
     return (
       <View
         accessibilityRole="alert"
@@ -150,7 +151,7 @@ class NotificationsScreen extends React.Component {
         ]}
       >
         <FontAwesome5
-          name={unauthorized ? 'lock' : 'wifi'}
+          name={unauthorized ? 'lock' : rateLimited ? 'clock' : 'wifi'}
           size={22}
           color={colors.accent}
           iconStyle="solid"
@@ -158,11 +159,15 @@ class NotificationsScreen extends React.Component {
         <Text style={[styles.loadErrorTitle, { color: colors.text }]}>
           {unauthorized
             ? 'Sign in again to view notifications'
+            : rateLimited
+            ? 'Notifications are cooling down'
             : 'Notifications could not refresh'}
         </Text>
         <Text style={[styles.loadErrorDetail, { color: colors.muted }]}>
           {unauthorized
             ? 'Your saved session is no longer available on this device.'
+            : rateLimited
+            ? 'The Network is limiting requests briefly. Your connection and account remain available.'
             : this.state.loadError === 'backend'
             ? 'The Network is temporarily unavailable. Your account remains secure.'
             : 'Check your connection and try again.'}
