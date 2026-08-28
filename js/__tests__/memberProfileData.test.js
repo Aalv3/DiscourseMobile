@@ -135,4 +135,71 @@ describe('native member profile data', () => {
       cardPayload: { core: { avatar_template: '/new/{size}.png' } },
     });
   });
+
+  test('rejects a stale profile response that settles after avatar upload', async () => {
+    let resolveProfile;
+    let resolveCard;
+    const site = {
+      url: 'https://staging.example',
+      username: 'qa_test',
+      jsonApi: jest.fn(path =>
+        path === '/u/qa_test.json'
+          ? new Promise(resolve => {
+              resolveProfile = resolve;
+            })
+          : new Promise(resolve => {
+              resolveCard = resolve;
+            }),
+      ),
+    };
+    const staleLoad = loadMemberProfileData(site, 'qa_test');
+    updateCachedMemberProfileAvatar(site, 'qa_test', '/new/{size}.png');
+    resolveProfile({
+      user: { username: 'qa_test', avatar_template: '/old/{size}.png' },
+    });
+    resolveCard({
+      schema: 'an.adjuster-card.v2',
+      core: { avatar_template: '/old/{size}.png' },
+    });
+
+    await expect(staleLoad).resolves.toMatchObject({
+      profile: { user: { avatar_template: '/new/{size}.png' } },
+      cardPayload: { core: { avatar_template: '/new/{size}.png' } },
+    });
+    expect(cachedMemberProfileData(site, 'qa_test')).toMatchObject({
+      cardPayload: { core: { avatar_template: '/new/{size}.png' } },
+    });
+  });
+
+  test('remount after upload and PATCH failure keeps avatar until a fresh GET confirms it', async () => {
+    let avatar = '/old/{size}.png';
+    const site = {
+      url: 'https://staging.example',
+      username: 'qa_test',
+      jsonApi: jest.fn(path =>
+        Promise.resolve(
+          path === '/u/qa_test.json'
+            ? { user: { username: 'qa_test', avatar_template: avatar } }
+            : {
+                schema: 'an.adjuster-card.v2',
+                core: { avatar_template: avatar },
+              },
+        ),
+      ),
+    };
+    await loadMemberProfileData(site, 'qa_test');
+    updateCachedMemberProfileAvatar(site, 'qa_test', '/new/{size}.png');
+
+    await loadMemberProfileData(site, 'qa_test');
+    expect(cachedMemberProfileData(site, 'qa_test')).toMatchObject({
+      cardPayload: { core: { avatar_template: '/new/{size}.png' } },
+    });
+
+    avatar = '/new/{size}.png';
+    await loadMemberProfileData(site, 'qa_test');
+    expect(cachedMemberProfileData(site, 'qa_test')).toMatchObject({
+      profile: { user: { avatar_template: '/new/{size}.png' } },
+      cardPayload: { core: { avatar_template: '/new/{size}.png' } },
+    });
+  });
 });

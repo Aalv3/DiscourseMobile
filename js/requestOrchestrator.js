@@ -40,6 +40,7 @@ export class RequestOrchestrator {
       sleep || (ms => new Promise(resolve => setTimeout(resolve, ms)));
     this.inflight = new Map();
     this.cache = new Map();
+    this.generations = new Map();
     this.cooldowns = new Map();
     this.retryAdmissions = new Map();
     this.queue = [];
@@ -66,6 +67,14 @@ export class RequestOrchestrator {
 
   snapshotLedger() {
     return this.ledger.map(entry => ({ ...entry }));
+  }
+
+  invalidate(keys) {
+    keys.forEach(key => {
+      this.generations.set(key, (this.generations.get(key) || 0) + 1);
+      this.cache.delete(key);
+      this.inflight.delete(key);
+    });
   }
 
   async waitForBucket(bucket) {
@@ -137,8 +146,15 @@ export class RequestOrchestrator {
   }
 
   _enqueue(job) {
+    const generation = this.generations.get(job.key) || 0;
     const promise = new Promise((resolve, reject) => {
-      this.queue.push({ ...job, resolve, reject, order: this.sequence++ });
+      this.queue.push({
+        ...job,
+        generation,
+        resolve,
+        reject,
+        order: this.sequence++,
+      });
       this.queue.sort(
         (a, b) =>
           (PRIORITY[a.priority] ?? 1) - (PRIORITY[b.priority] ?? 1) ||
@@ -171,7 +187,10 @@ export class RequestOrchestrator {
       Promise.resolve(execution)
         .then(
           value => {
-            if (job.ttlMs > 0) {
+            if (
+              job.ttlMs > 0 &&
+              job.generation === (this.generations.get(job.key) || 0)
+            ) {
               this.cache.set(job.key, {
                 value,
                 expiresAt: this.now() + job.ttlMs,
@@ -202,6 +221,7 @@ export class RequestOrchestrator {
   reset() {
     this.inflight.clear();
     this.cache.clear();
+    this.generations.clear();
     this.cooldowns.clear();
     this.retryAdmissions.clear();
     this.queue = [];

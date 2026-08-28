@@ -437,6 +437,11 @@ export default function NativeProfileScreen({
               username,
               uploadedPhoto.avatarTemplate,
             );
+            site.invalidateApiCache?.([
+              '/native/v1/profile',
+              `/native/v1/profiles/${encodeURIComponent(username)}`,
+              `/u/${encodeURIComponent(username)}.json`,
+            ]);
             setState(current => ({
               ...current,
               user: current.user

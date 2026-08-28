@@ -21,7 +21,7 @@ describe('profile runtime stability', () => {
     );
     expect(transport).toContain('var _timeout = 10000');
     expect(transport).toContain('xhr.timeout = _timeout');
-    expect(data).toContain('cache.set(cacheKey(site, username), result)');
+    expect(data).toContain('cache.set(key, result)');
     expect(screen).toContain('cachedMemberProfileData(site, username)');
     expect(screen).toContain('const loading = false');
     expect(screen).toContain("'Waiting briefly for member details…'");
@@ -43,6 +43,7 @@ describe('profile runtime stability', () => {
     expect(screen).toContain('photoPreviewUri: asset.uri');
     expect(screen).toContain('submitting: false');
     expect(screen).toContain('uploadedPhoto.avatarTemplate');
+    expect(screen).toContain('site.invalidateApiCache?.([');
     expect(screen).toContain('photoAsset: null');
     expect(screen).toContain('cooldownUntil: cooldownMs > 0');
     expect(screen).toContain('cooldownSeconds > 0 ?');

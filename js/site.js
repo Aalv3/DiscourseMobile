@@ -142,9 +142,7 @@ class Site {
 
   jsonApi(path, method, data) {
     const normalizedMethod = method || 'GET';
-    const key = `${this.url}:${
-      this.clientId || ''
-    }:${normalizedMethod}:${path}`;
+    const key = this.apiRequestKey(path, normalizedMethod);
     const ttlMs =
       normalizedMethod === 'GET' && path.startsWith('/native/v1/') ? 30000 : 0;
     return requestOrchestrator.request({
@@ -154,6 +152,16 @@ class Site {
       priority: normalizedMethod === 'GET' ? 'visible' : 'bootstrap',
       task: () => this._jsonApi(path, normalizedMethod, data),
     });
+  }
+
+  apiRequestKey(path, method = 'GET') {
+    return `${this.url}:${this.clientId || ''}:${method}:${path}`;
+  }
+
+  invalidateApiCache(paths) {
+    requestOrchestrator.invalidate(
+      paths.map(path => this.apiRequestKey(path, 'GET')),
+    );
   }
 
   async _jsonApi(path, method, data) {

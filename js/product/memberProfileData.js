@@ -7,6 +7,8 @@ import {
 } from '../profileDiagnostics';
 
 const cache = new Map();
+const avatarMutations = new Map();
+let avatarMutationVersion = 0;
 
 const cacheKey = (site, username) =>
   `${String(site?.url || '')}:${String(username || '').toLowerCase()}`;
@@ -56,34 +58,53 @@ export function cachedMemberProfileData(site, username) {
 
 export function clearMemberProfileDataCache() {
   cache.clear();
+  avatarMutations.clear();
+  avatarMutationVersion = 0;
 }
 
 export function updateCachedMemberProfileAvatar(site, username, template) {
   const key = cacheKey(site, username);
+  if (!template) return;
+  avatarMutationVersion += 1;
+  avatarMutations.set(key, {
+    template,
+    version: avatarMutationVersion,
+    confirmed: false,
+  });
   const current = cache.get(key);
-  if (!current || !template) return;
-  const profileUser = current.profile?.user;
-  cache.set(key, {
-    ...current,
+  if (!current) return;
+  cache.set(key, withAvatar(current, template));
+}
+
+const avatarTemplateFrom = result =>
+  result?.cardPayload?.core?.avatar_template ||
+  result?.profile?.user?.avatar_template ||
+  result?.profile?.avatar_template ||
+  '';
+
+const withAvatar = (result, template) => {
+  const profileUser = result.profile?.user;
+  return {
+    ...result,
     profile: profileUser
       ? {
-          ...current.profile,
+          ...result.profile,
           user: { ...profileUser, avatar_template: template },
         }
-      : current.profile
-      ? { ...current.profile, avatar_template: template }
-      : current.profile,
-    cardPayload: current.cardPayload
+      : result.profile
+      ? { ...result.profile, avatar_template: template }
+      : result.profile,
+    cardPayload: result.cardPayload
       ? {
-          ...current.cardPayload,
+          ...result.cardPayload,
           core: {
-            ...(current.cardPayload.core || {}),
+            ...(result.cardPayload.core || {}),
             avatar_template: template,
           },
         }
-      : current.cardPayload,
-  });
-}
+      : result.cardPayload,
+  };
+};
 
 export async function loadMemberProfileData(
   site,
@@ -91,6 +112,8 @@ export async function loadMemberProfileData(
   diagnosticContext = null,
 ) {
   const encoded = encodeURIComponent(username);
+  const key = cacheKey(site, username);
+  const mutationVersionAtStart = avatarMutations.get(key)?.version || 0;
   const self = username === site.username;
   const cardPath = self
     ? '/native/v1/profile'
@@ -130,11 +153,24 @@ export async function loadMemberProfileData(
     outcome: 'settled',
     category: 'success',
   });
-  const result = {
+  let result = {
     profile,
     activity: { user_actions: cardPayload?.contributions || [] },
     cardPayload,
   };
-  cache.set(cacheKey(site, username), result);
+  const avatarMutation = avatarMutations.get(key);
+  if (avatarMutation) {
+    const responseTemplate = avatarTemplateFrom(result);
+    if (mutationVersionAtStart < avatarMutation.version) {
+      result = withAvatar(result, avatarMutation.template);
+    } else if (!avatarMutation.confirmed) {
+      if (responseTemplate === avatarMutation.template) {
+        avatarMutation.confirmed = true;
+      } else {
+        result = withAvatar(result, avatarMutation.template);
+      }
+    }
+  }
+  cache.set(key, result);
   return result;
 }

@@ -36,6 +36,27 @@ describe('authenticated request orchestrator', () => {
     expect(task).toHaveBeenCalledTimes(1);
   });
 
+  test('invalidation prevents a pre-mutation response from restoring stale cache', async () => {
+    const orchestrator = new RequestOrchestrator();
+    const gate = deferred();
+    const key = 'site:user:GET:/native/v1/profile';
+    const stale = orchestrator.request({
+      key,
+      task: () => gate.promise,
+      ttlMs: 30000,
+    });
+
+    orchestrator.invalidate([key]);
+    gate.resolve({ avatar: 'old' });
+    await expect(stale).resolves.toEqual({ avatar: 'old' });
+
+    const freshTask = jest.fn(() => Promise.resolve({ avatar: 'new' }));
+    await expect(
+      orchestrator.request({ key, task: freshTask, ttlMs: 30000 }),
+    ).resolves.toEqual({ avatar: 'new' });
+    expect(freshTask).toHaveBeenCalledTimes(1);
+  });
+
   test('never exceeds three active requests', async () => {
     const orchestrator = new RequestOrchestrator();
     const gates = Array.from({ length: 5 }, deferred);
