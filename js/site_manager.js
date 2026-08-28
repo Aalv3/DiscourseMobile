@@ -47,7 +47,7 @@ class SiteManager {
   siteURLsHidden = false;
 
   constructor() {
-    this.load();
+    this._readyPromise = this.load();
 
     AsyncStorage.getItem('@Discourse.lastRefresh').then(date => {
       if (date) {
@@ -211,12 +211,16 @@ class SiteManager {
     return !!this._loading;
   }
 
+  whenReady() {
+    return this._readyPromise;
+  }
+
   load() {
     this._loading = true;
     // generate RSA Keys on load, they'll be needed
     this.ensureRSAKeys();
 
-    AsyncStorage.getItem('@Discourse.sites')
+    return AsyncStorage.getItem('@Discourse.sites')
       .then(async json => {
         if (json) {
           const records = JSON.parse(json).filter(record =>

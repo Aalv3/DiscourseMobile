@@ -80,6 +80,16 @@ export function canAttemptNotificationSetup(status) {
   ].includes(status);
 }
 
+export function notificationStatusAfterRegistration(previousStatus, result) {
+  if (
+    previousStatus === NOTIFICATION_STATUS.ENABLED &&
+    result?.outcome === 'failed'
+  ) {
+    return NOTIFICATION_STATUS.ENABLED;
+  }
+  return result?.category || previousStatus;
+}
+
 export function notificationSetupActionLabel(status) {
   if (status === NOTIFICATION_STATUS.PERMISSION_DENIED) return 'Open Settings';
   return [
