@@ -41,6 +41,7 @@ import {
   loadMemberProfileData,
   updateCachedMemberProfileAvatar,
 } from './memberProfileData';
+import { useAvatarAuthority } from './avatarAuthority';
 import {
   canStartProfileSave,
   profileCooldownSeconds,
@@ -139,7 +140,7 @@ export default function NativeProfileScreen({
   const [selectionField, setSelectionField] = useState(null);
   const [profileSaveNow, setProfileSaveNow] = useState(Date.now());
   const loadSequence = useRef(0);
-  const authoritativeAvatar = useRef(null);
+  const sharedAvatarTemplate = useAvatarAuthority(site, username);
   const lastRenderBranch = useRef(null);
 
   const load = useCallback(async () => {
@@ -189,18 +190,8 @@ export default function NativeProfileScreen({
       });
       if (!accepted) return;
       setState(() => {
-        let user = profile?.user || profile;
-        let card = cardPayload ? parseAdjusterCard(cardPayload) : null;
-        const latestAvatar = authoritativeAvatar.current;
-        const responseAvatar =
-          card?.avatarTemplate || user?.avatar_template || null;
-        if (latestAvatar && responseAvatar !== latestAvatar) {
-          user = user ? { ...user, avatar_template: latestAvatar } : user;
-          card = card ? { ...card, avatarTemplate: latestAvatar } : card;
-          updateCachedMemberProfileAvatar(site, username, latestAvatar);
-        } else if (latestAvatar && responseAvatar === latestAvatar) {
-          authoritativeAvatar.current = null;
-        }
+        const user = profile?.user || profile;
+        const card = cardPayload ? parseAdjusterCard(cardPayload) : null;
         return {
           loading: false,
           refreshing: false,
@@ -431,7 +422,6 @@ export default function NativeProfileScreen({
         },
         onPhotoUploaded: uploadedPhoto => {
           if (uploadedPhoto?.avatarTemplate) {
-            authoritativeAvatar.current = uploadedPhoto.avatarTemplate;
             updateCachedMemberProfileAvatar(
               site,
               username,
@@ -678,15 +668,21 @@ export default function NativeProfileScreen({
     );
   };
 
-  const user = state.user || {
+  const baseUser = state.user || {
     username,
     avatar_template: state.card?.avatarTemplate,
   };
+  const user = sharedAvatarTemplate
+    ? { ...baseUser, avatar_template: sharedAvatarTemplate }
+    : baseUser;
   const cooldownSeconds = profileCooldownSeconds(
     editor.cooldownUntil,
     profileSaveNow,
   );
-  const card = state.card;
+  const card =
+    sharedAvatarTemplate && state.card
+      ? { ...state.card, avatarTemplate: sharedAvatarTemplate }
+      : state.card;
   const canEdit = card?.editable === true && user?.username === site?.username;
   const editableFields = [
     ...editableFieldsForStep(card, 'profile'),

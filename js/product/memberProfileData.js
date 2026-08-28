@@ -5,10 +5,14 @@ import {
   profileErrorCategory,
   recordProfileDiagnostic,
 } from '../profileDiagnostics';
+import {
+  captureAvatarAuthorityVersion,
+  clearAvatarAuthorities,
+  publishAvatarAuthority,
+  reconcileAvatarAuthority,
+} from './avatarAuthority';
 
 const cache = new Map();
-const avatarMutations = new Map();
-let avatarMutationVersion = 0;
 
 const cacheKey = (site, username) =>
   `${String(site?.url || '')}:${String(username || '').toLowerCase()}`;
@@ -58,19 +62,13 @@ export function cachedMemberProfileData(site, username) {
 
 export function clearMemberProfileDataCache() {
   cache.clear();
-  avatarMutations.clear();
-  avatarMutationVersion = 0;
+  clearAvatarAuthorities();
 }
 
 export function updateCachedMemberProfileAvatar(site, username, template) {
   const key = cacheKey(site, username);
   if (!template) return;
-  avatarMutationVersion += 1;
-  avatarMutations.set(key, {
-    template,
-    version: avatarMutationVersion,
-    confirmed: false,
-  });
+  publishAvatarAuthority(site, username, template);
   const current = cache.get(key);
   if (!current) return;
   cache.set(key, withAvatar(current, template));
@@ -113,7 +111,7 @@ export async function loadMemberProfileData(
 ) {
   const encoded = encodeURIComponent(username);
   const key = cacheKey(site, username);
-  const mutationVersionAtStart = avatarMutations.get(key)?.version || 0;
+  const authorityVersionAtStart = captureAvatarAuthorityVersion(site, username);
   const self = username === site.username;
   const cardPath = self
     ? '/native/v1/profile'
@@ -158,19 +156,13 @@ export async function loadMemberProfileData(
     activity: { user_actions: cardPayload?.contributions || [] },
     cardPayload,
   };
-  const avatarMutation = avatarMutations.get(key);
-  if (avatarMutation) {
-    const responseTemplate = avatarTemplateFrom(result);
-    if (mutationVersionAtStart < avatarMutation.version) {
-      result = withAvatar(result, avatarMutation.template);
-    } else if (!avatarMutation.confirmed) {
-      if (responseTemplate === avatarMutation.template) {
-        avatarMutation.confirmed = true;
-      } else {
-        result = withAvatar(result, avatarMutation.template);
-      }
-    }
-  }
+  const authoritativeTemplate = reconcileAvatarAuthority(
+    site,
+    username,
+    avatarTemplateFrom(result),
+    authorityVersionAtStart,
+  );
+  if (authoritativeTemplate) result = withAvatar(result, authoritativeTemplate);
   cache.set(key, result);
   return result;
 }

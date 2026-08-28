@@ -42,6 +42,11 @@ import { optionLabel, stateLabel } from './adjusterCardPresentation';
 import AttachmentComposer, { useAttachmentQueue } from './AttachmentComposer';
 import { reconcileAskSubmission, submitAskQuestion } from './AskSubmission';
 import NotificationEducation from './NotificationEducation';
+import {
+  captureAvatarAuthorityVersion,
+  reconcileAvatarAuthority,
+  useAvatarAuthority,
+} from './avatarAuthority';
 
 const Screen = ({ children, backgroundColor }) => {
   const colors = useProductTheme();
@@ -1782,10 +1787,11 @@ export function ProfileScreen({ navigation, screenProps }) {
   const site = activeMemberSite(screenProps.siteManager);
   const username = site?.username || 'Member';
   const [adjusterCard, setAdjusterCard] = useState(null);
-  const [avatarTemplate, setAvatarTemplate] = useState(null);
+  const avatarTemplate = useAvatarAuthority(site, username);
   useEffect(() => {
     let mounted = true;
     if (site?.authToken) {
+      const authorityVersion = captureAvatarAuthorityVersion(site, username);
       Promise.all([
         site.jsonApi('/native/v1/profile'),
         site
@@ -1795,10 +1801,13 @@ export function ProfileScreen({ navigation, screenProps }) {
         .then(([profilePayload, userPayload]) => {
           if (mounted) {
             setAdjusterCard(parseAdjusterCard(profilePayload));
-            setAvatarTemplate(
+            reconcileAvatarAuthority(
+              site,
+              username,
               profilePayload?.core?.avatar_template ||
                 userPayload?.user?.avatar_template ||
                 null,
+              authorityVersion,
             );
           }
         })

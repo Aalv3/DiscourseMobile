@@ -30,10 +30,23 @@ describe('profile runtime stability', () => {
     expect(screen).toContain('...current,\n        loading: false');
     expect(screen).toContain('Your last profile remains available.');
     expect(screen).toContain('sequence === loadSequence.current');
-    expect(screen).toContain('authoritativeAvatar.current');
-    expect(screen).toContain('responseAvatar !== latestAvatar');
+    expect(screen).toContain('useAvatarAuthority(site, username)');
+    expect(data).toContain('reconcileAvatarAuthority(');
     expect(screen).not.toContain('availableContributionActions(');
     expect(screen).toContain('const actions = activity?.user_actions || [];');
+  });
+
+  test('all profile surfaces consume the shared avatar authority', () => {
+    const screen = read('product/NativeProfileScreen.js');
+    const productScreens = read('product/ProductScreens.js');
+    const manager = read('site_manager.js');
+
+    expect(screen).toContain('useAvatarAuthority(site, username)');
+    expect(productScreens).toContain('useAvatarAuthority(site, username)');
+    expect(productScreens).not.toContain(
+      'const [avatarTemplate, setAvatarTemplate] = useState(null)',
+    );
+    expect(manager).toContain('clearAvatarAuthorityForSite(removableSite)');
   });
 
   test('picker cancel and upload completion always clear the busy state', () => {

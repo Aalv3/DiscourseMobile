@@ -30,6 +30,7 @@ import {
   recordNotificationDiagnostic,
   supportedNotification,
 } from './notificationState';
+import { clearAvatarAuthorityForSite } from './product/avatarAuthority';
 
 const { DiscourseKeyboardShortcuts } = NativeModules;
 const REFRESH_THROTTLE_MS = 5000;
@@ -98,6 +99,7 @@ class SiteManager {
       }
       await credentialStore.removeSiteToken(removableSite.url).catch(() => {});
       await CookieManager.clearAll(true).catch(() => {});
+      clearAvatarAuthorityForSite(removableSite);
       removableSite.logoff();
       this.save();
       this._onChange();
