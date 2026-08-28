@@ -265,11 +265,18 @@ class SiteManager {
           });
 
           if (promises.length) {
-            Promise.all(promises)
-              .then(() => {
-                this.refreshSites();
-              })
-              .catch(() => {});
+            Promise.allSettled(promises).then(results => {
+              recordNotificationDiagnostic({
+                event: 'metadata_refresh',
+                reason: 'cold_launch',
+                outcome: 'completed',
+                status: results.every(result => result.status === 'fulfilled')
+                  ? '2xx'
+                  : 'partial',
+                authoritative: this.totalUnread(),
+              });
+              this.refreshSites();
+            });
           }
         }
       })

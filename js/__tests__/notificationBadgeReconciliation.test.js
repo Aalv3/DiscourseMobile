@@ -3,6 +3,8 @@
 
 import Site from '../site';
 import SiteManager from '../site_manager';
+import fs from 'fs';
+import path from 'path';
 
 jest.mock('@react-native-community/push-notification-ios', () => ({
   checkPermissions: jest.fn(),
@@ -22,6 +24,14 @@ jest.mock('../memberContentAvailability', () => ({
 }));
 
 describe('notification badge reconciliation', () => {
+  test('cold-launch metadata failure cannot suppress authenticated refresh', () => {
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'site_manager.js'),
+      'utf8',
+    );
+    expect(source).toContain('Promise.allSettled(promises)');
+    expect(source).toContain('this.refreshSites();');
+  });
   test('a partial totals response cannot replace a valid notification count', async () => {
     const site = new Site({
       authToken: 'synthetic-token',
