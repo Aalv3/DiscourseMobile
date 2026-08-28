@@ -22,7 +22,6 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { decode } from 'html-entities';
 import { activeMemberSite } from './ProductData';
-import { availableContributionActions } from '../memberContentAvailability';
 import {
   Action,
   InlineState,
@@ -227,10 +226,7 @@ export default function NativeProfileScreen({
         sequence,
         outcome: 'started',
       });
-      const actions = await availableContributionActions(
-        site,
-        activity?.user_actions || [],
-      ).catch(() => []);
+      const actions = activity?.user_actions || [];
       recordProfileDiagnostic({
         event: 'contributions',
         mountId,

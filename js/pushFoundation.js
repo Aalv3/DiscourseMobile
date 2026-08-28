@@ -147,6 +147,31 @@ export class PushFoundation {
     };
   }
 
+  registrationIdentity(installationId, token, account) {
+    const input = [
+      installationId,
+      token,
+      account.clientId,
+      this.transport.platform,
+      this.environment,
+      this.appId,
+      this.appVersion,
+      this.build,
+    ].join('\u0000');
+    // Persist only a bounded one-way fingerprint. APNs tokens, credentials and
+    // installation identifiers never enter AsyncStorage.
+    let first = 0x811c9dc5;
+    let second = 0x9e3779b9;
+    for (let index = 0; index < input.length; index += 1) {
+      const code = input.charCodeAt(index);
+      first = Math.imul(first ^ code, 0x01000193) >>> 0;
+      second = Math.imul(second ^ code, 0x85ebca6b) >>> 0;
+    }
+    return `${first.toString(16).padStart(8, '0')}${second
+      .toString(16)
+      .padStart(8, '0')}`;
+  }
+
   emitResult(result) {
     try {
       this.onResult(result);
@@ -299,8 +324,16 @@ export class PushFoundation {
       ),
     );
     try {
-      const identity = `${installationId}:${token}:${account.clientId}`;
-      if (this.registeredIdentity !== identity) {
+      const identity = this.registrationIdentity(
+        installationId,
+        token,
+        account,
+      );
+      const persistedIdentity = await this.store.registrationIdentity?.();
+      if (
+        this.registeredIdentity !== identity &&
+        persistedIdentity !== identity
+      ) {
         const httpStatusClass = await this.client.register({
           installationId,
           authToken: account.authToken,
@@ -311,6 +344,7 @@ export class PushFoundation {
         this.lastBackendStatusClass =
           httpStatusClass || PUSH_HTTP_STATUS_CLASS.SUCCESS;
         this.registeredIdentity = identity;
+        await this.store.setRegistrationIdentity?.(identity);
         this.emitResult(
           succeededPushRegistrationStage(
             PUSH_REGISTRATION_STAGE.BACKEND_RESPONSE,
@@ -318,6 +352,7 @@ export class PushFoundation {
           ),
         );
       }
+      this.registeredIdentity = identity;
     } catch (error) {
       const result = resultFromPushError(
         error,
@@ -533,6 +568,9 @@ export class PushFoundation {
       timeoutMs: this.preferenceTimeoutMs,
       timeoutCode: 'push_preference_write_timeout',
     }).catch(() => {});
+    await Promise.resolve(this.store.setRegistrationIdentity?.(null)).catch(
+      () => {},
+    );
     this.lastPersistedPreference = 'unknown';
     return true;
   }

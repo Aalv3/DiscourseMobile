@@ -38,11 +38,6 @@ describe('profile request lifecycle diagnostics', () => {
         }),
         expect.objectContaining({
           event: 'request',
-          stage: 'member_activity',
-          outcome: 'settled',
-        }),
-        expect.objectContaining({
-          event: 'request',
           stage: 'adjuster_card',
           category: 'success',
         }),
@@ -55,6 +50,11 @@ describe('profile request lifecycle diagnostics', () => {
           event: 'promise_all',
           outcome: 'settled',
         }),
+      ]),
+    );
+    expect(entries).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ stage: 'member_activity' }),
       ]),
     );
   });

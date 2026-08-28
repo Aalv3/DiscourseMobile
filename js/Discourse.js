@@ -186,6 +186,10 @@ class Discourse extends React.Component {
 
   _shareIntentConsumption = null;
 
+  _foregroundRefreshGeneration = 0;
+
+  _lastForegroundRefreshAt = 0;
+
   _navigationReady = false;
 
   constructor(props) {
@@ -210,6 +214,8 @@ class Discourse extends React.Component {
     });
     this._siteManager.setPushFoundation(this._pushFoundation);
     this._refresh = this._refresh.bind(this);
+    this._refreshAuthenticatedResources =
+      this._refreshAuthenticatedResources.bind(this);
     this._initBackgroundFetch = this._initBackgroundFetch.bind(this);
 
     this._handleAppStateChange = nextAppState => {
@@ -220,7 +226,7 @@ class Discourse extends React.Component {
       } else {
         this.setState({ privacyShield: false });
         StatusBar.setHidden(false);
-        this._siteManager.refreshSites();
+        this._refreshAuthenticatedResources('foreground');
         this._consumeShareIntent();
 
         clearTimeout(this.refreshTimerId);
@@ -718,6 +724,23 @@ class Discourse extends React.Component {
       onTimeout,
     );
     console.log('[BackgroundFetch] configure status: ', status);
+  }
+
+  async _refreshAuthenticatedResources(reason) {
+    const site =
+      this._siteManager.activeSite ||
+      this._siteManager.listSites().find(candidate => candidate.authToken);
+    if (!site?.authToken) return false;
+    const now = Date.now();
+    if (now - this._lastForegroundRefreshAt < 30000) return false;
+    this._lastForegroundRefreshAt = now;
+    const generation = ++this._foregroundRefreshGeneration;
+    await this._siteManager.refreshNotificationState(reason).catch(() => []);
+    if (generation !== this._foregroundRefreshGeneration) return false;
+    this.setState(current => ({
+      memberContentVersion: current.memberContentVersion + 1,
+    }));
+    return true;
   }
 
   async _refresh() {

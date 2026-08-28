@@ -55,7 +55,7 @@ describe('native authorization consent', () => {
     expect(topic).toContain("jsonApi(`/posts/${post.id}.json`, 'DELETE')");
     expect(topic).toContain('savePostEdit(');
     expect(site).toContain("'/notifications/read', 'PUT'");
-    expect(site).toContain("'/notifications.json?recent=true&limit=25'");
+    expect(site).toContain("'/native/v1/notifications'");
     expect(manager).toContain('urlParams.oneTimePassword');
     expect(discourse).toContain('params.oneTimePassword');
     expect(privacyContract).toContain("jsonApi('/session/current.json')");

@@ -5,7 +5,6 @@ import _ from 'lodash';
 import { Alert, NativeModules, Platform } from 'react-native';
 import PushNotificationIOS from '@react-native-community/push-notification-ios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { availableNotificationRows } from './memberContentAvailability';
 import Site from './site';
 import RNKeyPair from 'react-native-key-pair';
 import DeviceInfo from 'react-native-device-info';
@@ -250,38 +249,10 @@ class SiteManager {
             this.save();
           }
 
-          let promises = [];
-
-          this.sites.forEach((site, index) => {
-            // check for updated API version and updated icon
-            promises.push(
-              site.ensureLatestApi().then(s => {
-                if (s.apiVersion !== this.sites[index].apiVersion) {
-                  this.sites[index].apiVersion = s.apiVersion;
-                }
-                if (s.icon && s.icon !== this.sites[index].icon) {
-                  this.sites[index].icon = s.icon;
-                }
-
-                this.sites[index].lastChecked = Date.now();
-              }),
-            );
-          });
-
-          if (promises.length) {
-            Promise.allSettled(promises).then(results => {
-              recordNotificationDiagnostic({
-                event: 'metadata_refresh',
-                reason: 'cold_launch',
-                outcome: 'completed',
-                status: results.every(result => result.status === 'fulfilled')
-                  ? '2xx'
-                  : 'partial',
-                authoritative: this.totalUnread(),
-              });
-              this.refreshSites();
-            });
-          }
+          // Auth hydration owns no content fan-out. One canonical notification
+          // snapshot refreshes in the background; the mounted Floor owns its
+          // shared community snapshot and onboarding owns its single contract.
+          this.refreshNotificationState('cold_launch').catch(() => []);
         }
       })
       .finally(() => {
@@ -639,7 +610,9 @@ class SiteManager {
               ['asc', 'desc'],
             )
             .value();
-          const available = await availableNotificationRows(ordered);
+          // The native snapshot is already Guardian-filtered on the server.
+          // Never probe each topic or mutate rows merely to discover access.
+          const available = ordered;
           if (options?.onlyNew || options?.authoritative) {
             const actionableRows = actionableUnreadRows(available);
             const actionableBySite = new Map();
@@ -652,7 +625,11 @@ class SiteManager {
             let countersChanged = false;
             this.sites.forEach(site => {
               if (!site.authToken) return;
-              const actionable = actionableBySite.get(site) || 0;
+              const actionable = Number.isFinite(
+                site._authoritativeNotificationCount,
+              )
+                ? site._authoritativeNotificationCount
+                : actionableBySite.get(site) || 0;
               if (site.unreadNotifications !== actionable) {
                 const prior = site.unreadNotifications || 0;
                 site.unreadNotifications = actionable;

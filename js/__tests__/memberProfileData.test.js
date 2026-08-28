@@ -75,7 +75,10 @@ describe('native member profile data', () => {
         cardPayload: { schema: 'an.adjuster-card.v2' },
       }),
     );
-    expect(site.jsonApi).toHaveBeenCalledTimes(3);
+    expect(site.jsonApi).toHaveBeenCalledTimes(2);
+    expect(site.jsonApi).not.toHaveBeenCalledWith(
+      expect.stringContaining('/user_actions.json'),
+    );
   });
 
   test('retains last-known profile data after a failed refresh', async () => {

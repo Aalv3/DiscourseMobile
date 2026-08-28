@@ -12,6 +12,8 @@ function fixture(permission = 'granted') {
     preference: jest.fn(() => Promise.resolve('unknown')),
     setPreference: jest.fn(() => Promise.resolve()),
     installationId: jest.fn(() => Promise.resolve('installation')),
+    registrationIdentity: jest.fn(() => Promise.resolve(null)),
+    setRegistrationIdentity: jest.fn(() => Promise.resolve()),
   };
   let refreshHandler;
   const remove = jest.fn();
@@ -235,6 +237,23 @@ describe('push foundation lifecycle', () => {
       expect.objectContaining({ category: 'enabled' }),
     ]);
     expect(deps.client.register).toHaveBeenCalledTimes(1);
+  });
+
+  test('unchanged persisted identity performs zero registration mutations', async () => {
+    const deps = fixture();
+    const identity = deps.foundation.registrationIdentity(
+      'installation',
+      'transport-token',
+      account,
+    );
+    deps.store.registrationIdentity.mockResolvedValue(identity);
+
+    await expect(deps.foundation.enable(account)).resolves.toMatchObject({
+      category: 'enabled',
+    });
+
+    expect(deps.client.register).not.toHaveBeenCalled();
+    expect(deps.store.setPreference).toHaveBeenCalledWith('enabled');
   });
 
   test('turns backend rate limiting into a bounded member-safe cooldown', async () => {

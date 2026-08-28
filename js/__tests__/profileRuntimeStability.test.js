@@ -32,9 +32,8 @@ describe('profile runtime stability', () => {
     expect(screen).toContain('sequence === loadSequence.current');
     expect(screen).toContain('authoritativeAvatar.current');
     expect(screen).toContain('responseAvatar !== latestAvatar');
-    expect(screen.indexOf('setState({')).toBeLessThan(
-      screen.indexOf('const actions = await availableContributionActions('),
-    );
+    expect(screen).not.toContain('availableContributionActions(');
+    expect(screen).toContain('const actions = activity?.user_actions || [];');
   });
 
   test('picker cancel and upload completion always clear the busy state', () => {

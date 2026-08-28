@@ -176,7 +176,7 @@ class NotificationsScreen extends React.Component {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Retry notifications"
-            onPress={() => this.refresh()}
+            onPress={() => this.refresh(true)}
             style={({ pressed }) => [
               styles.retryButton,
               { borderColor: colors.accent, opacity: pressed ? 0.65 : 1 },
@@ -271,7 +271,7 @@ class NotificationsScreen extends React.Component {
     );
   }
 
-  refresh() {
+  refresh(forceRefresh = false) {
     let types =
       this.state.selectedIndex === 1
         ? NotificationsScreen.replyTypes
@@ -279,7 +279,7 @@ class NotificationsScreen extends React.Component {
     return this._fetchNotifications(types, {
       onlyNew: this.state.selectedIndex === 0,
       newMap: this._seenNotificationMap,
-      silent: false,
+      silent: !forceRefresh,
       surfaceErrors: true,
     });
   }

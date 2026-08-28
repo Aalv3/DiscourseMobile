@@ -109,11 +109,6 @@ export async function loadMemberProfileData(
         diagnosticContext,
       ).catch(() => null),
       trackedRequest(
-        'member_activity',
-        () => site.jsonApi(`/user_actions.json?username=${encoded}&filter=4,5`),
-        diagnosticContext,
-      ).catch(() => ({ user_actions: [] })),
-      trackedRequest(
         'adjuster_card',
         () => site.jsonApi(cardPath),
         diagnosticContext,
@@ -128,14 +123,18 @@ export async function loadMemberProfileData(
     });
     throw error;
   }
-  const [profile, activity, cardPayload] = bundle;
+  const [profile, cardPayload] = bundle;
   diagnostic(diagnosticContext, {
     event: 'promise_all',
     stage: 'profile_bundle',
     outcome: 'settled',
     category: 'success',
   });
-  const result = { profile, activity, cardPayload };
+  const result = {
+    profile,
+    activity: { user_actions: cardPayload?.contributions || [] },
+    cardPayload,
+  };
   cache.set(cacheKey(site, username), result);
   return result;
 }
