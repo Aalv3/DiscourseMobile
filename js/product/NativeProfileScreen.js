@@ -531,7 +531,7 @@ export default function NativeProfileScreen({
         aspect: [1, 1],
         quality: 0.85,
         preferredAssetRepresentationMode:
-          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+          ImagePicker.UIImagePickerPreferredAssetRepresentationMode?.Compatible,
       });
       if (result.canceled) {
         return setEditor(current => ({ ...current, submitting: false }));
@@ -551,7 +551,7 @@ export default function NativeProfileScreen({
         error:
           error?.message === 'photo_permission_denied'
             ? 'Photo access was not granted.'
-            : error?.userMessages?.join(' ') ||
+            : profileSaveErrorMessage(error, 0) ||
               'Your profile photo could not be updated.',
       }));
     }

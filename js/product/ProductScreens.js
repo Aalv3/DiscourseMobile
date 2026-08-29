@@ -328,7 +328,7 @@ const FloorActivityRow = ({ topic, site, navigation, openUrl, category }) => {
           label={username}
           site={site}
           size={44}
-          username={username}
+          username={topic.last_poster_username}
         />
       </Pressable>
       <View style={styles.topicCopy}>
@@ -448,7 +448,7 @@ const FloorAttentionCard = ({ topic, site, category, openUrl, cardWidth }) => {
           label={username}
           site={site}
           size={32}
-          username={username}
+          username={topic.last_poster_username}
         />
         <View style={styles.floorAttentionIdentity}>
           <Text
@@ -967,7 +967,7 @@ const DiscussionFeedRow = ({ topic, category, site, navigation, openUrl }) => {
           label={username}
           site={site}
           size={42}
-          username={username}
+          username={topic.last_poster_username}
         />
       </Pressable>
       <View style={styles.topicCopy}>
