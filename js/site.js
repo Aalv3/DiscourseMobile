@@ -221,7 +221,11 @@ class Site {
             r1,
             retryIndex,
           );
-          if (retryIndex < RATE_LIMIT_MAX_RETRIES) {
+          // Mutations are never replayed automatically: the server may have
+          // committed before a limiting/error response reached the client.
+          // Callers retain their form state and explicitly retry after the
+          // shared cooldown. Only safe reads receive bounded admission retry.
+          if (method === 'GET' && retryIndex < RATE_LIMIT_MAX_RETRIES) {
             await requestOrchestrator.admitRetry(bucket);
             continue;
           }

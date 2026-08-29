@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -25,6 +26,7 @@ import {
   loadAdjusterCardBundle,
   onboardingStepIndex,
   onboardingSteps,
+  policyActionsComplete,
   saveAdjusterCardFields,
   saveOnboardingProgress,
   uploadPrivateResume,
@@ -139,6 +141,7 @@ export default function AdjusterCardOnboardingScreen({
     error: null,
     errorStatus: null,
   });
+  const [policyActions, setPolicyActions] = useState({});
   const steps = onboardingSteps(state.card);
 
   const load = useCallback(async () => {
@@ -385,19 +388,26 @@ export default function AdjusterCardOnboardingScreen({
     if (state.saving) return;
     setState(current => ({ ...current, saving: true, error: null }));
     try {
-      let card = state.card;
+      const policy = state.progress.policy;
+      if (!policyActionsComplete(policy, policyActions)) {
+        throw new Error('required_policy_action_missing');
+      }
+      const changes = {};
       for (const stepId of ['profile', 'licenses', 'experience']) {
-        const changes = {};
-        editableFieldsForStep(card, stepId).forEach(field => {
+        editableFieldsForStep(state.card, stepId).forEach(field => {
           changes[field] = state.values[field];
         });
-        card = await saveAdjusterCardFields(site, card, changes);
       }
+      await saveAdjusterCardFields(site, state.card, changes);
       const progress = await saveOnboardingProgress(site, {
         onboarding_action: 'finish',
         step: 5,
         display_name: state.values.name || '',
         bio: state.values.bio || '',
+        policy_set_key: policy.setKey,
+        policy_set_version: policy.setVersion,
+        policy_set_sha256: policy.setSha256,
+        policy_actions: policyActions,
       });
       if (progress.state !== 'COMPLETED') {
         throw new Error('onboarding_completion_not_confirmed');
@@ -409,8 +419,10 @@ export default function AdjusterCardOnboardingScreen({
         ...current,
         saving: false,
         error:
-          error?.userMessages?.join(' ') ||
-          'Your profile could not be finished. Please try again.',
+          error?.message === 'required_policy_action_missing'
+            ? 'Review each required document and record your agreement before finishing.'
+            : error?.userMessages?.join(' ') ||
+              'Your profile could not be finished. Please try again.',
       }));
     }
   };
@@ -753,38 +765,140 @@ export default function AdjusterCardOnboardingScreen({
           ) : null}
 
           {stepId === 'preview' ? (
-            <View
-              accessibilityLabel="Adjuster Card preview"
-              style={[
-                styles.preview,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-              ]}
-            >
-              <Text style={[styles.previewName, { color: colors.text }]}>
-                {state.values.name || 'Your professional name'}
-              </Text>
-              {state.values.professional_headline ? (
-                <Text
-                  style={[styles.previewHeadline, { color: colors.accent }]}
-                >
-                  {state.values.professional_headline}
+            <View style={styles.previewGroup}>
+              <View
+                accessibilityLabel="Adjuster Card preview"
+                style={[
+                  styles.preview,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Text style={[styles.previewName, { color: colors.text }]}>
+                  {state.values.name || 'Your professional name'}
                 </Text>
-              ) : null}
-              {state.values.bio ? (
-                <Text style={[styles.body, { color: colors.muted }]}>
-                  {state.values.bio}
+                {state.values.professional_headline ? (
+                  <Text
+                    style={[styles.previewHeadline, { color: colors.accent }]}
+                  >
+                    {state.values.professional_headline}
+                  </Text>
+                ) : null}
+                {state.values.bio ? (
+                  <Text style={[styles.body, { color: colors.muted }]}>
+                    {state.values.bio}
+                  </Text>
+                ) : null}
+                {Array.isArray(state.values.licensed_states) &&
+                state.values.licensed_states.length ? (
+                  <Text style={[styles.meta, { color: colors.muted }]}>
+                    Licensed: {state.values.licensed_states.join(', ')}
+                  </Text>
+                ) : null}
+                <Text style={[styles.privateNote, { color: colors.muted }]}>
+                  Only server-enabled fields are shown. Résumés remain private
+                  and recruiter search is off.
                 </Text>
-              ) : null}
-              {Array.isArray(state.values.licensed_states) &&
-              state.values.licensed_states.length ? (
-                <Text style={[styles.meta, { color: colors.muted }]}>
-                  Licensed: {state.values.licensed_states.join(', ')}
+              </View>
+              <View
+                style={[
+                  styles.policyPanel,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Text style={[styles.label, { color: colors.text }]}>
+                  Required documents
                 </Text>
-              ) : null}
-              <Text style={[styles.privateNote, { color: colors.muted }]}>
-                Only server-enabled fields are shown. Résumés remain private and
-                recruiter search is off.
-              </Text>
+                {!state.progress.policy.available ? (
+                  <Text
+                    accessibilityRole="alert"
+                    style={[styles.body, { color: colors.danger }]}
+                  >
+                    Required documents are temporarily unavailable. Try again
+                    before finishing.
+                  </Text>
+                ) : (
+                  state.progress.policy.instruments.map(instrument => {
+                    const selected =
+                      instrument.satisfied ||
+                      policyActions[instrument.key] ===
+                        instrument.requiredAction;
+                    return (
+                      <View
+                        key={`${instrument.key}:${instrument.version}`}
+                        style={styles.policyInstrument}
+                      >
+                        <Pressable
+                          accessibilityRole="link"
+                          onPress={() =>
+                            Linking.openURL(
+                              `${site.url}${instrument.document.path}`,
+                            )
+                          }
+                        >
+                          <Text
+                            style={[
+                              styles.policyLink,
+                              { color: colors.accent },
+                            ]}
+                          >
+                            Review {instrument.document.title} ·{' '}
+                            {instrument.version}
+                          </Text>
+                        </Pressable>
+                        {instrument.requiredAction ? (
+                          <Pressable
+                            accessibilityRole="checkbox"
+                            accessibilityState={{
+                              checked: selected,
+                              disabled: instrument.satisfied || state.saving,
+                            }}
+                            disabled={instrument.satisfied || state.saving}
+                            onPress={() =>
+                              setPolicyActions(current => ({
+                                ...current,
+                                [instrument.key]:
+                                  current[instrument.key] ===
+                                  instrument.requiredAction
+                                    ? undefined
+                                    : instrument.requiredAction,
+                              }))
+                            }
+                            style={styles.policyAction}
+                          >
+                            <Text
+                              style={[styles.checkbox, { color: colors.text }]}
+                            >
+                              {selected ? '☑' : '☐'}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.policyText,
+                                { color: colors.text },
+                              ]}
+                            >
+                              {instrument.satisfied
+                                ? 'Previously recorded'
+                                : instrument.presentation}
+                            </Text>
+                          </Pressable>
+                        ) : (
+                          <Text
+                            style={[styles.policyInfo, { color: colors.muted }]}
+                          >
+                            Available for review; no acceptance is recorded.
+                          </Text>
+                        )}
+                      </View>
+                    );
+                  })
+                )}
+              </View>
             </View>
           ) : null}
 
@@ -799,7 +913,10 @@ export default function AdjusterCardOnboardingScreen({
           <View style={styles.actions}>
             {state.step === steps.length - 1 ? (
               <Action
-                disabled={state.saving}
+                disabled={
+                  state.saving ||
+                  !policyActionsComplete(state.progress.policy, policyActions)
+                }
                 icon="check"
                 label={state.saving ? 'Finishing…' : 'Finish profile'}
                 onPress={finish}
@@ -854,6 +971,24 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   accessibilityContent: { paddingTop: spacing.sm, paddingBottom: 72 },
+  previewGroup: { gap: spacing.md },
+  policyPanel: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  policyInstrument: { gap: spacing.xs, paddingVertical: spacing.xs },
+  policyLink: { fontSize: 15, lineHeight: 21, fontWeight: '700' },
+  policyAction: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    minHeight: 44,
+  },
+  checkbox: { fontSize: 22, lineHeight: 28 },
+  policyText: { flex: 1, fontSize: 14, lineHeight: 20 },
+  policyInfo: { fontSize: 13, lineHeight: 19 },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   eyebrow: { fontSize: 13, fontWeight: '700', letterSpacing: 0.4 },
   progress: { flexDirection: 'row', gap: 5, marginTop: spacing.md },

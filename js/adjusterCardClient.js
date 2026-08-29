@@ -3,6 +3,7 @@
 
 export const ADJUSTER_CARD_SCHEMA = 'an.adjuster-card.v2';
 export const ONBOARDING_PROGRESS_SCHEMA = 'an.onboarding-progress.v2';
+export const POLICY_INSTRUMENTS_SCHEMA = 'an.policy-instruments.v1';
 export const PRIVATE_RESUME_SCHEMA = 'an.private-resume.v1';
 
 export const PROFILE_STEPS = Object.freeze([
@@ -225,7 +226,67 @@ export function parseOnboardingProgress(payload) {
     requiredVersion: Number(payload.required_onboarding_version || 0),
     completedVersion: Number(payload.completed_onboarding_version || 0),
     onboardingRequired: payload.onboarding_required === true,
+    policy: parsePolicyInstruments(payload.policy),
   };
+}
+
+export function parsePolicyInstruments(payload) {
+  if (!isObject(payload) || payload.schema !== POLICY_INSTRUMENTS_SCHEMA) {
+    return {
+      schema: POLICY_INSTRUMENTS_SCHEMA,
+      available: false,
+      satisfied: false,
+      instruments: [],
+    };
+  }
+  const instruments = Array.isArray(payload.instruments)
+    ? payload.instruments.map(item => {
+        if (
+          !isObject(item) ||
+          !['required_acceptance', 'acknowledgement', 'informational'].includes(
+            item.disposition,
+          ) ||
+          !isObject(item.document) ||
+          !String(item.document.path || '').startsWith('/')
+        ) {
+          throw new Error('policy_instrument_contract_mismatch');
+        }
+        return {
+          key: String(item.key || ''),
+          version: String(item.version || ''),
+          contentSha256: String(item.content_sha256 || ''),
+          disposition: item.disposition,
+          requiredAction: item.required_action || null,
+          presentation: String(item.presentation || ''),
+          document: {
+            title: String(item.document.title || ''),
+            path: item.document.path,
+          },
+          satisfied: item.satisfied === true,
+        };
+      })
+    : [];
+  return {
+    schema: POLICY_INSTRUMENTS_SCHEMA,
+    available: payload.available === true,
+    satisfied: payload.satisfied === true,
+    setKey: String(payload.set_key || ''),
+    setVersion: String(payload.set_version || ''),
+    setSha256: String(payload.set_sha256 || ''),
+    instruments,
+  };
+}
+
+export function policyActionsComplete(policy, actions) {
+  return (
+    policy?.available === true &&
+    policy.instruments.every(
+      instrument =>
+        !instrument.requiredAction ||
+        instrument.satisfied ||
+        actions?.[instrument.key] === instrument.requiredAction,
+    )
+  );
 }
 
 export function enabledFieldsForStep(card, stepId) {

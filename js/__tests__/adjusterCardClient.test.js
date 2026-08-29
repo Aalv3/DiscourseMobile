@@ -14,6 +14,8 @@ import {
   onboardingSteps,
   parseAdjusterCard,
   parseOnboardingProgress,
+  parsePolicyInstruments,
+  policyActionsComplete,
   PRIVATE_RESUME_SCHEMA,
   removeProfilePhoto,
   saveAdjusterCardFields,
@@ -98,6 +100,48 @@ const progressPayload = overrides => ({
 });
 
 describe('AN-2870 Adjuster Card contracts', () => {
+  test('binds required policy actions to exact reviewable instrument versions', () => {
+    const policy = parsePolicyInstruments({
+      schema: 'an.policy-instruments.v1',
+      available: true,
+      satisfied: false,
+      set_key: 'founder-interim-v1.0-policy-set',
+      set_version: '1.0',
+      set_sha256: 'a'.repeat(64),
+      instruments: [
+        {
+          key: 'terms_of_service',
+          version: 'founder-interim-v1.0-terms',
+          content_sha256: 'b'.repeat(64),
+          disposition: 'required_acceptance',
+          required_action: 'accepted',
+          presentation: 'I agree to the Terms of Service.',
+          document: { title: 'Terms of Service', path: '/terms' },
+          satisfied: false,
+        },
+      ],
+    });
+
+    expect(policy.instruments[0]).toMatchObject({
+      key: 'terms_of_service',
+      requiredAction: 'accepted',
+      satisfied: false,
+      document: { path: '/terms' },
+    });
+    expect(policyActionsComplete(policy, {})).toBe(false);
+    expect(
+      policyActionsComplete(policy, { terms_of_service: 'accepted' }),
+    ).toBe(true);
+    expect(() =>
+      parsePolicyInstruments({
+        schema: 'an.policy-instruments.v1',
+        available: true,
+        instruments: [
+          { disposition: 'required_acceptance', document: { path: 'terms' } },
+        ],
+      }),
+    ).toThrow('policy_instrument_contract_mismatch');
+  });
   test('binds to the exact deployed contract versions and fails closed', () => {
     expect(parseAdjusterCard(profilePayload()).schema).toBe(
       'an.adjuster-card.v2',
@@ -503,6 +547,18 @@ describe('AN-2870 Adjuster Card contracts', () => {
     expect(onboarding).toContain('loadAdjusterCardBundle(site)');
     expect(onboarding).toContain("onboarding_action: 'skip_for_now'");
     expect(onboarding).toContain("onboarding_action: 'finish'");
+    expect(onboarding).toContain('policy_set_sha256: policy.setSha256');
+    expect(onboarding).toContain('accessibilityRole="checkbox"');
+    expect(onboarding).toContain('Review {instrument.document.title}');
+    expect(onboarding).toContain(
+      "for (const stepId of ['profile', 'licenses', 'experience'])",
+    );
+    expect(onboarding).toContain(
+      'await saveAdjusterCardFields(site, state.card, changes)',
+    );
+    expect(onboarding).not.toContain(
+      'card = await saveAdjusterCardFields(site, card, changes)',
+    );
     expect(onboarding).toContain('state.card.photo.enabled');
     expect(onboarding).toContain('state.card.resume.enabled');
     expect(onboarding).toContain(

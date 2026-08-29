@@ -1,0 +1,195 @@
+{
+  "schema": "an.launch-certification.v1",
+  "journeys": [
+    {
+      "id": "new_applicant",
+      "transitions": [
+        {
+          "state": "signed_out",
+          "screen": "Member sign in",
+          "action": "Request access",
+          "api": "GET /renaissance/request-to-join",
+          "prerequisite": "public origin healthy",
+          "success": "application",
+          "failure": "bounded public error",
+          "recovery": "retry"
+        },
+        {
+          "state": "application",
+          "screen": "Request access",
+          "action": "Submit application",
+          "api": "POST /renaissance/request-to-join",
+          "prerequisite": "explicit disclosure acknowledgement",
+          "success": "pending_approval",
+          "failure": "field error",
+          "recovery": "correct and resubmit"
+        },
+        {
+          "state": "pending_approval",
+          "screen": "Application status",
+          "action": "Refresh status",
+          "api": "GET /renaissance/request-to-join/status",
+          "prerequisite": "receipt and access code",
+          "success": "approved",
+          "failure": "pending state retained",
+          "recovery": "retry later"
+        },
+        {
+          "state": "approved",
+          "screen": "Member authorization",
+          "action": "Authorize exact profile",
+          "api": "POST admission handoff + User API authorization",
+          "prerequisite": "approved active account",
+          "success": "onboarding_required",
+          "failure": "fail closed",
+          "recovery": "reconnect without replacing prior key"
+        },
+        {
+          "state": "onboarding_required",
+          "screen": "Adjuster Card onboarding",
+          "action": "Complete profile and policy actions",
+          "api": "PATCH /native/v1/profile; PUT /native/v1/onboarding",
+          "prerequisite": "reviewable current policy contract",
+          "success": "member_floor",
+          "failure": "onboarding retained",
+          "recovery": "retry preserved state"
+        },
+        {
+          "state": "member_floor",
+          "screen": "Floor",
+          "action": "Use member network",
+          "api": "GET canonical snapshots",
+          "prerequisite": "completed current onboarding",
+          "success": "member_floor",
+          "failure": "last-known-good or unavailable",
+          "recovery": "refresh"
+        }
+      ]
+    },
+    {
+      "id": "approved_incomplete",
+      "transitions": [
+        {
+          "state": "authenticated",
+          "screen": "Preparing member account",
+          "action": "Load canonical onboarding",
+          "api": "GET /native/v1/onboarding",
+          "prerequisite": "valid credential",
+          "success": "onboarding_required",
+          "failure": "bounded initialization error",
+          "recovery": "retry"
+        },
+        {
+          "state": "onboarding_required",
+          "screen": "Adjuster Card onboarding",
+          "action": "Resume saved step",
+          "api": "GET /native/v1/profile",
+          "prerequisite": "guarded resources remain blocked",
+          "success": "onboarding_required",
+          "failure": "cached shell/error",
+          "recovery": "retry"
+        }
+      ]
+    },
+    {
+      "id": "approved_complete",
+      "transitions": [
+        {
+          "state": "authenticated",
+          "screen": "Preparing member account",
+          "action": "Verify onboarding",
+          "api": "GET /native/v1/onboarding",
+          "prerequisite": "valid credential",
+          "success": "member_floor",
+          "failure": "neutral error",
+          "recovery": "retry"
+        }
+      ]
+    },
+    {
+      "id": "returning_cold_launch",
+      "transitions": [
+        {
+          "state": "auth_restoring",
+          "screen": "Preparing your member account",
+          "action": "Hydrate credential once",
+          "api": "Keychain read",
+          "prerequisite": "none",
+          "success": "authenticated",
+          "failure": "signed_out",
+          "recovery": "Member sign in"
+        },
+        {
+          "state": "authenticated",
+          "screen": "Authenticated initialization",
+          "action": "Canonical bootstrap",
+          "api": "onboarding then Floor/notifications if completed",
+          "prerequisite": "current account generation",
+          "success": "member_floor",
+          "failure": "last-known-good or unavailable",
+          "recovery": "refresh"
+        }
+      ]
+    },
+    {
+      "id": "revoked_credential",
+      "transitions": [
+        {
+          "state": "auth_restoring",
+          "screen": "Preparing your member account",
+          "action": "Validate credential",
+          "api": "authenticated bootstrap",
+          "prerequisite": "stored credential",
+          "success": "authenticated",
+          "failure": "signed_out",
+          "recovery": "Member sign in"
+        }
+      ]
+    },
+    {
+      "id": "interrupted_onboarding",
+      "transitions": [
+        {
+          "state": "authenticated",
+          "screen": "Preparing member account",
+          "action": "Load canonical incomplete state",
+          "api": "GET /native/v1/onboarding",
+          "prerequisite": "saved progress",
+          "success": "onboarding_required",
+          "failure": "bounded initialization error",
+          "recovery": "retry"
+        }
+      ]
+    },
+    {
+      "id": "deferred_onboarding",
+      "transitions": [
+        {
+          "state": "onboarding_required",
+          "screen": "Adjuster Card onboarding",
+          "action": "Skip for now",
+          "api": "PUT /native/v1/onboarding skip_for_now",
+          "prerequisite": "authenticated incomplete member",
+          "success": "onboarding_required",
+          "failure": "onboarding retained",
+          "recovery": "retry"
+        }
+      ]
+    },
+    {
+      "id": "transport_failures",
+      "transitions": [
+        {
+          "state": "any_authenticated",
+          "screen": "Current screen",
+          "action": "Request during 429/offline/502",
+          "api": "RequestOrchestrator",
+          "prerequisite": "prior state optional",
+          "success": "same state with LKG",
+          "failure": "bounded unavailable state",
+          "recovery": "retry after cooldown/connectivity"
+        }
+      ]
+    }
+  ]
+}

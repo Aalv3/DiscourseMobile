@@ -149,6 +149,36 @@ describe('site privacy serialization', () => {
     jest.useRealTimers();
   });
 
+  test('never replays a rate-limited mutation automatically', async () => {
+    fetch.mockResolvedValue({
+      status: 429,
+      headers: {
+        get: name =>
+          name === 'Retry-After'
+            ? '21'
+            : name === 'Discourse-Rate-Limit-Error-Code'
+            ? 'user_api_key_limiter_60_secs'
+            : null,
+      },
+    });
+    const site = new Site({
+      url: 'https://staging.adjusternetwork.org',
+      authToken: 'synthetic-key',
+      clientId: 'auth-client-A',
+    });
+
+    await expect(
+      site.jsonApi('/native/v1/onboarding', 'PUT', {
+        onboarding_action: 'finish',
+      }),
+    ).rejects.toMatchObject({
+      message: 'api_rate_limited',
+      status: 429,
+      rateLimitCode: 'user_api_key_limiter_60_secs',
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
   test('accepts successful no-content mutations without parsing JSON', async () => {
     const json = jest.fn();
     fetch.mockResolvedValue({ status: 204, json });
