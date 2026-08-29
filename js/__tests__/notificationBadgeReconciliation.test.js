@@ -24,20 +24,48 @@ jest.mock('../memberContentAvailability', () => ({
 }));
 
 describe('notification badge reconciliation', () => {
-  test('cold launch owns one canonical notification snapshot without metadata fan-out', () => {
-    const source = fs.readFileSync(
+  test('credential hydration cannot start a guarded notification snapshot', () => {
+    const manager = fs.readFileSync(
       path.join(__dirname, '..', 'site_manager.js'),
       'utf8',
     );
-    expect(source).toContain(
-      "this.refreshNotificationState('cold_launch').catch(() => []);",
+    const loadBody = manager.slice(
+      manager.indexOf('  load() {'),
+      manager.indexOf('  totalUnread() {'),
     );
-    const loadBody = source.slice(
-      source.indexOf('  load() {'),
-      source.indexOf('  totalUnread() {'),
-    );
+    expect(loadBody).not.toContain('refreshNotificationState(');
     expect(loadBody).not.toContain('ensureLatestApi()');
     expect(loadBody).not.toContain('refreshSites()');
+  });
+
+  test('canonical completion owns exactly one generation-checked cold snapshot', () => {
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'Discourse.js'),
+      'utf8',
+    );
+    const bootstrap = source.slice(
+      source.indexOf('  _startNotificationBootstrap('),
+      source.indexOf('  async _handleNavigationReady()'),
+    );
+    expect(bootstrap).toContain(
+      'loadGeneration !== this._onboardingLoadGeneration',
+    );
+    expect(bootstrap).toContain(
+      'onboardingSessionId(currentSite) !== sessionId',
+    );
+    expect(bootstrap).toContain(
+      'this._notificationBootstrapSessionId === sessionId',
+    );
+    expect(
+      bootstrap.match(/refreshNotificationState\('cold_launch'\)/g),
+    ).toHaveLength(1);
+    expect(source).toContain(
+      'if (onboarding.status === ONBOARDING_STATUS.COMPLETED)',
+    );
+    expect(source).toContain(
+      'if (onboarding.status !== ONBOARDING_STATUS.COMPLETED)',
+    );
+    expect(source).toContain('this._notificationBootstrapSessionId = null');
   });
   test('a partial totals response cannot replace a valid notification count', async () => {
     const site = new Site({

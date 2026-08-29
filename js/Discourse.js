@@ -188,6 +188,7 @@ class Discourse extends React.Component {
   refreshTimerId = null;
 
   _onboardingLoadGeneration = 0;
+  _notificationBootstrapSessionId = null;
 
   _pushRestoreSessionId = null;
 
@@ -562,6 +563,22 @@ class Discourse extends React.Component {
     return this._shareIntentConsumption;
   }
 
+  _startNotificationBootstrap(site, sessionId, loadGeneration) {
+    const currentSite = this._siteManager
+      .listSites()
+      .find(candidate => candidate.authToken);
+    if (
+      loadGeneration !== this._onboardingLoadGeneration ||
+      onboardingSessionId(currentSite) !== sessionId ||
+      this._notificationBootstrapSessionId === sessionId
+    ) {
+      return false;
+    }
+    this._notificationBootstrapSessionId = sessionId;
+    this._siteManager.refreshNotificationState('cold_launch').catch(() => []);
+    return true;
+  }
+
   async _handleNavigationReady() {
     this._navigationReady = true;
     this._flushPendingPushRoute();
@@ -583,6 +600,7 @@ class Discourse extends React.Component {
         .find(candidate => candidate.authToken);
       const signedIn = Boolean(site);
       if (!signedIn) {
+        this._notificationBootstrapSessionId = null;
         this.setState(
           {
             authStatus: AUTH_STATUS.SIGNED_OUT,
@@ -713,6 +731,9 @@ class Discourse extends React.Component {
         ) {
           return;
         }
+        if (onboarding.status !== ONBOARDING_STATUS.COMPLETED) {
+          this._notificationBootstrapSessionId = null;
+        }
         this.setState(
           {
             authStatus: AUTH_STATUS.AUTHENTICATED,
@@ -721,6 +742,9 @@ class Discourse extends React.Component {
             onboardingSessionId: sessionId,
           },
           () => {
+            if (onboarding.status === ONBOARDING_STATUS.COMPLETED) {
+              this._startNotificationBootstrap(site, sessionId, loadGeneration);
+            }
             this._flushPendingPushRoute();
             this._consumeShareIntent();
           },
@@ -821,6 +845,12 @@ class Discourse extends React.Component {
       this._siteManager.activeSite ||
       this._siteManager.listSites().find(candidate => candidate.authToken);
     if (!site?.authToken) return false;
+    if (
+      !this.state.onboardingReady ||
+      this.state.onboardingStatus !== ONBOARDING_STATUS.COMPLETED
+    ) {
+      return false;
+    }
     const now = Date.now();
     if (now - this._lastForegroundRefreshAt < 30000) return false;
     this._lastForegroundRefreshAt = now;

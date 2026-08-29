@@ -12,14 +12,17 @@ describe('authenticated request budget gates', () => {
     const manager = source('site_manager.js');
     const discourse = source('Discourse.js');
     const community = source('product/ProductData.js');
-    expect(manager).toContain("refreshNotificationState('cold_launch')");
     const loadBody = manager.slice(
       manager.indexOf('  load() {'),
       manager.indexOf('  totalUnread() {'),
     );
     expect(loadBody).not.toContain('ensureLatestApi');
     expect(loadBody).not.toContain('refreshSites');
+    expect(loadBody).not.toContain('refreshNotificationState');
     expect(discourse).toContain('loadCanonicalOnboarding(site)');
+    expect(discourse).toContain(
+      'if (onboarding.status === ONBOARDING_STATUS.COMPLETED)',
+    );
     expect(community).toContain("site.jsonApi('/latest.json')");
     expect(community).toContain("site.jsonApi('/site.json')");
   });

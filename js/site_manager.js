@@ -253,10 +253,9 @@ class SiteManager {
             this.save();
           }
 
-          // Auth hydration owns no content fan-out. One canonical notification
-          // snapshot refreshes in the background; the mounted Floor owns its
-          // shared community snapshot and onboarding owns its single contract.
-          this.refreshNotificationState('cold_launch').catch(() => []);
+          // Credential hydration is intentionally content-free. The root
+          // lifecycle starts notification refresh only after the canonical
+          // onboarding contract confirms member-resource access.
         }
       })
       .finally(() => {
