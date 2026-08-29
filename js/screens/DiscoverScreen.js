@@ -20,7 +20,7 @@ import * as api from './DiscoverScreenComponents/api';
 import { ThemeContext } from '../ThemeContext';
 import Site from '../site';
 import i18n from 'i18n-js';
-import { debounce } from 'lodash';
+import debounce from '../../lib/debounce';
 import Toast from 'react-native-toast-message';
 import { BottomTabBarHeightContext } from '@react-navigation/bottom-tabs';
 import { SafeAreaView } from 'react-native-safe-area-context';

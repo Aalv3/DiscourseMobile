@@ -4,7 +4,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Text, TouchableHighlight, View } from 'react-native';
-import _ from 'lodash';
 import { ThemeContext } from '../../ThemeContext';
 
 class Filter extends React.Component {
@@ -34,7 +33,7 @@ class Filter extends React.Component {
 
   _renderTabs(tabs) {
     const theme = this.context;
-    return _.map(tabs, (tab, tabIndex) => {
+    return tabs.map((tab, tabIndex) => {
       const selected = this.props.selectedIndex === tabIndex;
 
       return (

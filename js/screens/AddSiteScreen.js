@@ -17,7 +17,7 @@ import { ThemeContext } from '../ThemeContext';
 import Site from '../site';
 import i18n from 'i18n-js';
 import fetch from './../../lib/fetch';
-import { debounce } from 'lodash';
+import debounce from '../../lib/debounce';
 import { BottomTabBarHeightContext } from '@react-navigation/bottom-tabs';
 
 class AddSiteScreen extends React.Component {

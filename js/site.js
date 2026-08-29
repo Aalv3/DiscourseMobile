@@ -2,7 +2,6 @@
 'use strict';
 
 import { Platform } from 'react-native';
-import _ from 'lodash';
 import fetch from './../lib/fetch';
 import { isCanonicalUrl } from './adjusterNetworkSecurity';
 import { credentialStore } from './secureCredentialStore';
@@ -386,7 +385,7 @@ class Site {
     let unread = 0;
     let newTopics = 0;
 
-    _.each(this.trackingState, t => {
+    Object.values(this.trackingState || {}).forEach(t => {
       if (!t.deleted && t.archetype !== 'private_message') {
         if (this.isNew(t)) {
           newTopics++;
@@ -486,11 +485,11 @@ class Site {
     const onlyUnread = options?.onlyUnread === true;
     const minId = onlyUnread ? null : options?.minId;
     if (types || minId || onlyUnread) {
-      filtered = _.filter(filtered, notification => {
+      filtered = filtered.filter(notification => {
         if (onlyUnread && notification.read) return false;
         if (minId && notification.read) return false;
         if (minId && minId >= notification.id) return false;
-        return !types || _.includes(types, notification.notification_type);
+        return !types || types.includes(notification.notification_type);
       });
     }
     return filtered;

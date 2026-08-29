@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - "reconcile/**"
   pull_request:
 
 concurrency:
@@ -25,6 +26,9 @@ jobs:
 
       - name: Yarn install
         run: yarn
+
+      - name: Audit production dependencies
+        run: yarn audit:high
 
       - name: Jest
         run: yarn test:unit

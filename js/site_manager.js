@@ -1,7 +1,6 @@
 /* @flow */
 'use strict';
 
-import _ from 'lodash';
 import { Alert, NativeModules, Platform } from 'react-native';
 import PushNotificationIOS from '@react-native-community/push-notification-ios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -67,7 +66,7 @@ class SiteManager {
   }
 
   exists(site) {
-    return !!_.find(this.sites, { url: site.url });
+    return this.sites.some(candidate => candidate.url === site.url);
   }
 
   add(site) {
@@ -617,7 +616,7 @@ class SiteManager {
         let opts = options;
 
         if (opts?.onlyNew) {
-          opts = _.merge(_.clone(opts), { onlyUnread: true });
+          opts = { ...opts, onlyUnread: true };
         }
 
         let promise = site.notifications(types, opts).then(notifications => {
@@ -631,22 +630,27 @@ class SiteManager {
 
       Promise.all(promises)
         .then(async results => {
-          const ordered = _.chain(results)
-            .flatten()
+          const ordered = results
+            .flat()
             .filter(row => supportedNotification(row.notification))
-            .orderBy(
-              [
-                o => {
-                  return !o.notification.read &&
-                    o.notification.notification_type === 6
-                    ? 0
-                    : 1;
-                },
-                'notification.created_at',
-              ],
-              ['asc', 'desc'],
-            )
-            .value();
+            .sort((left, right) => {
+              const leftPriority =
+                !left.notification.read &&
+                left.notification.notification_type === 6
+                  ? 0
+                  : 1;
+              const rightPriority =
+                !right.notification.read &&
+                right.notification.notification_type === 6
+                  ? 0
+                  : 1;
+              if (leftPriority !== rightPriority) {
+                return leftPriority - rightPriority;
+              }
+              return String(right.notification.created_at).localeCompare(
+                String(left.notification.created_at),
+              );
+            });
           // The native snapshot is already Guardian-filtered on the server.
           // Never probe each topic or mutate rows merely to discover access.
           const available = ordered;
