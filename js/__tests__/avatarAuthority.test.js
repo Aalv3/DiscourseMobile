@@ -5,6 +5,7 @@ import {
   clearAvatarAuthorityForSite,
   publishAvatarAuthority,
   reconcileAvatarAuthority,
+  removeAvatarAuthority,
   subscribeAvatarAuthority,
 } from '../product/avatarAuthority';
 
@@ -86,6 +87,18 @@ describe('shared avatar authority', () => {
     expect(avatarAuthoritySnapshot(site, 'other')).toBeNull();
     expect(avatarAuthoritySnapshot(otherSite, 'member')?.template).toBe(
       '/other-site/{size}.png',
+    );
+  });
+
+  test('removal and replacement propagate as explicit authoritative states', () => {
+    publishAvatarAuthority(site, 'member', '/old/{size}.png');
+    const removed = removeAvatarAuthority(site, 'member');
+    expect(removed).toMatchObject({ template: '', confirmed: true });
+    expect(avatarAuthoritySnapshot(site, 'member')).toEqual(removed);
+
+    publishAvatarAuthority(site, 'member', '/replacement/{size}.png');
+    expect(avatarAuthoritySnapshot(site, 'member')?.template).toBe(
+      '/replacement/{size}.png',
     );
   });
 });

@@ -101,4 +101,16 @@ describe('profile save state', () => {
     expect(canStartProfileSave(121000, 120000)).toBe(false);
     expect(canStartProfileSave(121000, 121000)).toBe(true);
   });
+
+  test('reserves preparation copy for actual client preparation failures', () => {
+    expect(profileSaveErrorMessage(new Error('invalid_upload_asset'), 0)).toBe(
+      'Your profile photo could not be prepared.',
+    );
+    expect(
+      profileSaveErrorMessage(
+        { userMessages: ['profile photo processing failed'] },
+        0,
+      ),
+    ).toBe('profile photo processing failed');
+  });
 });

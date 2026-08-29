@@ -1,7 +1,7 @@
 /* @flow */
 'use strict';
 
-import React, { useContext } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -13,6 +13,7 @@ import {
 import FontAwesome5 from '@react-native-vector-icons/fontawesome5';
 import { ThemeContext } from '../ThemeContext';
 import { productTheme, radius, spacing, type } from './DesignSystem';
+import { useAvatarAuthorityRecord } from './avatarAuthority';
 
 export const useProductTheme = () =>
   productTheme(useContext(ThemeContext).name);
@@ -363,14 +364,48 @@ export const Pill = ({ label, selected, onPress }) => {
   );
 };
 
-export const Avatar = ({ label, uri, size = 40 }) => {
+export const avatarUri = (site, template, size) => {
+  if (!template) return null;
+  const path = String(template).replace('{size}', String(size));
+  return /^https?:\/\//i.test(path) ? path : `${site?.url || ''}${path}`;
+};
+
+export const topicPosterAvatarTemplate = topic => {
+  const posters = Array.isArray(topic?.posters) ? topic.posters : [];
+  const latest =
+    posters.find(poster =>
+      /most recent poster/i.test(String(poster?.description || '')),
+    ) || posters[posters.length - 1];
+  return latest?.avatar_template || null;
+};
+
+export const Avatar = ({
+  avatarTemplate,
+  label,
+  site,
+  style: suppliedStyle,
+  uri,
+  username,
+  size = 40,
+}) => {
   const colors = useProductTheme();
-  const style = { width: size, height: size, borderRadius: size / 2 };
-  if (uri) {
+  const authority = useAvatarAuthorityRecord(site, username);
+  const resolvedUri =
+    uri ||
+    avatarUri(site, authority ? authority.template : avatarTemplate, size);
+  const [failedUri, setFailedUri] = useState(null);
+  useEffect(() => setFailedUri(null), [resolvedUri]);
+  const style = [
+    { width: size, height: size, borderRadius: size / 2 },
+    suppliedStyle,
+  ];
+  if (resolvedUri && failedUri !== resolvedUri) {
     return (
       <Image
+        key={resolvedUri}
         accessibilityLabel={`${label} profile photo`}
-        source={{ uri }}
+        onError={() => setFailedUri(resolvedUri)}
+        source={{ uri: resolvedUri }}
         style={style}
       />
     );

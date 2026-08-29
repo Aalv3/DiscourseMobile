@@ -10,6 +10,7 @@ import {
   clearAvatarAuthorities,
   publishAvatarAuthority,
   reconcileAvatarAuthority,
+  removeAvatarAuthority,
 } from './avatarAuthority';
 
 const cache = new Map();
@@ -72,6 +73,13 @@ export function updateCachedMemberProfileAvatar(site, username, template) {
   const current = cache.get(key);
   if (!current) return;
   cache.set(key, withAvatar(current, template));
+}
+
+export function removeCachedMemberProfileAvatar(site, username) {
+  const key = cacheKey(site, username);
+  removeAvatarAuthority(site, username);
+  const current = cache.get(key);
+  if (current) cache.set(key, withAvatar(current, ''));
 }
 
 const avatarTemplateFrom = result =>

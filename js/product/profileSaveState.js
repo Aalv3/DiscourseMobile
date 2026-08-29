@@ -26,6 +26,9 @@ export function profileRetryAfterMs(error) {
 }
 
 export function profileSaveErrorMessage(error, cooldownMs) {
+  if (error?.message === 'invalid_upload_asset') {
+    return 'Your profile photo could not be prepared.';
+  }
   if (cooldownMs > 0) {
     const seconds = Math.max(1, Math.ceil(cooldownMs / 1000));
     return `Please wait ${seconds} seconds before trying again. Your profile changes and photo are still here.`;
