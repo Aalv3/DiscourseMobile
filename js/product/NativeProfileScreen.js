@@ -46,6 +46,7 @@ import {
 import { useAvatarAuthority } from './avatarAuthority';
 import {
   canStartProfileSave,
+  normalizeProfilePhotoPickerAsset,
   profileCooldownSeconds,
   profileRetryAfterMs,
   profileSaveErrorMessage,
@@ -529,17 +530,14 @@ export default function NativeProfileScreen({
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.85,
+        preferredAssetRepresentationMode:
+          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
       });
       if (result.canceled) {
         return setEditor(current => ({ ...current, submitting: false }));
       }
       const asset = result.assets[0];
-      const photoAsset = {
-        uri: asset.uri,
-        name: asset.fileName || 'profile-photo.jpg',
-        mimeType: asset.mimeType || 'image/jpeg',
-        size: Number(asset.fileSize || 0),
-      };
+      const photoAsset = normalizeProfilePhotoPickerAsset(asset);
       setEditor(current => ({
         ...current,
         photoAsset,
