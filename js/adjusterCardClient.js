@@ -317,9 +317,12 @@ export async function loadCanonicalOnboarding(site) {
 }
 
 export async function saveOnboardingProgress(site, data) {
-  return parseOnboardingProgress(
-    await site.jsonApi('/native/v1/onboarding', 'PUT', data),
-  );
+  const payload = await site.jsonApi('/native/v1/onboarding', 'PUT', data);
+  // A successful mutation is newer than every cached or in-flight GET. The
+  // generation bump prevents a pre-mutation response from repopulating the
+  // cache after this point, while leaving caching enabled for normal reads.
+  site.invalidateApiCache?.(['/native/v1/onboarding']);
+  return parseOnboardingProgress(payload);
 }
 
 export async function saveAdjusterCardFields(
@@ -458,4 +461,13 @@ export function localStatusForProgress(progress) {
   if (progress.state === 'COMPLETED') return 'completed';
   if (progress.state === 'INCOMPLETE') return 'incomplete';
   return 'not_started';
+}
+
+export function canonicalOnboardingCompleted(progress) {
+  return (
+    progress?.state === 'COMPLETED' &&
+    progress.completed === true &&
+    progress.requiredVersion > 0 &&
+    progress.completedVersion >= progress.requiredVersion
+  );
 }

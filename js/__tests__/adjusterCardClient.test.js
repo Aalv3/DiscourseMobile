@@ -488,6 +488,7 @@ describe('AN-2870 Adjuster Card contracts', () => {
             step: 4,
           }),
         ),
+      invalidateApiCache: jest.fn(),
     };
 
     const skipped = await saveOnboardingProgress(site, {
@@ -507,6 +508,10 @@ describe('AN-2870 Adjuster Card contracts', () => {
       'PUT',
       { onboarding_action: 'skip_for_now', step: 3 },
     );
+    expect(site.invalidateApiCache).toHaveBeenCalledTimes(2);
+    expect(site.invalidateApiCache).toHaveBeenCalledWith([
+      '/native/v1/onboarding',
+    ]);
   });
 
   test('loads profile and progress together and resumes the supported step', async () => {

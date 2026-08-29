@@ -57,6 +57,31 @@ describe('authenticated request orchestrator', () => {
     expect(freshTask).toHaveBeenCalledTimes(1);
   });
 
+  test('onboarding mutation invalidation rejects cached and in-flight incomplete state', async () => {
+    const orchestrator = new RequestOrchestrator();
+    const key = 'site:user:GET:/native/v1/onboarding';
+    const staleGate = deferred();
+    const stale = orchestrator.request({
+      key,
+      task: () => staleGate.promise,
+      ttlMs: 30000,
+    });
+
+    orchestrator.invalidate([key]);
+    staleGate.resolve({ state: 'INCOMPLETE' });
+    await expect(stale).resolves.toEqual({ state: 'INCOMPLETE' });
+
+    const completed = { state: 'COMPLETED', completed: true };
+    const fresh = jest.fn(() => Promise.resolve(completed));
+    await expect(
+      orchestrator.request({ key, task: fresh, ttlMs: 30000 }),
+    ).resolves.toEqual(completed);
+    await expect(
+      orchestrator.request({ key, task: fresh, ttlMs: 30000 }),
+    ).resolves.toEqual(completed);
+    expect(fresh).toHaveBeenCalledTimes(1);
+  });
+
   test('never exceeds three active requests', async () => {
     const orchestrator = new RequestOrchestrator();
     const gates = Array.from({ length: 5 }, deferred);

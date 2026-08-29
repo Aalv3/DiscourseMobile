@@ -111,8 +111,8 @@ import {
   shouldShowOnboarding,
 } from './onboardingState';
 import {
+  canonicalOnboardingCompleted,
   loadCanonicalOnboarding,
-  localStatusForProgress,
 } from './adjusterCardClient';
 import { notificationStatusAfterRegistration } from './notificationStatus';
 import { recordPushStatusTransition } from './pushStatusDiagnostics';
@@ -295,6 +295,7 @@ class Discourse extends React.Component {
       pushKnownEnabled: false,
       pushAttemptResult: null,
       memberContentVersion: 0,
+      onboardingVerificationError: null,
     };
 
     this.subscription = Appearance.addChangeListener(() => {
@@ -678,10 +679,15 @@ class Discourse extends React.Component {
       if (needsOnboardingDecision) {
         const localOnboarding = await loadOnboardingState(undefined, sessionId);
         let onboarding = localOnboarding;
+        let completionVerificationFailed = false;
         try {
           const canonical = await loadCanonicalOnboarding(site);
           onboarding = {
-            status: localStatusForProgress(canonical),
+            status: canonicalOnboardingCompleted(canonical)
+              ? ONBOARDING_STATUS.COMPLETED
+              : canonical.state === 'NOT_STARTED'
+              ? ONBOARDING_STATUS.NOT_STARTED
+              : ONBOARDING_STATUS.INCOMPLETE,
             dismissedSessionId:
               canonical.state === 'COMPLETED'
                 ? null
@@ -700,12 +706,16 @@ class Discourse extends React.Component {
           // failure must not let a legacy local completion override it. Keep
           // only the current-session dismissal marker and fail toward
           // incomplete; no structured profile value is stored locally.
-          onboarding = {
-            status: ONBOARDING_STATUS.INCOMPLETE,
-            dismissedSessionId: localOnboarding.dismissedSessionId,
-            completedAt: null,
-            schemaVersion: 3,
-          };
+          completionVerificationFailed =
+            localOnboarding.status === ONBOARDING_STATUS.COMPLETED;
+          if (!completionVerificationFailed) {
+            onboarding = {
+              status: ONBOARDING_STATUS.INCOMPLETE,
+              dismissedSessionId: localOnboarding.dismissedSessionId,
+              completedAt: null,
+              schemaVersion: 3,
+            };
+          }
         }
         const onboardingRequired = shouldShowOnboarding(onboarding, sessionId);
         recordOnboardingAuditTrace([
@@ -731,6 +741,16 @@ class Discourse extends React.Component {
         ) {
           return;
         }
+        if (completionVerificationFailed) {
+          this.setState({
+            authStatus: AUTH_STATUS.AUTHENTICATED,
+            onboardingReady: false,
+            onboardingVerificationError:
+              'Your completed setup could not be verified. Try again when the connection is available.',
+            onboardingSessionId: sessionId,
+          });
+          return;
+        }
         if (onboarding.status !== ONBOARDING_STATUS.COMPLETED) {
           this._notificationBootstrapSessionId = null;
         }
@@ -740,6 +760,7 @@ class Discourse extends React.Component {
             onboardingReady: true,
             onboardingStatus: onboarding.status,
             onboardingSessionId: sessionId,
+            onboardingVerificationError: null,
           },
           () => {
             if (onboarding.status === ONBOARDING_STATUS.COMPLETED) {
@@ -1147,6 +1168,35 @@ class Discourse extends React.Component {
     }
 
     if (!this.state.onboardingReady) {
+      if (this.state.onboardingVerificationError) {
+        return (
+          <SafeAreaProvider
+            style={{ flex: 1, backgroundColor: shellColors.canvas }}
+          >
+            <SafeAreaView style={styles.authInitialization}>
+              <Text
+                accessibilityRole="alert"
+                style={[
+                  styles.authInitializationText,
+                  { color: shellColors.text },
+                ]}
+              >
+                {this.state.onboardingVerificationError}
+              </Text>
+              <Text
+                accessibilityRole="button"
+                onPress={() => this._productSiteSubscription?.()}
+                style={[
+                  styles.authInitializationText,
+                  { color: shellColors.accent },
+                ]}
+              >
+                Try again
+              </Text>
+            </SafeAreaView>
+          </SafeAreaProvider>
+        );
+      }
       return (
         <AuthInitializationScreen
           colors={shellColors}
@@ -1194,6 +1244,7 @@ class Discourse extends React.Component {
                   {
                     onboardingStatus: state.status,
                     onboardingReady: false,
+                    onboardingVerificationError: null,
                   },
                   () => this._productSiteSubscription?.(),
                 )
