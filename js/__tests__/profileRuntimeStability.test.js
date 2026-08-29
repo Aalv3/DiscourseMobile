@@ -84,6 +84,15 @@ describe('profile runtime stability', () => {
     ].forEach(event => expect(screen).toContain(`event: '${event}'`));
   });
 
+  test('picker preparation errors retain their specific user-facing guidance', () => {
+    const screen = read('product/NativeProfileScreen.js');
+
+    expect(screen).toMatch(
+      /const photoAsset = normalizeProfilePhotoPickerAsset\(asset\);[\s\S]*?catch \(error\) \{[\s\S]*?error:[\s\S]*?: profileSaveErrorMessage\(error, 0\),/,
+    );
+    expect(screen).not.toMatch(/profileSaveErrorMessage\(error, 0\)\s*\|\|/);
+  });
+
   test('profile code does not cross protected application boundaries', () => {
     const screen = read('product/NativeProfileScreen.js');
     const data = read('product/memberProfileData.js');

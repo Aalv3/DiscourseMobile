@@ -551,8 +551,7 @@ export default function NativeProfileScreen({
         error:
           error?.message === 'photo_permission_denied'
             ? 'Photo access was not granted.'
-            : profileSaveErrorMessage(error, 0) ||
-              'Your profile photo could not be updated.',
+            : profileSaveErrorMessage(error, 0),
       }));
     }
   };
