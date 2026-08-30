@@ -93,7 +93,10 @@ describe('Wave 2 member correctness helpers', () => {
     expect(screens).toContain('rankedCategories.filter');
     expect(screens).toContain('showAllCategories || index < 5');
     expect(screens).not.toContain('data.categories.slice(0, 5)');
-    expect(screens).toContain('avatarTemplate.replace');
+    expect(screens).toContain('avatarTemplate={avatarTemplate}');
+    expect(source('product/ProductComponents.js')).toContain(
+      "String(template).replace('{size}', String(size))",
+    );
     expect(profile).toContain('card?.photo.enabled');
     expect(profile).toContain('card.photo.editable');
   });

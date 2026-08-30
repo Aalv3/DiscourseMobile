@@ -23,6 +23,7 @@ import {
   NotificationBell,
   SectionTitle,
   StateCard,
+  topicPosterAvatarTemplate,
   useProductTheme,
 } from './ProductComponents';
 import {
@@ -279,13 +280,6 @@ function useCommunity(siteManager, contentVersion) {
   return { ...state, refresh };
 }
 
-const topicAvatar = (site, topic) => {
-  const template = topic.posters?.[0]?.avatar_template;
-  if (!template) return null;
-  const path = template.replace('{size}', '80');
-  return path.startsWith('http') ? path : `${site.url}${path}`;
-};
-
 const memberDisplayName = username =>
   String(username || 'member')
     .split(/[_-]+/)
@@ -329,7 +323,13 @@ const FloorActivityRow = ({ topic, site, navigation, openUrl, category }) => {
           openMemberAdjusterCard(navigation, topic.last_poster_username);
         }}
       >
-        <Avatar label={username} size={44} uri={topicAvatar(site, topic)} />
+        <Avatar
+          avatarTemplate={topicPosterAvatarTemplate(topic)}
+          label={username}
+          site={site}
+          size={44}
+          username={topic.last_poster_username}
+        />
       </Pressable>
       <View style={styles.topicCopy}>
         <View style={styles.floorActivityContext}>
@@ -443,7 +443,13 @@ const FloorAttentionCard = ({ topic, site, category, openUrl, cardWidth }) => {
         {topic.title}
       </Text>
       <View style={styles.floorAttentionFooter}>
-        <Avatar label={username} size={32} uri={topicAvatar(site, topic)} />
+        <Avatar
+          avatarTemplate={topicPosterAvatarTemplate(topic)}
+          label={username}
+          site={site}
+          size={32}
+          username={topic.last_poster_username}
+        />
         <View style={styles.floorAttentionIdentity}>
           <Text
             maxFontSizeMultiplier={1.4}
@@ -956,7 +962,13 @@ const DiscussionFeedRow = ({ topic, category, site, navigation, openUrl }) => {
           openMemberAdjusterCard(navigation, topic.last_poster_username);
         }}
       >
-        <Avatar label={username} size={42} uri={topicAvatar(site, topic)} />
+        <Avatar
+          avatarTemplate={topicPosterAvatarTemplate(topic)}
+          label={username}
+          site={site}
+          size={42}
+          username={topic.last_poster_username}
+        />
       </Pressable>
       <View style={styles.topicCopy}>
         <Text
@@ -1886,23 +1898,14 @@ export function ProfileScreen({ navigation, screenProps }) {
         ]}
       >
         <View style={styles.identityTop}>
-          {avatarTemplate ? (
-            <Image
-              accessibilityLabel={`${username} profile photo`}
-              source={{
-                uri: avatarTemplate.startsWith('http')
-                  ? avatarTemplate.replace('{size}', '120')
-                  : `${site.url}${avatarTemplate.replace('{size}', '120')}`,
-              }}
-              style={styles.avatar}
-            />
-          ) : (
-            <View style={[styles.avatar, { backgroundColor: colors.accent }]}>
-              <Text style={styles.avatarText}>
-                {username.slice(0, 1).toUpperCase()}
-              </Text>
-            </View>
-          )}
+          <Avatar
+            avatarTemplate={avatarTemplate}
+            label={username}
+            site={site}
+            size={68}
+            style={styles.avatar}
+            username={username}
+          />
           <View style={styles.identityCopy}>
             <Text style={[styles.identityName, { color: colors.text }]}>
               {adjusterCard?.values.name || username}

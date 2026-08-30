@@ -24,6 +24,7 @@ import { activeMemberSite } from './ProductData';
 import {
   Action,
   InlineState,
+  MemberAvatar,
   NestedHeader,
   useProductTheme,
 } from './ProductComponents';
@@ -39,11 +40,13 @@ import {
 import {
   cachedMemberProfileData,
   loadMemberProfileData,
+  removeCachedMemberProfileAvatar,
   updateCachedMemberProfileAvatar,
 } from './memberProfileData';
 import { useAvatarAuthority } from './avatarAuthority';
 import {
   canStartProfileSave,
+  normalizeProfilePhotoPickerAsset,
   profileCooldownSeconds,
   profileRetryAfterMs,
   profileSaveErrorMessage,
@@ -72,12 +75,6 @@ const plainText = value =>
       .replace(/<[^>]+>/g, '')
       .trim(),
   );
-
-const avatarUrl = (site, template) => {
-  if (!template) return null;
-  const path = String(template).replace('{size}', '120');
-  return path.startsWith('http') ? path : `${site.url}${path}`;
-};
 
 export default function NativeProfileScreen({
   navigation,
@@ -533,17 +530,14 @@ export default function NativeProfileScreen({
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.85,
+        preferredAssetRepresentationMode:
+          ImagePicker.UIImagePickerPreferredAssetRepresentationMode?.Compatible,
       });
       if (result.canceled) {
         return setEditor(current => ({ ...current, submitting: false }));
       }
       const asset = result.assets[0];
-      const photoAsset = {
-        uri: asset.uri,
-        name: asset.fileName || 'profile-photo.jpg',
-        mimeType: asset.mimeType || 'image/jpeg',
-        size: Number(asset.fileSize || 0),
-      };
+      const photoAsset = normalizeProfilePhotoPickerAsset(asset);
       setEditor(current => ({
         ...current,
         photoAsset,
@@ -557,8 +551,7 @@ export default function NativeProfileScreen({
         error:
           error?.message === 'photo_permission_denied'
             ? 'Photo access was not granted.'
-            : error?.userMessages?.join(' ') ||
-              'Your profile photo could not be updated.',
+            : profileSaveErrorMessage(error, 0),
       }));
     }
   };
@@ -580,6 +573,21 @@ export default function NativeProfileScreen({
             }));
             try {
               await removeProfilePhoto(site, state.card);
+              removeCachedMemberProfileAvatar(site, username);
+              site.invalidateApiCache?.([
+                '/native/v1/profile',
+                `/native/v1/profiles/${encodeURIComponent(username)}`,
+                `/u/${encodeURIComponent(username)}.json`,
+              ]);
+              setState(current => ({
+                ...current,
+                user: current.user
+                  ? { ...current.user, avatar_template: '' }
+                  : current.user,
+                card: current.card
+                  ? { ...current.card, avatarTemplate: '' }
+                  : current.card,
+              }));
               setEditor(current => ({
                 ...current,
                 photoAsset: null,
@@ -920,23 +928,14 @@ export default function NativeProfileScreen({
               { backgroundColor: colors.surface, borderColor: colors.border },
             ]}
           >
-            {avatarUrl(site, user?.avatar_template) ? (
-              <Image
-                accessibilityLabel={`${
-                  card?.values.name || username
-                } profile photo`}
-                source={{ uri: avatarUrl(site, user.avatar_template) }}
-                style={styles.avatar}
-              />
-            ) : (
-              <View style={[styles.avatar, { backgroundColor: colors.accent }]}>
-                <Text style={styles.avatarText}>
-                  {String(user?.username || username)
-                    .slice(0, 1)
-                    .toUpperCase()}
-                </Text>
-              </View>
-            )}
+            <MemberAvatar
+              avatarTemplate={user?.avatar_template}
+              label={card?.values.name || username}
+              site={site}
+              size={72}
+              style={styles.avatar}
+              username={username}
+            />
             <View style={styles.profileCopy}>
               <Text
                 accessibilityRole="header"
@@ -1111,32 +1110,21 @@ export default function NativeProfileScreen({
                     },
                   ]}
                 >
-                  {editor.photoPreviewUri ||
-                  avatarUrl(site, card.avatarTemplate) ? (
+                  {editor.photoPreviewUri ? (
                     <Image
                       accessibilityLabel="Current profile photo"
-                      source={{
-                        uri:
-                          editor.photoPreviewUri ||
-                          avatarUrl(site, card.avatarTemplate),
-                      }}
+                      source={{ uri: editor.photoPreviewUri }}
                       style={styles.photoEditorAvatar}
                     />
                   ) : (
-                    <View
-                      style={[
-                        styles.photoEditorAvatar,
-                        styles.photoFallback,
-                        { backgroundColor: colors.accentSoft },
-                      ]}
-                    >
-                      <FontAwesome5
-                        name="user"
-                        size={28}
-                        color={colors.accent}
-                        iconStyle="solid"
-                      />
-                    </View>
+                    <MemberAvatar
+                      avatarTemplate={card.avatarTemplate}
+                      label={card?.values.name || username}
+                      site={site}
+                      size={72}
+                      style={styles.photoEditorAvatar}
+                      username={username}
+                    />
                   )}
                   <View style={styles.photoActions}>
                     <Pressable

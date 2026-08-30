@@ -69,7 +69,8 @@ describe('native topic participation', () => {
     expect(source).toContain('post.reply_to_post_number');
     expect(source).toContain('postsByNumber[post.reply_to_post_number]');
     expect(source).toContain('Replying to');
-    expect(source).toContain('post?.avatar_template');
+    expect(source).toContain('avatarTemplate={post.avatar_template}');
+    expect(source).toContain('<MemberAvatar');
     expect(source).toContain('post.created_at');
     expect(source).toContain('jumpToPost(post.reply_to_post_number)');
   });

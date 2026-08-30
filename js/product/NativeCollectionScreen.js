@@ -11,6 +11,7 @@ import {
   InlineState,
   MemberAvatar,
   NestedHeader,
+  topicPosterAvatarTemplate,
   useProductTheme,
 } from './ProductComponents';
 import { radius, spacing } from './DesignSystem';
@@ -121,8 +122,11 @@ export default function NativeCollectionScreen({
                   }}
                 >
                   <MemberAvatar
+                    avatarTemplate={topicPosterAvatarTemplate(topic)}
                     label={topic.last_poster_username || 'Network member'}
+                    site={site}
                     size={38}
+                    username={topic.last_poster_username}
                   />
                 </Pressable>
                 <View style={styles.topicCopy}>

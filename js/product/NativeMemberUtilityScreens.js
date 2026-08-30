@@ -4,7 +4,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
-  Image,
   Keyboard,
   Linking,
   Pressable,
@@ -20,6 +19,7 @@ import { activeMemberSite } from './ProductData';
 import {
   Action,
   ContentSkeleton,
+  MemberAvatar,
   V2BrandHeader,
   useProductTheme,
 } from './ProductComponents';
@@ -109,12 +109,6 @@ const Status = ({ children }) => {
   );
 };
 
-const memberAvatarUrl = (site, template) => {
-  if (!template) return null;
-  const path = template.replace('{size}', '96');
-  return path.startsWith('http') ? path : `${site.url}${path}`;
-};
-
 const MemberSearchResult = ({ member, site, onPress }) => {
   const colors = useProductTheme();
   const metadata = member.professionalMetadata || {};
@@ -140,7 +134,6 @@ const MemberSearchResult = ({ member, site, onPress }) => {
     licenses.length ? `Licensed: ${licenses.join(', ')}` : null,
     specialties.length ? specialties.join(' · ') : null,
   ].filter(Boolean);
-  const avatar = memberAvatarUrl(site, member.avatarTemplate);
   return (
     <Pressable
       accessibilityRole="button"
@@ -154,15 +147,14 @@ const MemberSearchResult = ({ member, site, onPress }) => {
         },
       ]}
     >
-      {avatar ? (
-        <Image source={{ uri: avatar }} style={styles.memberAvatar} />
-      ) : (
-        <View style={[styles.memberAvatar, { backgroundColor: colors.accent }]}>
-          <Text style={styles.memberAvatarInitial}>
-            {(member.title || member.username).slice(0, 1).toUpperCase()}
-          </Text>
-        </View>
-      )}
+      <MemberAvatar
+        avatarTemplate={member.avatarTemplate}
+        label={member.title || member.username}
+        site={site}
+        size={48}
+        style={styles.memberAvatar}
+        username={member.username}
+      />
       <View style={styles.flex}>
         <Text style={[styles.memberName, { color: colors.text }]}>
           {member.title}
