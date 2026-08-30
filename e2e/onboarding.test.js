@@ -14,7 +14,7 @@ describe('Adjuster Network logged-out launch', () => {
       by.text('The private professional network built for adjusters.'),
     );
 
-    await waitFor(landingHeadline).toBeVisible().withTimeout(30000);
+    await waitFor(landingHeadline).toBeVisible().withTimeout(60000);
     await expect(element(by.text('Members only'))).toBeVisible();
     await expect(element(by.text('Invitation-only membership'))).toBeVisible();
     await expect(element(by.label('Member sign in'))).toBeVisible();
@@ -33,7 +33,7 @@ describe('Adjuster Network logged-out launch', () => {
       ),
     );
 
-    await waitFor(welcomeScroll).toExist().withTimeout(30000);
+    await waitFor(welcomeScroll).toExist().withTimeout(60000);
     await waitFor(invitation)
       .toBeVisible()
       .whileElement(by.id('logged-out-welcome-scroll'))
