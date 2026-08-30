@@ -1,4 +1,5 @@
 import { by, device, element, expect, waitFor } from 'detox';
+import { waitForLoggedOutWelcome } from './loggedOutLaunch';
 
 describe('Adjuster Network logged-out launch', () => {
   beforeEach(async () => {
@@ -10,18 +11,19 @@ describe('Adjuster Network logged-out launch', () => {
   });
 
   it('shows the branded private-member landing experience', async () => {
+    await waitForLoggedOutWelcome();
     const landingHeadline = element(
       by.text('The private professional network built for adjusters.'),
     );
 
-    await waitFor(landingHeadline).toBeVisible().withTimeout(60000);
+    await expect(landingHeadline).toBeVisible();
     await expect(element(by.text('Members only'))).toBeVisible();
     await expect(element(by.text('Invitation-only membership'))).toBeVisible();
     await expect(element(by.label('Member sign in'))).toBeVisible();
   });
 
   it('keeps privacy and invitation boundaries visible before sign-in', async () => {
-    const welcomeScroll = element(by.id('logged-out-welcome-scroll'));
+    await waitForLoggedOutWelcome();
     const invitation = element(
       by.text(
         'Membership is currently available by invitation. Existing members can sign in above.',
@@ -33,7 +35,6 @@ describe('Adjuster Network logged-out launch', () => {
       ),
     );
 
-    await waitFor(welcomeScroll).toExist().withTimeout(60000);
     await waitFor(invitation)
       .toBeVisible()
       .whileElement(by.id('logged-out-welcome-scroll'))
