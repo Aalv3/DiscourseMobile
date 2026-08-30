@@ -234,7 +234,7 @@ class Site {
           error.rateLimitCode = errorCode || null;
           throw error;
         } else if (classifyAuthResponse(r1.status) === 'revoked') {
-          this.logoff();
+          this.retireCredential('revoked');
           credentialStore.removeSiteToken(this.url).catch(() => {});
           const error = new Error('auth_revoked');
           error.status = r1.status;
@@ -301,7 +301,7 @@ class Site {
         }
         const classification = classifyAuthResponse(response.status);
         if (classification === 'revoked') {
-          this.logoff();
+          this.retireCredential('revoked');
           credentialStore.removeSiteToken(this.url).catch(() => {});
         }
         const error = new Error(
@@ -334,6 +334,19 @@ class Site {
     this.authToken = null;
     this.username = null;
     this.isStaff = null;
+  }
+
+  // An authoritative 401 means the stored User API credential no longer exists
+  // server-side. Clearing it in memory is not enough: without telling the
+  // manager, the persisted record keeps the dead token and the signed-in
+  // navigator never re-evaluates, stranding the member on an authenticated
+  // screen whose only action retries the same doomed request.
+  retireCredential(reason) {
+    if (this.credentialRetired) return;
+    this.credentialRetired = true;
+    this.credentialRetiredReason = reason || 'revoked';
+    this.logoff();
+    this.onCredentialRetired?.(this, this.credentialRetiredReason);
   }
 
   ensureLatestApi() {

@@ -28,13 +28,23 @@ import {
 } from './notificationState';
 import { clearAvatarAuthorityForSite } from './product/avatarAuthority';
 import {
+  clearAuthorizationProfile,
   markAuthorizationProfileCurrent,
   REQUIRED_AUTHORIZATION_SCOPES,
   validateAuthorizationProfile,
 } from './authorizationProfile';
+import { requestOrchestrator } from './requestOrchestrator';
 
 const { DiscourseKeyboardShortcuts } = NativeModules;
 const REFRESH_THROTTLE_MS = 5000;
+// Authenticated GETs the orchestrator may still be caching for a site whose
+// credential has just been retired. They must not survive into a fresh
+// authorization for the same client id and path.
+const RETIRED_CREDENTIAL_CACHE_PATHS = Object.freeze([
+  '/native/v1/profile',
+  '/native/v1/onboarding',
+  '/native/v1/authorization-profile',
+]);
 
 class SiteManager {
   lastRefresh = null;
@@ -78,7 +88,7 @@ class SiteManager {
     }
 
     site.createdAt = Date.now();
-    this.sites.push(site);
+    this.sites.push(this._adoptSite(site));
     this.save();
     this._onChange();
     this.updateNativeMenu();
@@ -231,7 +241,7 @@ class SiteManager {
           const clientId = await this.getClientId();
           this.sites = await Promise.all(
             records.map(async obj => {
-              const site = new Site(obj);
+              const site = this._adoptSite(new Site(obj));
               // Repair sites saved by older builds that retained the manager
               // client ID but did not serialize it with site metadata.
               site.clientId = site.clientId || clientId;
@@ -450,13 +460,20 @@ class SiteManager {
     const previousToken = nonceSite.authToken;
     const previousHasPush = nonceSite.hasPush;
     const previousApiVersion = nonceSite.apiVersion;
+    const retiredBefore = nonceSite.credentialRetired === true;
     const restorePreviousAuthorization = async () => {
-      nonceSite.authToken = previousToken;
+      // A credential retired by an authoritative 401 must stay retired. Only
+      // restore the prior token when it was still live when this attempt
+      // started and nothing retired it while the attempt was in flight.
+      const stillRetired =
+        retiredBefore || nonceSite.credentialRetired === true;
       nonceSite.hasPush = previousHasPush;
       nonceSite.apiVersion = previousApiVersion;
-      if (previousToken) {
+      if (previousToken && !stillRetired) {
+        nonceSite.authToken = previousToken;
         await credentialStore.storeSiteToken(nonceSite.url, previousToken);
       } else {
+        nonceSite.authToken = null;
         await credentialStore.removeSiteToken(nonceSite.url);
       }
     };
@@ -485,6 +502,9 @@ class SiteManager {
       await restorePreviousAuthorization();
       return false;
     }
+    // A verified fresh authorization supersedes any earlier retirement.
+    nonceSite.credentialRetired = false;
+    nonceSite.credentialRetiredReason = null;
     this.save();
 
     // cause we want to stop rendering connect
@@ -769,6 +789,32 @@ class SiteManager {
 
   _onChange() {
     this._subscribers.forEach(sub => sub({ event: 'change' }));
+  }
+
+  // Only an authoritative 401 reaches this path. Ordinary 403 authorization
+  // limits, onboarding/policy gating, 429 cooldowns, offline failures and 5xx
+  // errors all preserve the session by design and must never retire a
+  // credential.
+  _adoptSite(site) {
+    site.onCredentialRetired = retiredSite =>
+      this._handleCredentialRetired(retiredSite);
+    return site;
+  }
+
+  async _handleCredentialRetired(site) {
+    if (!site) return;
+    // Persist first so a relaunch cannot rehydrate the dead token, then drop
+    // every authenticated artifact tied to it, then let the root navigator
+    // re-evaluate and fall back to the signed-out welcome screen.
+    this.save();
+    await credentialStore.removeSiteToken(site.url).catch(() => {});
+    await clearAuthorizationProfile(site.clientId).catch(() => {});
+    clearAvatarAuthorityForSite(site);
+    requestOrchestrator.invalidate(
+      RETIRED_CREDENTIAL_CACHE_PATHS.map(path => site.apiRequestKey(path)),
+    );
+    this.updateUnreadBadge();
+    this._onChange();
   }
 
   storeLastPath(navState) {
