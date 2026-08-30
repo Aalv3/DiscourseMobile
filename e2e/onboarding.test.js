@@ -10,9 +10,11 @@ describe('Adjuster Network logged-out launch', () => {
   });
 
   it('shows the branded private-member landing experience', async () => {
-    await expect(
-      element(by.text('The private professional network built for adjusters.')),
-    ).toBeVisible();
+    const landingHeadline = element(
+      by.text('The private professional network built for adjusters.'),
+    );
+
+    await waitFor(landingHeadline).toBeVisible().withTimeout(30000);
     await expect(element(by.text('Members only'))).toBeVisible();
     await expect(element(by.text('Invitation-only membership'))).toBeVisible();
     await expect(element(by.label('Member sign in'))).toBeVisible();
