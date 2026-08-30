@@ -4,7 +4,6 @@
 import { classifyAuthResponse } from '../authResponsePolicy';
 import Site from '../site';
 
-jest.mock('../../lib/fetch', () => jest.fn());
 jest.mock('../secureCredentialStore', () => ({
   credentialStore: {
     removeSiteToken: jest.fn().mockResolvedValue(undefined),
@@ -101,83 +100,6 @@ describe('authoritative credential retirement', () => {
     // the authenticated shell and the signed-out welcome screen.
     expect(connected([site])).toBe(0);
     expect([site].find(s => s.authToken)).toBeUndefined();
-  });
-
-  describe('403 differentiation via canonical liveness probe', () => {
-    // site.js uses the repo's XHR-based fetch wrapper, not global.fetch.
-    const fetchMock = require('../../lib/fetch');
-
-    const withProbe = (probeStatus, opts = {}) => {
-      const site = makeSite();
-      site.onCredentialRetired = () => {};
-      fetchMock.mockReset();
-      if (opts.throws) {
-        fetchMock.mockRejectedValue(new Error('Network request failed'));
-      } else {
-        fetchMock.mockResolvedValue({ status: probeStatus });
-      }
-      return site;
-    };
-
-    test('not_logged_in retires without any probe', async () => {
-      const site = withProbe(200);
-      await expect(
-        site.shouldRetireOnForbidden({ error_type: 'not_logged_in' }),
-      ).resolves.toBe(true);
-      expect(fetchMock).not.toHaveBeenCalled();
-    });
-
-    test('revoked key (invalid_access, probe 403) retires', async () => {
-      const site = withProbe(403);
-      await expect(
-        site.shouldRetireOnForbidden({ error_type: 'invalid_access' }),
-      ).resolves.toBe(true);
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-    });
-
-    test('ordinary permission 403 with a live credential preserves the session', async () => {
-      const site = withProbe(200);
-      await expect(
-        site.shouldRetireOnForbidden({ error_type: 'invalid_access' }),
-      ).resolves.toBe(false);
-    });
-
-    test('onboarding/policy gating never retires and never probes', async () => {
-      const site = withProbe(403);
-      await expect(
-        site.shouldRetireOnForbidden({
-          error_type: 'invalid_access',
-          reason: 'onboarding_incomplete',
-          continue_at: '/renaissance/onboarding',
-        }),
-      ).resolves.toBe(false);
-      expect(fetchMock).not.toHaveBeenCalled();
-    });
-
-    test.each([429, 500, 502, 503])(
-      'inconclusive probe status %i preserves the session',
-      async status => {
-        const site = withProbe(status);
-        await expect(
-          site.shouldRetireOnForbidden({ error_type: 'invalid_access' }),
-        ).resolves.toBe(false);
-      },
-    );
-
-    test('offline probe failure preserves the session', async () => {
-      const site = withProbe(0, { throws: true });
-      await expect(
-        site.shouldRetireOnForbidden({ error_type: 'invalid_access' }),
-      ).resolves.toBe(false);
-    });
-
-    test('a site with no token never retires again', async () => {
-      const site = makeSite();
-      site.authToken = null;
-      await expect(
-        site.shouldRetireOnForbidden({ error_type: 'not_logged_in' }),
-      ).resolves.toBe(false);
-    });
   });
 
   test('a fresh verified authorization clears the retirement latch', () => {

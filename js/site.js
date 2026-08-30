@@ -241,21 +241,14 @@ class Site {
           throw error;
         } else if (classifyAuthResponse(r1.status) === 'forbidden') {
           // A valid, narrowly scoped user API key can be forbidden from an
-          // endpoint without being revoked. Discourse also answers a revoked
-          // or deleted key with 403, so status alone cannot tell the two
-          // apart. Preserve the session by default and only retire the
-          // credential on canonical evidence that it no longer authenticates.
+          // endpoint without being revoked. Preserve the session and let the
+          // caller render an unavailable state.
           const error = new Error('auth_forbidden');
           error.status = r1.status;
-          let payload = null;
           try {
-            payload = await r1.json();
+            const payload = await r1.json();
             error.code =
               typeof payload?.error === 'string' ? payload.error : null;
-            error.errorType =
-              typeof payload?.error_type === 'string'
-                ? payload.error_type
-                : null;
             error.reason =
               typeof payload?.reason === 'string' ? payload.reason : null;
             error.continueAt =
@@ -267,11 +260,6 @@ class Site {
               : [];
           } catch {
             error.userMessages = [];
-          }
-          if (await this.shouldRetireOnForbidden(payload)) {
-            this.retireCredential('revoked');
-            credentialStore.removeSiteToken(this.url).catch(() => {});
-            error.credentialRetired = true;
           }
           throw error;
         } else {
@@ -346,58 +334,6 @@ class Site {
     this.authToken = null;
     this.username = null;
     this.isStaff = null;
-  }
-
-  // Onboarding and policy gating answer 403 with an explanatory reason and a
-  // continuation target. Those are live-credential product states and must
-  // never retire anything.
-  static forbiddenIsGating(payload) {
-    return (
-      typeof payload?.reason === 'string' ||
-      typeof payload?.continue_at === 'string'
-    );
-  }
-
-  async shouldRetireOnForbidden(payload) {
-    if (!this.authToken) return false;
-    if (Site.forbiddenIsGating(payload)) return false;
-    // Discourse reports an absent or unusable credential as not_logged_in.
-    // That is unambiguous and needs no second request.
-    if (payload?.error_type === 'not_logged_in') return true;
-    // invalid_access is shared by an ordinary permission denial and a revoked
-    // key, so ask an endpoint every authorized client can reach whether this
-    // credential still authenticates at all.
-    return !(await this.credentialStillAuthenticates());
-  }
-
-  // Deliberately a bare fetch: it must not re-enter jsonApi (which would
-  // recurse through this same branch), must not be cached, and must not be
-  // deferred behind the orchestrator's cooldowns.
-  async credentialStillAuthenticates() {
-    if (this._credentialProbe) return this._credentialProbe;
-    this._credentialProbe = (async () => {
-      try {
-        const probe = await fetch(`${this.url}/session/current.json`, {
-          method: 'GET',
-          headers: {
-            'User-Api-Key': this.authToken,
-            'User-Api-Client-Id': this.clientId || '',
-            'Content-Type': 'application/json',
-            'Dont-Chunk': 'true',
-          },
-        });
-        if (probe.status >= 200 && probe.status < 300) return true;
-        if (probe.status === 401 || probe.status === 403) return false;
-        // 429, 5xx and anything else are inconclusive; never retire on those.
-        return true;
-      } catch {
-        // Offline or transport failure proves nothing about the credential.
-        return true;
-      } finally {
-        this._credentialProbe = null;
-      }
-    })();
-    return this._credentialProbe;
   }
 
   // An authoritative 401 means the stored User API credential no longer exists
