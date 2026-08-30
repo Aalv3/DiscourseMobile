@@ -105,6 +105,10 @@
     "react-test-renderer": "19.1.0",
     "typescript": "^5.8.3"
   },
+  "resolutions": {
+    "immutable@npm:>=3.8": "npm:5.1.8",
+    "nanoid@npm:^3.1.23": "npm:3.3.18"
+  },
   "packageManager": "yarn@4.9.4",
   "engines": {
     "node": ">=20.19.4"
