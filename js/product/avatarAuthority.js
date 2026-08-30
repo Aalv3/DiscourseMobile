@@ -102,6 +102,10 @@ export function subscribeAvatarAuthority(site, username, listener) {
 }
 
 export function useAvatarAuthority(site, username): ?string {
+  return useAvatarAuthorityRecord(site, username)?.template || null;
+}
+
+export function useAvatarAuthorityRecord(site, username): ?AvatarRecord {
   const key = scopeKey(site, username);
   const [, setRevision] = useState(0);
   useEffect(() => {
@@ -114,7 +118,16 @@ export function useAvatarAuthority(site, username): ?string {
       if (scoped.size === 0) listeners.delete(key);
     };
   }, [key]);
-  return authorities.get(key)?.template || null;
+  return authorities.get(key) || null;
+}
+
+export function removeAvatarAuthority(site, username): AvatarRecord {
+  const key = scopeKey(site, username);
+  nextVersion += 1;
+  const record = { template: '', version: nextVersion, confirmed: true };
+  authorities.set(key, record);
+  notify(key);
+  return record;
 }
 
 export function clearAvatarAuthorityForSite(site) {

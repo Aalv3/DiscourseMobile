@@ -4,7 +4,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
-  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -22,6 +21,7 @@ import {
   Action,
   ContentSkeleton,
   InlineState,
+  MemberAvatar,
   NestedHeader,
   V2BrandHeader,
   useProductTheme,
@@ -61,13 +61,6 @@ const memberName = post => post?.name || post?.username || 'Member';
 const compactExcerpt = post => {
   const value = readablePost(post?.cooked);
   return value.length > 140 ? `${value.slice(0, 137)}…` : value;
-};
-
-const avatarUrl = (site, post) => {
-  const template = post?.avatar_template;
-  if (!template) return null;
-  const path = String(template).replace('{size}', '96');
-  return /^https?:\/\//i.test(path) ? path : `${site?.url || ''}${path}`;
 };
 
 const postTime = value => {
@@ -579,7 +572,6 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
             const parent = post.reply_to_post_number
               ? postsByNumber[post.reply_to_post_number]
               : null;
-            const avatar = avatarUrl(site, post);
             return (
               <React.Fragment key={post.id}>
                 {index === 1 ? (
@@ -675,25 +667,14 @@ export default function NativeTopicScreen({ navigation, route, screenProps }) {
                     }
                     style={styles.identityRow}
                   >
-                    {avatar ? (
-                      <Image
-                        accessibilityLabel={`${memberName(post)} avatar`}
-                        source={{ uri: avatar }}
-                        style={styles.postAvatar}
-                      />
-                    ) : (
-                      <View
-                        style={[
-                          styles.postAvatar,
-                          styles.avatarFallback,
-                          { backgroundColor: colors.accent },
-                        ]}
-                      >
-                        <Text style={styles.avatarInitial}>
-                          {memberName(post).slice(0, 1).toUpperCase()}
-                        </Text>
-                      </View>
-                    )}
+                    <MemberAvatar
+                      avatarTemplate={post.avatar_template}
+                      label={memberName(post)}
+                      site={site}
+                      size={36}
+                      style={styles.postAvatar}
+                      username={post.username}
+                    />
                     <View style={styles.identityCopy}>
                       <Text style={[styles.author, { color: colors.text }]}>
                         {memberName(post)}

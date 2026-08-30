@@ -7,7 +7,6 @@ import {
   Alert,
   AppState,
   FlatList,
-  Image,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -23,6 +22,7 @@ import {
   Action,
   ContentSkeleton,
   InlineState,
+  MemberAvatar,
   V2BrandHeader,
   useProductTheme,
 } from './ProductComponents';
@@ -323,9 +323,6 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
   const renderMessage = ({ item }) => {
     const user = item.user || {};
     if (blockedMembers.includes(user.username)) return null;
-    const avatarUri = user.avatar_template
-      ? `${site.url}${user.avatar_template.replace('{size}', '72')}`
-      : null;
     const timestamp = item.created_at
       ? new Date(item.created_at).toLocaleTimeString([], {
           hour: 'numeric',
@@ -351,17 +348,14 @@ export default function NativeLoungeScreen({ navigation, screenProps }) {
           disabled={!user.username}
           onPress={() => openMemberAdjusterCard(navigation, user.username)}
         >
-          {avatarUri ? (
-            <Image
-              accessibilityIgnoresInvertColors
-              source={{ uri: avatarUri }}
-              style={[styles.avatar, { backgroundColor: colors.surfaceAlt }]}
-            />
-          ) : (
-            <View
-              style={[styles.avatar, { backgroundColor: colors.accentSoft }]}
-            />
-          )}
+          <MemberAvatar
+            avatarTemplate={user.avatar_template}
+            label={user.name || user.username || 'Member'}
+            site={site}
+            size={38}
+            style={[styles.avatar, { backgroundColor: colors.surfaceAlt }]}
+            username={user.username}
+          />
         </Pressable>
         <View style={styles.messageCopy}>
           <View style={styles.messageMeta}>

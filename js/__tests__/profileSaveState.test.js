@@ -1,5 +1,6 @@
 import {
   canStartProfileSave,
+  normalizeProfilePhotoPickerAsset,
   profileCooldownSeconds,
   profileRetryAfterMs,
   profileSaveErrorMessage,
@@ -100,5 +101,57 @@ describe('profile save state', () => {
     expect(profileCooldownSeconds(121000, 122000)).toBe(0);
     expect(canStartProfileSave(121000, 120000)).toBe(false);
     expect(canStartProfileSave(121000, 121000)).toBe(true);
+  });
+
+  test('reserves preparation copy for actual client preparation failures', () => {
+    expect(profileSaveErrorMessage(new Error('invalid_upload_asset'), 0)).toBe(
+      'Your profile photo could not be prepared.',
+    );
+    expect(
+      profileSaveErrorMessage(
+        { userMessages: ['profile photo processing failed'] },
+        0,
+      ),
+    ).toBe('profile photo processing failed');
+  });
+
+  test.each([
+    [
+      'JPEG',
+      { uri: 'file:///photo.jpg', mimeType: 'image/jpeg' },
+      'image/jpeg',
+    ],
+    ['PNG', { uri: 'file:///photo.png', mimeType: 'image/png' }, 'image/png'],
+    [
+      'WebP',
+      { uri: 'file:///photo.webp', mimeType: 'image/webp' },
+      'image/webp',
+    ],
+    ['missing MIME', { uri: 'file:///photo.png', fileName: null }, 'image/png'],
+    [
+      'missing filename',
+      { uri: 'file:///picker-item', mimeType: 'image/jpeg' },
+      'image/jpeg',
+    ],
+    [
+      'temporary URI',
+      { uri: 'file:///tmp/picker-item.jpg?token=bounded' },
+      'image/jpeg',
+    ],
+  ])('normalizes a supported %s picker result', (_label, asset, mimeType) => {
+    expect(normalizeProfilePhotoPickerAsset(asset)).toMatchObject({
+      uri: asset.uri,
+      mimeType,
+      name: expect.stringMatching(/\.(?:jpe?g|png|webp)$/i),
+    });
+  });
+
+  test('fails closed instead of mislabeling unsupported picker bytes', () => {
+    expect(() =>
+      normalizeProfilePhotoPickerAsset({
+        uri: 'file:///photo.heic',
+        mimeType: 'image/heic',
+      }),
+    ).toThrow('unsupported_profile_photo_type');
   });
 });

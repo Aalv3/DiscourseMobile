@@ -31,6 +31,18 @@ export function createProfileMountId() {
 }
 
 export function profileErrorCategory(error) {
+  const messages = Array.isArray(error?.userMessages)
+    ? error.userMessages.join(' ').toLowerCase()
+    : '';
+  if (messages.includes('profile photo processing failed')) {
+    return 'photo_processing';
+  }
+  if (
+    error?.message === 'invalid_upload_asset' ||
+    error?.message === 'unsupported_profile_photo_type'
+  ) {
+    return 'photo_preparation';
+  }
   const status = Number(error?.status);
   if (status === 429) return '429';
   if (status >= 500) return '5xx';

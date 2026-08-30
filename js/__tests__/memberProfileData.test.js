@@ -2,6 +2,7 @@ import {
   cachedMemberProfileData,
   clearMemberProfileDataCache,
   loadMemberProfileData,
+  removeCachedMemberProfileAvatar,
   updateCachedMemberProfileAvatar,
 } from '../product/memberProfileData';
 
@@ -168,6 +169,34 @@ describe('native member profile data', () => {
     });
     expect(cachedMemberProfileData(site, 'qa_test')).toMatchObject({
       cardPayload: { core: { avatar_template: '/new/{size}.png' } },
+    });
+  });
+
+  test('photo removal clears both cached profile representations', async () => {
+    const site = {
+      url: 'https://staging.example',
+      username: 'qa_test',
+      jsonApi: jest.fn(path =>
+        Promise.resolve(
+          path === '/u/qa_test.json'
+            ? {
+                user: {
+                  username: 'qa_test',
+                  avatar_template: '/old/{size}.png',
+                },
+              }
+            : {
+                schema: 'an.adjuster-card.v2',
+                core: { avatar_template: '/old/{size}.png' },
+              },
+        ),
+      ),
+    };
+    await loadMemberProfileData(site, 'qa_test');
+    removeCachedMemberProfileAvatar(site, 'qa_test');
+    expect(cachedMemberProfileData(site, 'qa_test')).toMatchObject({
+      profile: { user: { avatar_template: '' } },
+      cardPayload: { core: { avatar_template: '' } },
     });
   });
 

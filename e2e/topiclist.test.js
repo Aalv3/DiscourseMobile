@@ -1,4 +1,5 @@
-import { by, device, element, expect, waitFor } from 'detox';
+import { by, device, element, waitFor } from 'detox';
+import { waitForLoggedOutWelcome } from './loggedOutLaunch';
 
 describe('Adjuster Network authentication boundary', () => {
   beforeAll(async () => {
@@ -10,8 +11,9 @@ describe('Adjuster Network authentication boundary', () => {
   });
 
   it('starts secure member authentication from the only logged-out CTA', async () => {
+    await waitForLoggedOutWelcome();
     const signIn = element(by.text('Member sign in'));
-    await expect(signIn).toBeVisible();
+    await waitFor(signIn).toBeVisible().withTimeout(10000);
     await signIn.tap();
 
     // CI cannot approve a real production User API Key request. Reaching the
