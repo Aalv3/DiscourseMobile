@@ -21,6 +21,7 @@ describe('Adjuster Network logged-out launch', () => {
   });
 
   it('keeps privacy and invitation boundaries visible before sign-in', async () => {
+    const welcomeScroll = element(by.id('logged-out-welcome-scroll'));
     const invitation = element(
       by.text(
         'Membership is currently available by invitation. Existing members can sign in above.',
@@ -32,6 +33,7 @@ describe('Adjuster Network logged-out launch', () => {
       ),
     );
 
+    await waitFor(welcomeScroll).toExist().withTimeout(30000);
     await waitFor(invitation)
       .toBeVisible()
       .whileElement(by.id('logged-out-welcome-scroll'))
