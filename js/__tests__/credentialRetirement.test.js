@@ -1,7 +1,10 @@
 /* @flow */
 'use strict';
 
-import { classifyAuthResponse } from '../authResponsePolicy';
+import {
+  classifyAuthResponse,
+  INVALID_USER_API_CREDENTIAL,
+} from '../authResponsePolicy';
 import Site from '../site';
 
 jest.mock('../secureCredentialStore', () => ({
@@ -21,10 +24,19 @@ const makeSite = () =>
   });
 
 describe('authoritative credential retirement', () => {
-  test('only 401 is classified as revoked', () => {
-    expect(classifyAuthResponse(401)).toBe('revoked');
+  test('only the canonical server credential tuple is classified as revoked', () => {
+    const canonical = {
+      error_type: INVALID_USER_API_CREDENTIAL.errorType,
+      reason: INVALID_USER_API_CREDENTIAL.reason,
+    };
+    expect(classifyAuthResponse(401, canonical)).toBe('revoked');
+    expect(classifyAuthResponse(401, null)).not.toBe('revoked');
+    expect(
+      classifyAuthResponse(401, { error_type: canonical.error_type }),
+    ).not.toBe('revoked');
+    expect(classifyAuthResponse(403, canonical)).toBe('forbidden');
     [403, 429, 404, 500, 502, 503, 200, 204].forEach(status => {
-      expect(classifyAuthResponse(status)).not.toBe('revoked');
+      expect(classifyAuthResponse(status, canonical)).not.toBe('revoked');
     });
   });
 
@@ -68,7 +80,7 @@ describe('authoritative credential retirement', () => {
       site.onCredentialRetired = () => {
         notified = true;
       };
-      if (classifyAuthResponse(status) === 'revoked') {
+      if (classifyAuthResponse(status, null) === 'revoked') {
         site.retireCredential('revoked');
       }
       expect(site.authToken).toBe('live-token');

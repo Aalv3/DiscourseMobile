@@ -233,20 +233,28 @@ class Site {
           error.retryAfterMs = retryAfterMs;
           error.rateLimitCode = errorCode || null;
           throw error;
-        } else if (classifyAuthResponse(r1.status) === 'revoked') {
-          this.retireCredential('revoked');
-          credentialStore.removeSiteToken(this.url).catch(() => {});
-          const error = new Error('auth_revoked');
-          error.status = r1.status;
-          throw error;
-        } else if (classifyAuthResponse(r1.status) === 'forbidden') {
-          // A valid, narrowly scoped user API key can be forbidden from an
-          // endpoint without being revoked. Preserve the session and let the
-          // caller render an unavailable state.
-          const error = new Error('auth_forbidden');
-          error.status = r1.status;
+        } else {
+          let payload = null;
           try {
-            const payload = await r1.json();
+            payload = await r1.json();
+          } catch {
+            // A non-JSON error body cannot carry the canonical credential signal.
+          }
+          const authClassification = classifyAuthResponse(r1.status, payload);
+          if (authClassification === 'revoked') {
+            this.retireCredential('revoked');
+            credentialStore.removeSiteToken(this.url).catch(() => {});
+            const error = new Error('auth_revoked');
+            error.status = r1.status;
+            error.code = payload?.error_type || null;
+            error.reason = payload?.reason || null;
+            throw error;
+          } else if (authClassification === 'forbidden') {
+            // A valid, narrowly scoped user API key can be forbidden from an
+            // endpoint without being revoked. Preserve the session and let the
+            // caller render an unavailable state.
+            const error = new Error('auth_forbidden');
+            error.status = r1.status;
             error.code =
               typeof payload?.error === 'string' ? payload.error : null;
             error.reason =
@@ -258,22 +266,15 @@ class Site {
             error.userMessages = Array.isArray(payload?.errors)
               ? payload.errors.filter(message => typeof message === 'string')
               : [];
-          } catch {
-            error.userMessages = [];
-          }
-          throw error;
-        } else {
-          const error = new Error('api_request_failed');
-          error.status = r1.status;
-          try {
-            const payload = await r1.json();
+            throw error;
+          } else {
+            const error = new Error('api_request_failed');
+            error.status = r1.status;
             error.userMessages = Array.isArray(payload?.errors)
               ? payload.errors.filter(message => typeof message === 'string')
               : [];
-          } catch {
-            error.userMessages = [];
+            throw error;
           }
-          throw error;
         }
       } finally {
         if (this._currentFetch === activeFetch) this._currentFetch = undefined;
@@ -299,7 +300,13 @@ class Site {
         if (response.status >= 200 && response.status < 300) {
           return response.json();
         }
-        const classification = classifyAuthResponse(response.status);
+        let payload = null;
+        try {
+          payload = await response.json();
+        } catch {
+          // A non-JSON error body cannot carry the canonical credential signal.
+        }
+        const classification = classifyAuthResponse(response.status, payload);
         if (classification === 'revoked') {
           this.retireCredential('revoked');
           credentialStore.removeSiteToken(this.url).catch(() => {});
@@ -312,14 +319,13 @@ class Site {
             : 'api_request_failed',
         );
         error.status = response.status;
-        try {
-          const payload = await response.json();
-          error.userMessages = Array.isArray(payload?.errors)
-            ? payload.errors.filter(message => typeof message === 'string')
-            : [];
-        } catch {
-          error.userMessages = [];
-        }
+        error.code =
+          typeof payload?.error_type === 'string' ? payload.error_type : null;
+        error.reason =
+          typeof payload?.reason === 'string' ? payload.reason : null;
+        error.userMessages = Array.isArray(payload?.errors)
+          ? payload.errors.filter(message => typeof message === 'string')
+          : [];
         throw error;
       })
       .finally(() => {
@@ -336,8 +342,9 @@ class Site {
     this.isStaff = null;
   }
 
-  // An authoritative 401 means the stored User API credential no longer exists
-  // server-side. Clearing it in memory is not enough: without telling the
+  // Only the canonical server 401 + machine-readable credential tuple means
+  // the stored User API credential no longer exists server-side. Clearing it
+  // in memory is not enough: without telling the
   // manager, the persisted record keeps the dead token and the signed-in
   // navigator never re-evaluates, stranding the member on an authenticated
   // screen whose only action retries the same doomed request.
