@@ -34,6 +34,7 @@ import {
   loadCommunity,
   topicPath,
 } from './ProductData';
+import { floorAttentionState } from './floorAttention';
 import { elevation, floorV2, radius, spacing, type } from './DesignSystem';
 import { adjusterNetwork } from '../adjusterNetworkConfig';
 export { default as LoungeScreen } from './NativeLoungeScreen';
@@ -365,6 +366,7 @@ const FloorActivityRow = ({ topic, site, navigation, openUrl, category }) => {
 const FloorAttentionCard = ({ topic, site, category, openUrl, cardWidth }) => {
   const colors = useProductTheme();
   const replies = Math.max(0, (topic.posts_count || 1) - 1);
+  const attentionState = floorAttentionState(topic);
   const username = topic.last_poster_username || 'Network member';
   const categoryColor = /^#?[0-9a-f]{6}$/i.test(category?.color || '')
     ? `#${String(category.color).replace('#', '')}`
@@ -373,7 +375,7 @@ const FloorAttentionCard = ({ topic, site, category, openUrl, cardWidth }) => {
     <Pressable
       accessibilityRole="link"
       accessibilityLabel={`${topic.title}. ${category?.name || 'Discussion'}. ${
-        replies === 0 ? 'Needs a reply' : `${replies} replies`
+        attentionState.needsReply ? 'Needs a reply' : attentionState.label
       }.`}
       onPress={() => openUrl(`${site.url}${topicPath(topic)}`)}
       style={({ pressed }) => [
@@ -404,24 +406,31 @@ const FloorAttentionCard = ({ topic, site, category, openUrl, cardWidth }) => {
           style={[
             styles.floorAttentionState,
             {
-              backgroundColor:
-                replies === 0 ? colors.brandAccentSoft : colors.accentSoft,
+              backgroundColor: attentionState.needsReply
+                ? colors.brandAccentSoft
+                : colors.accentSoft,
             },
           ]}
         >
           <FontAwesome5
-            name={replies === 0 ? 'question' : 'comments'}
+            name={attentionState.icon}
             size={9}
-            color={replies === 0 ? colors.brandAccent : colors.accent}
+            color={
+              attentionState.needsReply ? colors.brandAccent : colors.accent
+            }
             iconStyle="solid"
           />
           <Text
             style={[
               styles.floorAttentionStateText,
-              { color: replies === 0 ? colors.brandAccent : colors.accent },
+              {
+                color: attentionState.needsReply
+                  ? colors.brandAccent
+                  : colors.accent,
+              },
             ]}
           >
-            {replies === 0 ? 'NEEDS A REPLY' : 'ACTIVE'}
+            {attentionState.label}
           </Text>
         </View>
       </View>
