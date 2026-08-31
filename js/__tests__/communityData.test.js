@@ -159,7 +159,9 @@ describe('community startup recovery', () => {
     expect(source).toContain(
       "unavailableWithoutSnapshot ? '—' : data.topics.length",
     );
-    expect(source).toContain("unavailableWithoutSnapshot ? '—' : unanswered");
+    expect(source).toContain(
+      "unavailableWithoutSnapshot ? '—' : activeConversations",
+    );
     expect(source).toContain(
       "unavailableWithoutSnapshot ? '—' : data.categories.length",
     );
