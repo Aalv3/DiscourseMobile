@@ -44,6 +44,7 @@ import { optionLabel, stateLabel } from './adjusterCardPresentation';
 import AttachmentComposer, { useAttachmentQueue } from './AttachmentComposer';
 import { reconcileAskSubmission, submitAskQuestion } from './AskSubmission';
 import NotificationEducation from './NotificationEducation';
+import { memberDisplayName } from './floorPresentation';
 import {
   captureAvatarAuthorityVersion,
   reconcileAvatarAuthority,
@@ -280,17 +281,6 @@ function useCommunity(siteManager, contentVersion) {
   return { ...state, refresh };
 }
 
-const memberDisplayName = username =>
-  String(username || 'member')
-    .split(/[_-]+/)
-    .filter(Boolean)
-    .map(part =>
-      part.length <= 2
-        ? part.toUpperCase()
-        : `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`,
-    )
-    .join(' ');
-
 const topicActivityDate = topic =>
   topic.last_posted_at
     ? new Date(topic.last_posted_at).toLocaleDateString(undefined, {
@@ -487,12 +477,12 @@ export function FloorScreen({ navigation, screenProps }) {
     screenProps.memberContentVersion,
   );
   const rateLimited = classifyCommunityLoadError(data.error) === 'rate_limited';
-  const memberName = memberDisplayName(site?.username);
+  const memberName = memberDisplayName(site?.name, site?.username);
   const greeting = new Date().getHours() < 12 ? 'Good morning' : 'Welcome back';
   const attentionTopics = data.topics.slice(0, 5);
   const attentionCardWidth = Math.min(Math.max(width - 64, 280), 340);
-  const unanswered = data.topics.filter(
-    topic => (topic.posts_count || 1) <= 1,
+  const activeConversations = data.topics.filter(
+    topic => (topic.posts_count || 1) > 1,
   ).length;
   const unavailableWithoutSnapshot =
     Boolean(data.error) &&
@@ -506,7 +496,7 @@ export function FloorScreen({ navigation, screenProps }) {
           maxFontSizeMultiplier={1.5}
           style={[styles.floorGreetingTitle, { color: colors.text }]}
         >
-          {greeting}, {memberName}
+          {memberName ? `${greeting}, ${memberName}` : greeting}
         </Text>
         <Text
           maxFontSizeMultiplier={1.6}
@@ -612,10 +602,10 @@ export function FloorScreen({ navigation, screenProps }) {
         />
         <FloorStat
           colors={colors}
-          icon="question"
-          label="Unanswered"
-          detail="Need a reply"
-          value={unavailableWithoutSnapshot ? '—' : unanswered}
+          icon="reply"
+          label="Conversations"
+          detail="With replies"
+          value={unavailableWithoutSnapshot ? '—' : activeConversations}
           onPress={() => navigation.navigate('Discussions')}
           tone="red"
           accessibleLayout={fontScale >= 1.6}
