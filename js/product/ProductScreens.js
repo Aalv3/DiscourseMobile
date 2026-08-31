@@ -406,17 +406,18 @@ const FloorAttentionCard = ({ topic, site, category, openUrl, cardWidth }) => {
           style={[
             styles.floorAttentionState,
             {
-              backgroundColor:
-                attentionState.needsReply
-                  ? colors.brandAccentSoft
-                  : colors.accentSoft,
+              backgroundColor: attentionState.needsReply
+                ? colors.brandAccentSoft
+                : colors.accentSoft,
             },
           ]}
         >
           <FontAwesome5
             name={attentionState.icon}
             size={9}
-            color={attentionState.needsReply ? colors.brandAccent : colors.accent}
+            color={
+              attentionState.needsReply ? colors.brandAccent : colors.accent
+            }
             iconStyle="solid"
           />
           <Text
