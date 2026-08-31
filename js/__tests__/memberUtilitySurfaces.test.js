@@ -3,6 +3,11 @@
 
 import fs from 'fs';
 import path from 'path';
+import {
+  discussionSearchEligible,
+  memberSearchResults,
+  searchResults,
+} from '../product/memberUtilities';
 
 const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 
@@ -51,6 +56,23 @@ describe('native member utility surfaces', () => {
     expect(source).toContain('Open ${member.title} Adjuster Card');
     expect(source).toContain('bookmarkDeletePath(item.id)');
     expect(source).not.toContain('WebView');
+  });
+
+  test.each([
+    ['qa', false],
+    ['QA', false],
+    ['reviewer', true],
+    ['admin', true],
+    ['roof', true],
+  ])('discussion search eligibility for %s is %s', (query, expected) => {
+    expect(discussionSearchEligible(query)).toBe(expected);
+  });
+
+  test('a two-character member query can return the normal empty state', () => {
+    expect(searchResults({ topics: [], posts: [], users: [] })).toEqual([]);
+    expect(
+      memberSearchResults({ schema: 'an.member-search.v1', results: [] }),
+    ).toEqual([]);
   });
 
   test('member search uses only contract-returned professional metadata', () => {
