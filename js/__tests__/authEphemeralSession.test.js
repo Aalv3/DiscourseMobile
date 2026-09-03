@@ -28,6 +28,8 @@ jest.mock('../secureCredentialStore', () => ({
   credentialStore: {
     storeSiteToken: jest.fn(() => Promise.resolve()),
     removeSiteToken: jest.fn(() => Promise.resolve()),
+    removeRSAKeys: jest.fn(() => Promise.resolve()),
+    readRSAKeys: jest.fn(() => Promise.resolve(null)),
   },
 }));
 
@@ -319,5 +321,64 @@ describe('environment resolution is unchanged and fail-closed', () => {
     await expect(manager.generateAuthURL(null)).rejects.toThrow(
       'auth_origin_not_allowed',
     );
+  });
+});
+
+describe('an account switch retires every client-side identity carrier', () => {
+  test('cookies, Keychain token, RSA material, profile and client ID are cleared', async () => {
+    const AsyncStorage = require('@react-native-async-storage/async-storage');
+    const CookieManager = require('@react-native-cookies/cookies');
+    const site = memberSite('https://adjusternetwork.org');
+    site.authToken = 'qa-test-key';
+    const manager = authManager(site);
+    manager.sites = [site];
+    manager.clientId = CLIENT_ID;
+    manager.rsaKeys = { public: 'pub', private: 'priv' };
+    manager._nonce = 'nonce';
+    manager._nonceSite = site;
+
+    await manager.resetAuthorizationIdentity();
+
+    // The browser cookie jar and every stored credential carrier are gone.
+    expect(CookieManager.clearAll).toHaveBeenCalledWith(true);
+    expect(credentialStore.removeSiteToken).toHaveBeenCalledWith(
+      'https://adjusternetwork.org',
+    );
+    expect(credentialStore.removeRSAKeys).toHaveBeenCalled();
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@ClientId');
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@Discourse.rsaKeys');
+
+    // In-memory authorization state cannot survive the switch either.
+    expect(manager.rsaKeys).toBeNull();
+    expect(manager.clientId).toBeNull();
+    expect(manager._nonce).toBeNull();
+    expect(manager._nonceSite).toBeNull();
+    expect(site.logoff).toHaveBeenCalled();
+  });
+
+  test('a failing carrier never aborts the switch', async () => {
+    const CookieManager = require('@react-native-cookies/cookies');
+    CookieManager.clearAll.mockRejectedValueOnce(new Error('cookie failure'));
+    credentialStore.removeRSAKeys.mockRejectedValueOnce(new Error('keychain'));
+    const site = memberSite('https://adjusternetwork.org');
+    const manager = authManager(site);
+    manager.sites = [site];
+    manager.clientId = CLIENT_ID;
+
+    await expect(manager.resetAuthorizationIdentity()).resolves.toBeUndefined();
+    expect(manager.clientId).toBeNull();
+  });
+
+  test('the next authorization after a switch still launches ephemerally', async () => {
+    const site = memberSite('https://adjusternetwork.org');
+    const manager = authManager(site);
+    manager.sites = [site];
+    manager.clientId = CLIENT_ID;
+    await manager.resetAuthorizationIdentity();
+
+    SafariWebAuth.requestAuth.mockResolvedValueOnce(AUTH_REDIRECT);
+    await manager.requestAuth('https://adjusternetwork.org/user-api-key/new');
+
+    expect(SafariWebAuth.requestAuth.mock.calls[0][2]).toBe(true);
   });
 });

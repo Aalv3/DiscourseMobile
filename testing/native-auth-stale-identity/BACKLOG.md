@@ -47,3 +47,21 @@ during the Apple-review freeze. Correct it to the live group.
 That file is untracked in this lineage — it exists only in the canonical
 repository's working tree — so this correction is recorded here rather than
 applied to it. Documentation only; it does not gate any fix.
+
+## 6. Founder Production Approval UX / Deployment Gate V2
+
+Production promotion is currently a founder-run CLI step with no in-product or
+dashboard approval surface, and the governed rollback target lives only in a
+document that has already gone stale twice. Design a deployment gate that
+records the approver, the exact certified group, the rollback target, and the
+freeze state in one authoritative place.
+
+## 7. Written-but-unwired modules on the certification path
+
+`js/otaDiagnostics.js` (`getOtaDiagnostics`) and
+`js/authorizationConsent.js` (`USER_API_KEY_SCOPE_COPY`) are implemented and
+unit-tested but imported by nothing. The missing OTA surface is why proving
+which bundle a device had loaded required a laptop and a USB cable, which
+directly cost a certification cycle. The staging diagnostics block added in
+this lane is deliberately temporary; decide whether a permanent, governed
+build-identity surface belongs in the product before removing it.
