@@ -585,7 +585,7 @@ class SiteManager {
   }
 
   async requestAuth(url) {
-    const authRequest = await requestIOSAuth(url, this.customScheme, false);
+    const authRequest = await requestIOSAuth(url, this.customScheme);
     const urlParams = this.parseURLparameters(authRequest);
     let acceptedPayload = false;
 
