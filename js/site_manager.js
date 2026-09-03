@@ -118,6 +118,37 @@ class SiteManager {
     this.updateNativeMenu();
   }
 
+  // Every client-side carrier of a previous member identity, retired together.
+  // Deleting the app clears AsyncStorage but not the Keychain, and it never
+  // clears the browser cookie jar, so "delete and reinstall" does not by
+  // itself produce a clean identity. An account switch must therefore retire
+  // the browser cookies, the stored User API Key, the RSA material that
+  // identifies the app in the authorization request, the recorded
+  // authorization profile, and the client ID before a new authorization
+  // begins. Server-side credentials are revoked separately by remove().
+  async resetAuthorizationIdentity() {
+    await CookieManager.clearAll(true).catch(() => {});
+    const origins = new Set(this.sites.map(site => site.url));
+    if (adjusterNetwork.canonicalOrigin) {
+      origins.add(adjusterNetwork.canonicalOrigin);
+    }
+    for (const origin of origins) {
+      await credentialStore.removeSiteToken(origin).catch(() => {});
+    }
+    const clientId = this.clientId || (await this.getClientId());
+    await clearAuthorizationProfile(clientId).catch(() => {});
+    await credentialStore.removeRSAKeys().catch(() => {});
+    await AsyncStorage.removeItem('@Discourse.rsaKeys').catch(() => {});
+    await AsyncStorage.removeItem('@ClientId').catch(() => {});
+    this.rsaKeys = null;
+    this.clientId = null;
+    this._nonce = null;
+    this._nonceSite = null;
+    this.sites.forEach(site => site.logoff());
+    this.save();
+    this._onChange();
+  }
+
   setActiveSite(site) {
     return new Promise(resolve => {
       if (typeof site === 'string' || site instanceof String) {
@@ -585,7 +616,7 @@ class SiteManager {
   }
 
   async requestAuth(url) {
-    const authRequest = await requestIOSAuth(url, this.customScheme, false);
+    const authRequest = await requestIOSAuth(url, this.customScheme);
     const urlParams = this.parseURLparameters(authRequest);
     let acceptedPayload = false;
 

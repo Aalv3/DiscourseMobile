@@ -16,6 +16,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome5 from '@react-native-vector-icons/fontawesome5';
 import { useAssets } from 'expo-asset';
+import { Alert } from 'react-native';
+import {
+  browserSessionProbeUrl,
+  collectStagingDiagnostics,
+  stagingDiagnosticsEnabled,
+} from '../stagingDiagnostics';
+import { requestIOSAuth } from '../iosAuthSession';
 import {
   Action,
   Avatar,
@@ -119,12 +126,43 @@ const FloorHeader = ({ navigation, screenProps }) => {
   );
 };
 
-export function WelcomeScreen({ onConnect, busy }) {
+export function WelcomeScreen({ onConnect, onUseDifferentAccount, busy }) {
   const colors = useProductTheme();
   const { width, fontScale } = useWindowDimensions();
   const [brandAssets] = useAssets([
     require('../../img/adjuster-network-logo.png'),
   ]);
+  const diagnosticsVisible = stagingDiagnosticsEnabled();
+  const [diagnostics, setDiagnostics] = useState(null);
+  useEffect(() => {
+    if (!diagnosticsVisible) return;
+    let active = true;
+    collectStagingDiagnostics()
+      .then(result => {
+        if (active) setDiagnostics(result);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [diagnosticsVisible]);
+  const probeBrowserSession = useCallback(async () => {
+    const url = browserSessionProbeUrl();
+    if (!url) return;
+    try {
+      // The probe never completes an authorization: it opens the canonical
+      // origin in the same browser-auth context the sign-in flow uses so the
+      // rendered session JSON can be read, then it is dismissed by hand.
+      await requestIOSAuth(url, 'adjusternetwork');
+    } catch (error) {
+      if (error?.code !== 'auth_user_cancelled') {
+        Alert.alert(
+          'Browser session probe',
+          'The probe sheet closed. Read the rendered JSON before dismissing it.',
+        );
+      }
+    }
+  }, []);
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.canvas }]}>
       <KeyboardAvoidingView
@@ -213,6 +251,59 @@ export function WelcomeScreen({ onConnect, busy }) {
             Membership is currently available by invitation. Existing members
             can sign in above.
           </Text>
+          {onUseDifferentAccount ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Use a different account"
+              disabled={busy}
+              onPress={onUseDifferentAccount}
+              style={[styles.welcomeSecondary, { borderColor: colors.hero }]}
+            >
+              <Text
+                style={[styles.welcomeSecondaryText, { color: colors.hero }]}
+              >
+                Use a different account
+              </Text>
+            </Pressable>
+          ) : null}
+          {diagnosticsVisible && (
+            <View
+              style={[styles.valueCard, { backgroundColor: colors.surfaceAlt }]}
+            >
+              <Text style={[styles.finePrint, { color: colors.text }]}>
+                Staging certification diagnostics
+              </Text>
+              <Text
+                testID="staging-ota-diagnostics"
+                selectable
+                style={[styles.finePrint, { color: colors.muted }]}
+              >
+                {diagnostics
+                  ? [
+                      `gitSha: ${diagnostics.gitSha || 'unset'}`,
+                      `updateId: ${diagnostics.updateId || 'none'}`,
+                      `channel: ${diagnostics.channel || 'none'}`,
+                      `source: ${diagnostics.source}`,
+                      `runtime: ${diagnostics.runtimeVersion || 'none'}`,
+                      `retainedCredential: ${diagnostics.retainedCredential}`,
+                    ].join('\n')
+                  : 'Reading…'}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Probe browser session"
+                onPress={probeBrowserSession}
+                style={[
+                  styles.welcomePrimary,
+                  { backgroundColor: colors.hero },
+                ]}
+              >
+                <Text style={styles.welcomePrimaryText}>
+                  Probe browser session
+                </Text>
+              </Pressable>
+            </View>
+          )}
           <View style={styles.welcomePrivacy}>
             <FontAwesome5
               name="shield-alt"
