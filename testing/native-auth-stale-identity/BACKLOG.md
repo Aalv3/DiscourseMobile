@@ -65,3 +65,61 @@ which bundle a device had loaded required a laptop and a USB cable, which
 directly cost a certification cycle. The staging diagnostics block added in
 this lane is deliberately temporary; decide whether a permanent, governed
 build-identity surface belongs in the product before removing it.
+
+## 8. HIGH — Edit Profile shows no profile photo controls on device
+
+Physical iPhone testing found no way to add, change, or remove the member
+avatar in the native Edit Profile screen. Recorded for the immediate
+post-certification profile polish pass; not touched during auth certification.
+
+### Correction to the diagnosis
+
+The native photo editor is already built. `js/product/NativeProfileScreen.js`
+renders, at the top of the editor, the current `MemberAvatar` (or the pending
+local preview), a **Change photo** action and a **Remove photo** action. The
+supporting pipeline exists and is wired end to end:
+
+| Requirement                                     | Status                                                                                                                                                         |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Avatar shown prominently at top of Edit Profile | Built                                                                                                                                                          |
+| Change photo action                             | Built                                                                                                                                                          |
+| Choose from Photo Library                       | Built (`ImagePicker.launchImageLibraryAsync`, square crop, quality 0.85)                                                                                       |
+| Take photo with Camera                          | **Missing — the only genuine UI gap**                                                                                                                          |
+| Remove/reset photo                              | Built, with a confirmation alert                                                                                                                               |
+| Permission / error / loading states             | Built (`photo_permission_denied`, `profileSaveErrorMessage`, `submitting`)                                                                                     |
+| Reuses Discourse's avatar pipeline              | Built — `uploadProfilePhoto` posts to `/native/v1/profile/photo` and requires `card.photo.delegatedTo === 'discourse-avatar'`. No parallel image system exists |
+| Image type/size validation                      | Built (`unsupported_profile_photo_type` in `js/product/profileSaveState.js`)                                                                                   |
+| Immediate avatar refresh across native UI       | Built (`js/product/avatarAuthority.js` publishes the new template)                                                                                             |
+
+The entire block is gated on the server capability `card?.photo.enabled`, and
+`uploadProfilePhoto` additionally fails closed with `photo_capability_disabled`
+unless `photo.enabled`, `photo.editable`, and the `discourse-avatar` delegation
+are all present.
+
+**So the controls were absent on device because the server capability is off,
+not because the UI is missing.**
+`testing/native-app-store-readiness/POST-SUBMISSION-HOLD.md` states this
+deliberately: "Keep `structured_profile_photo_enabled=false` during review",
+and names profile-photo activation as the first bounded post-freeze
+server/privacy certification lane.
+
+### Actual work remaining
+
+1. **Server/privacy lane (the real blocker).** Complete the deferred
+   certification the hold document already scopes — storage and privacy audit,
+   MIME and size validation, EXIF/GPS stripping, signed-out visibility,
+   moderation/removal/cache behavior, deletion behavior — then enable
+   `structured_profile_photo_enabled`. The native UI needs no change to appear.
+2. **Camera capture (native, small).** Add a "Take photo" option beside
+   "Choose from library", using `ImagePicker.requestCameraPermissionsAsync` and
+   `launchCameraAsync` with the same crop, quality, and
+   `normalizeProfilePhotoPickerAsset` normalization. `NSCameraUsageDescription`
+   is already declared. Note that App Store readiness item P1.7 proposes
+   removing `NSMicrophoneUsageDescription`; the camera string must stay.
+3. **Web parity audit (unverified here).** Whether the web member profile
+   exposes the same capability could not be checked from this repository. Audit
+   before activation so both surfaces agree, and confirm
+   `/native/v1/profile/photo` stays compatible with the Discourse avatar
+   contract rather than diverging.
+4. **Re-verify on device after activation** — the capability gate means this
+   cannot be certified while the flag is false.
