@@ -30,3 +30,20 @@ Production User API keys 111 and 112 belong to `qa_test`, plus one stale August
 session. These need governed revocation with an audit record. Do not touch
 `cert_probe_01`. Do not mutate production server state outside an approved
 cleanup window.
+
+## 5. `POST-SUBMISSION-HOLD.md` names a stale production OTA group
+
+`testing/native-app-store-readiness/POST-SUBMISSION-HOLD.md` records the
+production channel as group `39eb1e9b-8b72-480b-99f1-f52ad6d351fc`
+(iOS update `01a01ff3-d501-73b3-b799-2b4cf353efcb`, source
+`3fb9de379e499736513d6ade7227b5ce32201ba1`). A read-only channel check on
+2026-09-02 shows production has since moved twice and now serves group
+`70eebadf-5736-4cd6-a7db-2980a69f0494`, source
+`fdb83141879f7b1df60d46a488343563d3bb156e`, published 2026-09-01.
+
+The stale value matters because that document is the stated rollback target
+during the Apple-review freeze. Correct it to the live group.
+
+That file is untracked in this lineage — it exists only in the canonical
+repository's working tree — so this correction is recorded here rather than
+applied to it. Documentation only; it does not gate any fix.
