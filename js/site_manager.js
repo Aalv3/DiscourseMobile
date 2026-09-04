@@ -28,13 +28,23 @@ import {
 } from './notificationState';
 import { clearAvatarAuthorityForSite } from './product/avatarAuthority';
 import {
+  clearAuthorizationProfile,
   markAuthorizationProfileCurrent,
   REQUIRED_AUTHORIZATION_SCOPES,
   validateAuthorizationProfile,
 } from './authorizationProfile';
+import { requestOrchestrator } from './requestOrchestrator';
 
 const { DiscourseKeyboardShortcuts } = NativeModules;
 const REFRESH_THROTTLE_MS = 5000;
+// Authenticated GETs the orchestrator may still be caching for a site whose
+// credential has just been retired. They must not survive into a fresh
+// authorization for the same client id and path.
+const RETIRED_CREDENTIAL_CACHE_PATHS = Object.freeze([
+  '/native/v1/profile',
+  '/native/v1/onboarding',
+  '/native/v1/authorization-profile',
+]);
 
 class SiteManager {
   lastRefresh = null;
@@ -78,7 +88,7 @@ class SiteManager {
     }
 
     site.createdAt = Date.now();
-    this.sites.push(site);
+    this.sites.push(this._adoptSite(site));
     this.save();
     this._onChange();
     this.updateNativeMenu();
@@ -106,6 +116,69 @@ class SiteManager {
       this._onChange();
     }
     this.updateNativeMenu();
+  }
+
+  // Every client-side carrier of a previous member identity, retired together.
+  // Deleting the app clears AsyncStorage but not the Keychain, and it never
+  // clears the browser cookie jar, so "delete and reinstall" does not by
+  // itself produce a clean identity. An account switch must therefore retire
+  // the browser cookies, the stored User API Key, the RSA material that
+  // identifies the app in the authorization request, the recorded
+  // authorization profile, and the client ID before a new authorization
+  // begins. Server-side credentials are revoked separately by remove().
+  async resetAuthorizationIdentity() {
+    await CookieManager.clearAll(true).catch(() => {});
+    const origins = new Set(this.sites.map(site => site.url));
+    if (adjusterNetwork.canonicalOrigin) {
+      origins.add(adjusterNetwork.canonicalOrigin);
+    }
+    for (const origin of origins) {
+      await credentialStore.removeSiteToken(origin).catch(() => {});
+    }
+    const clientId = this.clientId || (await this.getClientId());
+    await clearAuthorizationProfile(clientId).catch(() => {});
+    await credentialStore.removeRSAKeys().catch(() => {});
+    await AsyncStorage.removeItem('@Discourse.rsaKeys').catch(() => {});
+    await AsyncStorage.removeItem('@ClientId').catch(() => {});
+    this.rsaKeys = null;
+    this.clientId = null;
+    this._nonce = null;
+    this._nonceSite = null;
+    this.sites.forEach(site => site.logoff());
+    this.save();
+    this._onChange();
+  }
+
+  // Refresh the signed-in member identity for the active site only. The broad
+  // legacy refreshSites() loop stays retired: it fans out across every site and
+  // was deliberately removed from the authenticated lifecycle to stop it
+  // extending rate limits. A single in-flight request is shared so sibling
+  // foreground triggers cannot stack, and the record is persisted only when the
+  // identity actually changed. A failed refresh preserves the last known
+  // identity rather than corrupting it.
+  refreshActiveIdentity() {
+    if (this._identityRefresh) return this._identityRefresh;
+    const site =
+      this.activeSite || this.sites.find(candidate => candidate.authToken);
+    if (!site?.authToken) return Promise.resolve(false);
+
+    const request = site
+      .refreshIdentity()
+      .then(changed => {
+        if (changed) {
+          this.save();
+          this._onChange();
+        }
+        return changed;
+      })
+      .catch(() => false)
+      .finally(() => {
+        if (this._identityRefresh === request) {
+          this._identityRefresh = null;
+        }
+      });
+    this._identityRefresh = request;
+    return request;
   }
 
   setActiveSite(site) {
@@ -231,7 +304,7 @@ class SiteManager {
           const clientId = await this.getClientId();
           this.sites = await Promise.all(
             records.map(async obj => {
-              const site = new Site(obj);
+              const site = this._adoptSite(new Site(obj));
               // Repair sites saved by older builds that retained the manager
               // client ID but did not serialize it with site metadata.
               site.clientId = site.clientId || clientId;
@@ -450,16 +523,27 @@ class SiteManager {
     const previousToken = nonceSite.authToken;
     const previousHasPush = nonceSite.hasPush;
     const previousApiVersion = nonceSite.apiVersion;
+    const retiredBefore = nonceSite.credentialRetired === true;
     const restorePreviousAuthorization = async () => {
-      nonceSite.authToken = previousToken;
+      // A credential retired by an authoritative 401 must stay retired. Only
+      // restore the prior token when it was still live when this attempt
+      // started and nothing retired it while the attempt was in flight.
+      const stillRetired =
+        retiredBefore || nonceSite.credentialRetired === true;
       nonceSite.hasPush = previousHasPush;
       nonceSite.apiVersion = previousApiVersion;
-      if (previousToken) {
+      if (previousToken && !stillRetired) {
+        nonceSite.authToken = previousToken;
         await credentialStore.storeSiteToken(nonceSite.url, previousToken);
       } else {
+        nonceSite.authToken = null;
         await credentialStore.removeSiteToken(nonceSite.url);
       }
     };
+    // A fresh authorization may be for a different member. Drop the previous
+    // identity before the new credential is used so nothing can inherit it.
+    nonceSite.username = null;
+    nonceSite.name = null;
     nonceSite.authToken = decrypted.key;
     nonceSite.hasPush = decrypted.push;
     nonceSite.apiVersion = decrypted.api;
@@ -485,6 +569,10 @@ class SiteManager {
       await restorePreviousAuthorization();
       return false;
     }
+    // A verified fresh authorization supersedes any earlier retirement.
+    nonceSite.credentialRetired = false;
+    nonceSite.credentialRetiredReason = null;
+    await nonceSite.refreshIdentity().catch(() => false);
     this.save();
 
     // cause we want to stop rendering connect
@@ -565,7 +653,7 @@ class SiteManager {
   }
 
   async requestAuth(url) {
-    const authRequest = await requestIOSAuth(url, this.customScheme, false);
+    const authRequest = await requestIOSAuth(url, this.customScheme);
     const urlParams = this.parseURLparameters(authRequest);
     let acceptedPayload = false;
 
@@ -769,6 +857,32 @@ class SiteManager {
 
   _onChange() {
     this._subscribers.forEach(sub => sub({ event: 'change' }));
+  }
+
+  // Only an authoritative 401 reaches this path. Ordinary 403 authorization
+  // limits, onboarding/policy gating, 429 cooldowns, offline failures and 5xx
+  // errors all preserve the session by design and must never retire a
+  // credential.
+  _adoptSite(site) {
+    site.onCredentialRetired = retiredSite =>
+      this._handleCredentialRetired(retiredSite);
+    return site;
+  }
+
+  async _handleCredentialRetired(site) {
+    if (!site) return;
+    // Persist first so a relaunch cannot rehydrate the dead token, then drop
+    // every authenticated artifact tied to it, then let the root navigator
+    // re-evaluate and fall back to the signed-out welcome screen.
+    this.save();
+    await credentialStore.removeSiteToken(site.url).catch(() => {});
+    await clearAuthorizationProfile(site.clientId).catch(() => {});
+    clearAvatarAuthorityForSite(site);
+    requestOrchestrator.invalidate(
+      RETIRED_CREDENTIAL_CACHE_PATHS.map(path => site.apiRequestKey(path)),
+    );
+    this.updateUnreadBadge();
+    this._onChange();
   }
 
   storeLastPath(navState) {

@@ -115,6 +115,57 @@ describe('community startup recovery', () => {
     expect(site.jsonApi).toHaveBeenCalledTimes(4);
   });
 
+  test('authoritative author and avatar changes replace a stale shared topic snapshot', async () => {
+    const stale = {
+      id: 97,
+      last_poster_username: 'alex',
+      posters: [{ username: 'alex', avatar_template: '/alex/{size}.png' }],
+    };
+    const editorial = {
+      id: 97,
+      last_poster_username: 'an_editorial',
+      posters: [
+        {
+          username: 'an_editorial',
+          avatar_template: '/an_editorial/{size}/174_2.png',
+          description: 'Original Poster, Most Recent Poster',
+        },
+      ],
+    };
+    let topic = stale;
+    const site = {
+      jsonApi: jest.fn(path =>
+        Promise.resolve(
+          path === '/latest.json'
+            ? { topic_list: { topics: [topic] } }
+            : { categories: [] },
+        ),
+      ),
+    };
+
+    await expect(loadCommunity(site)).resolves.toMatchObject({
+      topics: [stale],
+    });
+    topic = editorial;
+    await expect(loadCommunity(site)).resolves.toMatchObject({
+      topics: [editorial],
+    });
+    expect(cachedCommunity(site)).toMatchObject({ topics: [editorial] });
+
+    const relaunchedSite = {
+      jsonApi: jest.fn(path =>
+        Promise.resolve(
+          path === '/latest.json'
+            ? { topic_list: { topics: [editorial] } }
+            : { categories: [] },
+        ),
+      ),
+    };
+    await expect(loadCommunity(relaunchedSite)).resolves.toMatchObject({
+      topics: [editorial],
+    });
+  });
+
   test('retains the last successful snapshot when a later refresh fails', async () => {
     const site = {
       jsonApi: jest.fn(path =>
@@ -159,7 +210,9 @@ describe('community startup recovery', () => {
     expect(source).toContain(
       "unavailableWithoutSnapshot ? '—' : data.topics.length",
     );
-    expect(source).toContain("unavailableWithoutSnapshot ? '—' : unanswered");
+    expect(source).toContain(
+      "unavailableWithoutSnapshot ? '—' : activeConversations",
+    );
     expect(source).toContain(
       "unavailableWithoutSnapshot ? '—' : data.categories.length",
     );

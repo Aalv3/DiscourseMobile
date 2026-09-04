@@ -876,6 +876,10 @@ class Discourse extends React.Component {
     if (now - this._lastForegroundRefreshAt < 30000) return false;
     this._lastForegroundRefreshAt = now;
     const generation = ++this._foregroundRefreshGeneration;
+    // A server-side rename must reach the app without a logout or reinstall.
+    // This refreshes the active site only and reuses the guard above, so it
+    // cannot reintroduce the retired multi-site refresh loop.
+    await this._siteManager.refreshActiveIdentity().catch(() => false);
     await this._siteManager.refreshNotificationState(reason).catch(() => []);
     if (generation !== this._foregroundRefreshGeneration) return false;
     this.setState(current => ({
@@ -978,6 +982,37 @@ class Discourse extends React.Component {
     if (route.disposition === 'privileged_external') {
       Linking.openURL(route.url).catch(() => {});
     }
+  }
+
+  // A member must never be trapped behind an identity they did not choose in
+  // this attempt. Retire every client-side identity carrier, then start a
+  // normal authorization. This does not depend on the browser honouring an
+  // ephemeral session, and it never revokes the server-side credential of an
+  // account the member may still want.
+  async useDifferentAccount() {
+    if (this.state.connecting) return;
+    Alert.alert(
+      'Use a different account?',
+      'Adjuster Network will forget the saved sign-in on this device and ask for credentials again. Your account is not deleted.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Continue',
+          onPress: async () => {
+            this.setState({ connecting: true });
+            try {
+              await this._siteManager.resetAuthorizationIdentity();
+              securityEvent('auth.identity.reset');
+            } catch {
+              securityEvent('auth.identity.reset_failed');
+            } finally {
+              this.setState({ connecting: false });
+            }
+            await this.connectCanonical();
+          },
+        },
+      ],
+    );
   }
 
   async connectCanonical() {
@@ -1160,6 +1195,7 @@ class Discourse extends React.Component {
             <WelcomeScreen
               busy={this.state.connecting}
               onConnect={() => this.connectCanonical()}
+              onUseDifferentAccount={() => this.useDifferentAccount()}
             />
             {this.state.privacyShield && this._blurView(theme.name)}
           </ThemeContext.Provider>

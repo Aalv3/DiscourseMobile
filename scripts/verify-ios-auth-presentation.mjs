@@ -46,6 +46,15 @@ const assertions = [
     ),
   ],
   [
+    'honours an ephemeral browser-auth context',
+    source.includes('ephemeral:(BOOL)ephemeral') &&
+      source.includes('session.prefersEphemeralWebBrowserSession = ephemeral;'),
+  ],
+  [
+    'never pins a persistent shared-Safari session',
+    !source.includes('prefersEphemeralWebBrowserSession = NO'),
+  ],
+  [
     'links AuthenticationServices explicitly',
     podspec.includes('s.frameworks = "AuthenticationServices", "UIKit"'),
   ],

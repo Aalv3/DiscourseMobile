@@ -1,6 +1,12 @@
 /* @flow */
 'use strict';
 
+export const DISCUSSION_SEARCH_MIN_LENGTH = 3;
+
+export const discussionSearchEligible = query =>
+  typeof query === 'string' &&
+  query.trim().length >= DISCUSSION_SEARCH_MIN_LENGTH;
+
 export const searchResults = payload => {
   const topics = Array.isArray(payload?.topics) ? payload.topics : [];
   const posts = Array.isArray(payload?.posts) ? payload.posts : [];
