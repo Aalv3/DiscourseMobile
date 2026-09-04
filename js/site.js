@@ -31,6 +31,7 @@ class Site {
     'lastVisitedPath',
     'lastVisitedPathAt',
     'loginRequired',
+    'name',
     'queueCount',
     'title',
     'totalNew',
@@ -339,7 +340,36 @@ class Site {
   logoff() {
     this.authToken = null;
     this.username = null;
+    this.name = null;
     this.isStaff = null;
+  }
+
+  // The signed-in member identity is captured once at authorization and then
+  // never refetched by the notification lifecycle, so a server-side rename
+  // leaves every username-dependent surface pointing at the old handle. Read
+  // the current session instead: /session/current.json is the narrowest
+  // authenticated endpoint carrying both fields and is already covered by the
+  // granted session_info scope, so no server contract changes.
+  //
+  // Fail closed. A malformed or empty payload preserves the last known good
+  // identity rather than blanking it; transport errors propagate to the
+  // caller, which treats them the same way.
+  async refreshIdentity() {
+    if (!this.authToken) {
+      return false;
+    }
+
+    const payload = await this.jsonApi('/session/current.json');
+    const current = payload?.current_user;
+    const username = String(current?.username || '').trim();
+    if (!username) {
+      return false;
+    }
+    const name = String(current?.name || '').trim() || null;
+    const changed = this.username !== username || this.name !== name;
+    this.username = username;
+    this.name = name;
+    return changed;
   }
 
   // Only the canonical server 401 + machine-readable credential tuple means
