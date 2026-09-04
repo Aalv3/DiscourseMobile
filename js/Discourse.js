@@ -876,6 +876,10 @@ class Discourse extends React.Component {
     if (now - this._lastForegroundRefreshAt < 30000) return false;
     this._lastForegroundRefreshAt = now;
     const generation = ++this._foregroundRefreshGeneration;
+    // A server-side rename must reach the app without a logout or reinstall.
+    // This refreshes the active site only and reuses the guard above, so it
+    // cannot reintroduce the retired multi-site refresh loop.
+    await this._siteManager.refreshActiveIdentity().catch(() => false);
     await this._siteManager.refreshNotificationState(reason).catch(() => []);
     if (generation !== this._foregroundRefreshGeneration) return false;
     this.setState(current => ({

@@ -88,6 +88,7 @@ function memberSite(url, clientId = CLIENT_ID) {
     credentialRetired: false,
     logoff: jest.fn(),
     refresh: jest.fn(() => Promise.resolve()),
+    refreshIdentity: jest.fn(() => Promise.resolve(false)),
     // A fresh authorization is only accepted after the server confirms the
     // profile is bound to this client ID.
     jsonApi: jest.fn(() => Promise.resolve(authorizationProfile(clientId))),

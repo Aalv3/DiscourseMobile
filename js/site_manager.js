@@ -149,6 +149,38 @@ class SiteManager {
     this._onChange();
   }
 
+  // Refresh the signed-in member identity for the active site only. The broad
+  // legacy refreshSites() loop stays retired: it fans out across every site and
+  // was deliberately removed from the authenticated lifecycle to stop it
+  // extending rate limits. A single in-flight request is shared so sibling
+  // foreground triggers cannot stack, and the record is persisted only when the
+  // identity actually changed. A failed refresh preserves the last known
+  // identity rather than corrupting it.
+  refreshActiveIdentity() {
+    if (this._identityRefresh) return this._identityRefresh;
+    const site =
+      this.activeSite || this.sites.find(candidate => candidate.authToken);
+    if (!site?.authToken) return Promise.resolve(false);
+
+    const request = site
+      .refreshIdentity()
+      .then(changed => {
+        if (changed) {
+          this.save();
+          this._onChange();
+        }
+        return changed;
+      })
+      .catch(() => false)
+      .finally(() => {
+        if (this._identityRefresh === request) {
+          this._identityRefresh = null;
+        }
+      });
+    this._identityRefresh = request;
+    return request;
+  }
+
   setActiveSite(site) {
     return new Promise(resolve => {
       if (typeof site === 'string' || site instanceof String) {
@@ -508,6 +540,10 @@ class SiteManager {
         await credentialStore.removeSiteToken(nonceSite.url);
       }
     };
+    // A fresh authorization may be for a different member. Drop the previous
+    // identity before the new credential is used so nothing can inherit it.
+    nonceSite.username = null;
+    nonceSite.name = null;
     nonceSite.authToken = decrypted.key;
     nonceSite.hasPush = decrypted.push;
     nonceSite.apiVersion = decrypted.api;
@@ -536,6 +572,7 @@ class SiteManager {
     // A verified fresh authorization supersedes any earlier retirement.
     nonceSite.credentialRetired = false;
     nonceSite.credentialRetiredReason = null;
+    await nonceSite.refreshIdentity().catch(() => false);
     this.save();
 
     // cause we want to stop rendering connect
