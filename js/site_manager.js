@@ -26,7 +26,10 @@ import {
   recordNotificationDiagnostic,
   supportedNotification,
 } from './notificationState';
-import { clearAvatarAuthorityForSite } from './product/avatarAuthority';
+import {
+  clearAvatarAuthorities,
+  clearAvatarAuthorityForSite,
+} from './product/avatarAuthority';
 import {
   clearAuthorizationProfile,
   markAuthorizationProfileCurrent,
@@ -144,6 +147,10 @@ class SiteManager {
     this.clientId = null;
     this._nonce = null;
     this._nonceSite = null;
+    // Member photos are authenticated per viewer. Drop every cached avatar
+    // record so a switched account cannot render bytes resolved under the
+    // previous member's admission.
+    clearAvatarAuthorities();
     this.sites.forEach(site => site.logoff());
     this.save();
     this._onChange();
