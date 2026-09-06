@@ -1,4 +1,7 @@
-import { memberImageSource } from '../product/memberImageSource';
+import {
+  authenticatedOriginHeaders,
+  memberImageSource,
+} from '../product/memberImageSource';
 
 const CANONICAL = 'https://adjusternetwork.org';
 const site = { url: CANONICAL, authToken: 'user-api-key', clientId: 'client' };
@@ -97,5 +100,88 @@ describe('the shared Avatar is the only member-photo loader', () => {
     expect(reset).toContain('clearAvatarAuthorities()');
     // Logout already clears the per-site records.
     expect(source).toContain('clearAvatarAuthorityForSite(removableSite)');
+  });
+});
+
+describe('adversarial origins never receive the User API credential', () => {
+  // Post cooked HTML is member-authored, so a hostile absolute URL can reach
+  // the media loader directly. Every one of these must come back bare.
+  const HOSTILE = [
+    'https://evil.example.com/uploads/a.png',
+    'https://adjusternetwork.org.evil.example.com/uploads/a.png',
+    'https://evil.example.com/?next=https://adjusternetwork.org/uploads/a.png',
+    'https://evil.example.com#https://adjusternetwork.org/uploads/a.png',
+    'https://cdn.adjusternetwork.org/uploads/a.png',
+    'https://staging.adjusternetwork.org/uploads/a.png',
+    'https://adjusternetwork.org.example.com/uploads/a.png',
+    'https://adjusternetwork.orgevil.com/uploads/a.png',
+    'http://adjusternetwork.org/uploads/a.png',
+    'http://evil.example.com/uploads/a.png',
+    'https://user:pass@evil.example.com/uploads/a.png',
+    'https://adjusternetwork.org:8443/uploads/a.png',
+    'ftp://adjusternetwork.org/uploads/a.png',
+    'file:///etc/passwd',
+    'data:image/png;base64,AAAA',
+    'javascript:alert(1)',
+    '//evil.example.com/uploads/a.png',
+  ];
+
+  test.each(HOSTILE)('no credential for %s', uri => {
+    expect(authenticatedOriginHeaders(site, uri)).toBeUndefined();
+    expect(memberImageSource(site, uri)).toEqual({ uri });
+  });
+
+  test('the trusted origin still authenticates for both surfaces', () => {
+    for (const uri of [
+      `${CANONICAL}/renaissance/member-photo/tomrodriguez/120/7`,
+      `${CANONICAL}/secure-uploads/original/1X/abc.png`,
+      `${CANONICAL}/uploads/default/original/1X/abc.png`,
+    ]) {
+      expect(authenticatedOriginHeaders(site, uri)).toEqual({
+        'User-Api-Key': 'user-api-key',
+        'User-Api-Client-Id': 'client',
+      });
+    }
+  });
+
+  test('a signed-out or missing viewer never authenticates', () => {
+    const uri = `${CANONICAL}/secure-uploads/original/1X/abc.png`;
+    expect(authenticatedOriginHeaders(null, uri)).toBeUndefined();
+    expect(authenticatedOriginHeaders({ url: CANONICAL }, uri)).toBeUndefined();
+    expect(authenticatedOriginHeaders(site, null)).toBeUndefined();
+    expect(authenticatedOriginHeaders(site, '')).toBeUndefined();
+  });
+});
+
+describe('secure media reuses the same origin guard', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const source = fs.readFileSync(
+    path.join(__dirname, '..', 'product', 'DiscourseMedia.js'),
+    'utf8',
+  );
+
+  test('media images and the attachment viewer are both guarded', () => {
+    expect(source).toContain(
+      'const headers = authenticatedOriginHeaders(site, state.url)',
+    );
+    expect(source).toContain(
+      'const headers = authenticatedOriginHeaders(site, state.authorizedUrl)',
+    );
+  });
+
+  test('no unguarded credential construction remains anywhere', () => {
+    // The only place these header names may appear is the guarded helper.
+    expect(source).not.toContain("'User-Api-Key': site.authToken");
+    const helper = fs.readFileSync(
+      path.join(__dirname, '..', 'product', 'memberImageSource.js'),
+      'utf8',
+    );
+    expect(helper).toContain('isCanonicalUrl(uri)');
+    const components = fs.readFileSync(
+      path.join(__dirname, '..', 'product', 'ProductComponents.js'),
+      'utf8',
+    );
+    expect(components).not.toContain("'User-Api-Key'");
   });
 });

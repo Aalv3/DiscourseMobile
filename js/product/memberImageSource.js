@@ -16,18 +16,20 @@ import { isCanonicalUrl } from '../adjusterNetworkSecurity';
 //
 // Nothing is placed in the URL, query string, or any log: the credential
 // travels only as a request header.
+export function authenticatedOriginHeaders(site, uri) {
+  if (!uri || !site?.authToken || !isCanonicalUrl(uri)) {
+    return undefined;
+  }
+  return {
+    'User-Api-Key': site.authToken,
+    'User-Api-Client-Id': site.clientId || '',
+  };
+}
+
 export function memberImageSource(site, uri) {
   if (!uri) {
     return null;
   }
-  if (!site?.authToken || !isCanonicalUrl(uri)) {
-    return { uri };
-  }
-  return {
-    uri,
-    headers: {
-      'User-Api-Key': site.authToken,
-      'User-Api-Client-Id': site.clientId || '',
-    },
-  };
+  const headers = authenticatedOriginHeaders(site, uri);
+  return headers ? { uri, headers } : { uri };
 }
