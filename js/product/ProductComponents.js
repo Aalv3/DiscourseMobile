@@ -14,6 +14,7 @@ import FontAwesome5 from '@react-native-vector-icons/fontawesome5';
 import { ThemeContext } from '../ThemeContext';
 import { productTheme, radius, spacing, type } from './DesignSystem';
 import { useAvatarAuthorityRecord } from './avatarAuthority';
+import { memberImageSource } from './memberImageSource';
 
 export const useProductTheme = () =>
   productTheme(useContext(ThemeContext).name);
@@ -405,7 +406,7 @@ export const Avatar = ({
         key={resolvedUri}
         accessibilityLabel={`${label} profile photo`}
         onError={() => setFailedUri(resolvedUri)}
-        source={{ uri: resolvedUri }}
+        source={memberImageSource(site, resolvedUri)}
         style={style}
       />
     );

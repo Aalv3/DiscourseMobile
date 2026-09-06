@@ -249,7 +249,7 @@ describe('native Discourse media attachments', () => {
 
   test('opens the real PDF route in an authenticated in-app viewer', async () => {
     const site = {
-      url: 'https://staging.adjusternetwork.org',
+      url: 'https://adjusternetwork.org',
       authToken: 'test-user-api-key',
       clientId: 'test-client',
     };
@@ -285,6 +285,42 @@ describe('native Discourse media attachments', () => {
         'User-Api-Client-Id': site.clientId,
       },
     });
+  });
+
+  test('never sends the credential to an off-origin attachment', async () => {
+    // The OTA channel is production in this suite, so any other host - the
+    // staging origin included - must not receive the User API credential.
+    const site = {
+      url: 'https://adjusternetwork.org',
+      authToken: 'test-user-api-key',
+      clientId: 'test-client',
+    };
+    const url =
+      'https://staging.adjusternetwork.org/secure-uploads/original/1X/synthetic.pdf';
+    const refreshMedia = jest.fn().mockResolvedValue(url);
+    let renderer;
+    act(() => {
+      renderer = TestRenderer.create(
+        <DiscourseMedia
+          media={[{ type: 'file', url, name: 'field-notes.pdf' }]}
+          site={site}
+          resourceKey="topic:90:post:133"
+          refreshMedia={refreshMedia}
+        />,
+      );
+    });
+
+    await act(async () => {
+      renderer.root
+        .findByProps({ accessibilityLabel: 'Open attachment field-notes.pdf' })
+        .props.onPress();
+      await Promise.resolve();
+    });
+
+    const viewer = renderer.root.findByProps({
+      accessibilityLabel: 'Attachment field-notes.pdf',
+    });
+    expect(viewer.props.source).toEqual({ uri: url, headers: undefined });
   });
 
   test('supports canonical and legacy Discourse attachment representations', () => {
