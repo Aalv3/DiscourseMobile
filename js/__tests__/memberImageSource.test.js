@@ -1,5 +1,6 @@
 import {
   authenticatedOriginHeaders,
+  isMemberPhotoUrl,
   memberImageSource,
 } from '../product/memberImageSource';
 
@@ -131,7 +132,7 @@ describe('adversarial origins never receive the User API credential', () => {
     expect(memberImageSource(site, uri)).toEqual({ uri });
   });
 
-  test('the trusted origin still authenticates for both surfaces', () => {
+  test('the trusted origin still authenticates media on the shared guard', () => {
     for (const uri of [
       `${CANONICAL}/renaissance/member-photo/tomrodriguez/120/7`,
       `${CANONICAL}/secure-uploads/original/1X/abc.png`,
@@ -183,5 +184,72 @@ describe('secure media reuses the same origin guard', () => {
       'utf8',
     );
     expect(components).not.toContain("'User-Api-Key'");
+  });
+});
+
+describe('only the private member-photo route authenticates an avatar', () => {
+  // Regression guard. Authenticating ordinary Discourse avatars turned every
+  // rendered avatar into a counted user-API request. Those requests are issued
+  // by the native image pipeline, outside the app's request orchestrator, so
+  // they exhausted the member's rate limit and starved /latest.json - which is
+  // what Discussions needs to load.
+  test('ordinary Discourse avatars are loaded without any credential', () => {
+    for (const path of [
+      '/user_avatar/adjusternetwork.org/tomrodriguez/120/1234_2.png',
+      '/letter_avatar_proxy/v4/letter/t/abc/120.png',
+      '/uploads/default/original/1X/abc.png',
+      '/images/avatar.png',
+    ]) {
+      const uri = `${CANONICAL}${path}`;
+      expect(memberImageSource(site, uri)).toEqual({ uri });
+      expect(isMemberPhotoUrl(uri)).toBe(false);
+    }
+  });
+
+  test('the governed member-photo route still authenticates', () => {
+    const uri = `${CANONICAL}/renaissance/member-photo/tomrodriguez/120/7`;
+    expect(isMemberPhotoUrl(uri)).toBe(true);
+    expect(memberImageSource(site, uri)).toEqual({
+      uri,
+      headers: {
+        'User-Api-Key': 'user-api-key',
+        'User-Api-Client-Id': 'client',
+      },
+    });
+  });
+
+  test('a member-photo path on an untrusted origin is still refused', () => {
+    for (const uri of [
+      'https://evil.example.com/renaissance/member-photo/tomrodriguez/120/7',
+      'http://adjusternetwork.org/renaissance/member-photo/tomrodriguez/120/7',
+      'https://adjusternetwork.org.evil.example.com/renaissance/member-photo/x/1/1',
+    ]) {
+      expect(memberImageSource(site, uri)).toEqual({ uri });
+    }
+  });
+
+  test('a look-alike path prefix does not qualify', () => {
+    for (const path of [
+      '/renaissance/member-photos/x/120/7',
+      '/renaissance/member-photo',
+      '/x/renaissance/member-photo/x/120/7',
+      '/renaissance/member-photox/x/120/7',
+    ]) {
+      expect(isMemberPhotoUrl(`${CANONICAL}${path}`)).toBe(false);
+    }
+  });
+
+  test('secure media keeps its own guard and is unaffected', () => {
+    // Media already authenticated before this work, so its request count is
+    // unchanged; only the origin restriction was added.
+    expect(
+      authenticatedOriginHeaders(
+        site,
+        `${CANONICAL}/secure-uploads/original/1X/abc.png`,
+      ),
+    ).toEqual({
+      'User-Api-Key': 'user-api-key',
+      'User-Api-Client-Id': 'client',
+    });
   });
 });

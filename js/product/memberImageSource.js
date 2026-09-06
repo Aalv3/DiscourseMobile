@@ -1,7 +1,14 @@
 /* @flow */
 'use strict';
 
-import { isCanonicalUrl } from '../adjusterNetworkSecurity';
+import { isCanonicalUrl, parseHttpsUrl } from '../adjusterNetworkSecurity';
+
+// Only the governed private member-photo route requires the User API
+// credential. Ordinary Discourse avatars are served from /user_avatar/ and are
+// readable without one; authenticating them turns every rendered avatar into a
+// counted user-API request, which exhausts the member's rate limit and starves
+// the real API calls behind it.
+const MEMBER_PHOTO_PATH = /^\/renaissance\/member-photo\//;
 
 // Private member photos are served by the governed origin and require the same
 // User API credential the JSON API already sends. React Native's image loader
@@ -26,9 +33,20 @@ export function authenticatedOriginHeaders(site, uri) {
   };
 }
 
+export function isMemberPhotoUrl(uri) {
+  const url = parseHttpsUrl(String(uri || ''));
+  return !!url && MEMBER_PHOTO_PATH.test(url.pathname);
+}
+
 export function memberImageSource(site, uri) {
   if (!uri) {
     return null;
+  }
+  // Avatars render many-per-screen and are loaded by the native image
+  // pipeline, outside the app's request orchestrator and its rate-limit
+  // cooldowns. Only the private member-photo route may carry the credential.
+  if (!isMemberPhotoUrl(uri)) {
+    return { uri };
   }
   const headers = authenticatedOriginHeaders(site, uri);
   return headers ? { uri, headers } : { uri };
