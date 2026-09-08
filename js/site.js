@@ -200,17 +200,7 @@ class Site {
         path,
         errorCode: 'user_api_key_limiter_60_secs',
       });
-      // The IP buckets gate new requests too. Without this, an IP-scoped 429
-      // set a cooldown that only retries consulted, so fresh requests kept
-      // amplifying inside an active limiter window.
-      const ipBucket = limiterBucket({
-        origin: this.url,
-        clientId: this.clientId,
-        path,
-        errorCode: 'ip_60_secs_limit',
-      });
       await requestOrchestrator.waitForBucket(globalUserBucket);
-      await requestOrchestrator.waitForBucket(ipBucket);
       await requestOrchestrator.waitForBucket(fallbackBucket);
       let req = new Request(this.url + path, {
         headers: headers,

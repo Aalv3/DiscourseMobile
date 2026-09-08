@@ -1,9 +1,9 @@
 import Site from '../site';
 import fetch from '../../lib/fetch';
 import {
+  RATE_LIMIT_COOLDOWN_MAX_MS,
   RATE_LIMIT_MAX_MS,
   apiRateLimitCoordinator,
-  rateLimitDelayMs,
 } from '../apiRateLimit';
 import { limiterBucket, requestOrchestrator } from '../requestOrchestrator';
 
@@ -98,6 +98,35 @@ describe('Q2: which later paths a user-api cooldown blocks', () => {
   });
 });
 
+describe('the IP-bucket pre-request wait was removed from this package', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const source = fs.readFileSync(path.join(__dirname, '..', 'site.js'), 'utf8');
+
+  test('jsonApi waits only on the user-api and endpoint-class buckets', () => {
+    expect(source).toContain(
+      'await requestOrchestrator.waitForBucket(globalUserBucket)',
+    );
+    expect(source).toContain(
+      'await requestOrchestrator.waitForBucket(fallbackBucket)',
+    );
+    // Scope kept minimal to the proven User API limiter defect.
+    expect(source).not.toContain('ipBucket');
+    expect(source).not.toContain("errorCode: 'ip_60_secs_limit'");
+  });
+
+  test('the pre-existing IP bucket machinery is preserved', () => {
+    expect(
+      limiterBucket({
+        origin: ORIGIN,
+        clientId: 'c',
+        path: '/x',
+        errorCode: 'ip_60_secs_limit',
+      }),
+    ).toBe(`${ORIGIN}:ip`);
+  });
+});
+
 describe('Q3/Q4: IP bucket is literal and separate from user-api', () => {
   test('the IP codes map to their own bucket, not a general label', () => {
     expect(bucketFor('ip_10_secs_limit')).toBe(`${ORIGIN}:ip`);
@@ -176,7 +205,7 @@ describe('Q5: correctness of the wait', () => {
     jest.useRealTimers();
   });
 
-  test('auth, logout and session recovery cannot deadlock: every wait is bounded', async () => {
+  test('auth, logout and session recovery cannot deadlock', async () => {
     let clock = 0;
     const orchestrator = new requestOrchestrator.constructor({
       now: () => clock,
@@ -185,16 +214,22 @@ describe('Q5: correctness of the wait', () => {
         return Promise.resolve();
       },
     });
-    // Even a hostile Retry-After cannot hold a request longer than the clamp.
+    // A hostile Retry-After is capped at the cooldown ceiling, and no single
+    // request waits for it: the waiter fails fast instead of hanging.
     orchestrator.beginCooldown(
       'b',
       limited('999999', 'user_api_key_limiter_60_secs'),
       0,
     );
-    expect(orchestrator.cooldowns.get('b')).toBe(RATE_LIMIT_MAX_MS);
-    await orchestrator.waitForBucket('b');
-    expect(clock).toBeLessThanOrEqual(RATE_LIMIT_MAX_MS + 1000);
-    expect(orchestrator.cooldowns.has('b')).toBe(false);
+    expect(orchestrator.cooldowns.get('b')).toBe(RATE_LIMIT_COOLDOWN_MAX_MS);
+    await expect(orchestrator.waitForBucket('b')).rejects.toMatchObject({
+      message: 'api_rate_limited',
+      status: 429,
+    });
+    // Nothing slept, so no caller can be held.
+    expect(clock).toBe(0);
+    // The cooldown is preserved for later requests rather than cleared.
+    expect(orchestrator.cooldowns.get('b')).toBe(RATE_LIMIT_COOLDOWN_MAX_MS);
   });
 
   test('a rate-limited mutation is never replayed automatically', async () => {
@@ -218,18 +253,153 @@ describe('Q5: correctness of the wait', () => {
   });
 });
 
-describe('Q6: the 60s clamp against production values up to 136s', () => {
-  test('Retry-After above the clamp is truncated to 60s', () => {
-    expect(
-      rateLimitDelayMs(limited('136', 'user_api_key_limiter_60_secs'), 0),
-    ).toBe(RATE_LIMIT_MAX_MS);
+describe('Q6: cooldown lifetime vs per-request ceiling', () => {
+  const makeOrchestrator = () => {
+    const state = { clock: 0 };
+    const orchestrator = new requestOrchestrator.constructor({
+      now: () => state.clock,
+      sleep: ms => {
+        state.clock += ms;
+        return Promise.resolve();
+      },
+    });
+    return { orchestrator, state };
+  };
+
+  test('the two ceilings are distinct', () => {
     expect(RATE_LIMIT_MAX_MS).toBe(60000);
+    expect(RATE_LIMIT_COOLDOWN_MAX_MS).toBe(180000);
   });
 
-  test('truncation under-waits, so a 136s directive costs bounded extra 429s', async () => {
+  test.each([
+    ['30', 30000, 'waits'],
+    ['60', 60000, 'waits'],
+    ['136', 136000, 'fails fast'],
+    ['300', RATE_LIMIT_COOLDOWN_MAX_MS, 'fails fast'],
+  ])(
+    'Retry-After %s records a %s ms cooldown and then %s',
+    async (header, expected) => {
+      const { orchestrator, state } = makeOrchestrator();
+      const delay = orchestrator.beginCooldown(
+        'b',
+        limited(header, 'user_api_key_limiter_60_secs'),
+        0,
+      );
+      expect(delay).toBe(expected);
+      expect(orchestrator.cooldowns.get('b')).toBe(expected);
+
+      if (expected > RATE_LIMIT_MAX_MS) {
+        await expect(orchestrator.waitForBucket('b')).rejects.toMatchObject({
+          status: 429,
+        });
+        expect(state.clock).toBe(0);
+      } else {
+        await orchestrator.waitForBucket('b');
+        expect(state.clock).toBeGreaterThanOrEqual(expected);
+        expect(orchestrator.cooldowns.has('b')).toBe(false);
+      }
+    },
+  );
+
+  test('no request is sent inside an active 136s cooldown', async () => {
     jest.useFakeTimers();
-    // Server keeps limiting for longer than the clamp.
-    fetch.mockResolvedValue(limited('136', 'user_api_key_limiter_60_secs'));
+    requestOrchestrator.beginCooldown(
+      `${ORIGIN}:user-api:client-A`,
+      limited('136', 'user_api_key_limiter_60_secs'),
+      0,
+    );
+    fetch.mockResolvedValue({
+      status: 200,
+      json: () => Promise.resolve({ ok: 1 }),
+    });
+    const site = new Site({
+      url: ORIGIN,
+      authToken: 'k',
+      clientId: 'client-A',
+    });
+    await expect(site.jsonApi('/latest.json')).rejects.toMatchObject({
+      message: 'api_rate_limited',
+      status: 429,
+    });
+    // Fail fast: nothing reached the network inside the window.
+    expect(fetch).not.toHaveBeenCalled();
+    jest.useRealTimers();
+  });
+
+  test('later requests keep observing the cooldown until it truly expires', async () => {
+    const { orchestrator } = makeOrchestrator();
+    orchestrator.beginCooldown(
+      'b',
+      limited('136', 'user_api_key_limiter_60_secs'),
+      0,
+    );
+    await expect(orchestrator.waitForBucket('b')).rejects.toMatchObject({
+      status: 429,
+    });
+    // Still active after the per-request ceiling would have elapsed.
+    orchestrator.now = () => 61000;
+    await expect(orchestrator.waitForBucket('b')).rejects.toMatchObject({
+      status: 429,
+    });
+    // Inside the final minute it becomes a normal bounded wait again.
+    orchestrator.now = () => 100000;
+    await orchestrator.waitForBucket('b');
+  });
+
+  test('normal requests resume after the cooldown expires', async () => {
+    jest.useFakeTimers();
+    requestOrchestrator.beginCooldown(
+      `${ORIGIN}:user-api:client-A`,
+      limited('30', 'user_api_key_limiter_60_secs'),
+      0,
+    );
+    fetch.mockResolvedValue({
+      status: 200,
+      json: () => Promise.resolve({ ok: 3 }),
+    });
+    const site = new Site({
+      url: ORIGIN,
+      authToken: 'k',
+      clientId: 'client-A',
+    });
+    const pending = site.jsonApi('/latest.json');
+    await jest.advanceTimersByTimeAsync(0);
+    expect(fetch).not.toHaveBeenCalled();
+    await jest.advanceTimersByTimeAsync(31000);
+    await expect(pending).resolves.toEqual({ ok: 3 });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    jest.useRealTimers();
+  });
+
+  test('a repeated 429 extends the cooldown without fan-out', async () => {
+    const { orchestrator } = makeOrchestrator();
+    orchestrator.beginCooldown(
+      'b',
+      limited('30', 'user_api_key_limiter_60_secs'),
+      0,
+    );
+    expect(orchestrator.cooldowns.get('b')).toBe(30000);
+    // A longer directive extends it.
+    orchestrator.beginCooldown(
+      'b',
+      limited('136', 'user_api_key_limiter_60_secs'),
+      1,
+    );
+    expect(orchestrator.cooldowns.get('b')).toBe(136000);
+    // A shorter directive never shortens it.
+    orchestrator.beginCooldown(
+      'b',
+      limited('5', 'user_api_key_limiter_60_secs'),
+      2,
+    );
+    expect(orchestrator.cooldowns.get('b')).toBe(136000);
+    // One shared window, not one per caller.
+    expect(orchestrator.cooldowns.size).toBe(1);
+  });
+
+  test('GET retry count stays bounded when the window is short', async () => {
+    jest.useFakeTimers();
+    fetch.mockResolvedValue(limited('2', 'user_api_key_limiter_60_secs'));
     const site = new Site({
       url: ORIGIN,
       authToken: 'k',
@@ -237,13 +407,10 @@ describe('Q6: the 60s clamp against production values up to 136s', () => {
     });
     const rejection = expect(
       site.jsonApi('/latest.json'),
-    ).rejects.toMatchObject({
-      status: 429,
-    });
+    ).rejects.toMatchObject({ status: 429 });
     await jest.advanceTimersByTimeAsync(0);
-    await jest.advanceTimersByTimeAsync(400000);
+    await jest.advanceTimersByTimeAsync(60000);
     await rejection;
-    // Bounded: initial attempt plus RATE_LIMIT_MAX_RETRIES, never a storm.
     expect(fetch).toHaveBeenCalledTimes(3);
     jest.useRealTimers();
   });

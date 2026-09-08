@@ -3,21 +3,38 @@
 
 export const RATE_LIMIT_FALLBACK_MS = Object.freeze([2000, 5000]);
 export const RATE_LIMIT_MIN_MS = 1000;
+// Two independent ceilings. RATE_LIMIT_MAX_MS bounds how long a single request
+// may block, so auth, logout and session recovery can never hang.
+// RATE_LIMIT_COOLDOWN_MAX_MS bounds the recorded cooldown lifetime, which the
+// server directs through Retry-After. Production has returned values up to
+// 136s; clamping the cooldown to the per-request ceiling made GET chains
+// re-enter a known-active window at ~60s and ~120s.
 export const RATE_LIMIT_MAX_MS = 60000;
+export const RATE_LIMIT_COOLDOWN_MAX_MS = 180000;
 export const RATE_LIMIT_MAX_RETRIES = 2;
 
-const boundedDelay = value =>
-  Math.min(RATE_LIMIT_MAX_MS, Math.max(RATE_LIMIT_MIN_MS, value));
+const bounded = (value, max) =>
+  Math.min(max, Math.max(RATE_LIMIT_MIN_MS, value));
+const boundedDelay = value => bounded(value, RATE_LIMIT_MAX_MS);
+const boundedCooldown = value => bounded(value, RATE_LIMIT_COOLDOWN_MAX_MS);
 
-export function retryAfterDelayMs(value, now = Date.now()) {
+function parseRetryAfterMs(value, now) {
   if (typeof value !== 'string' || !value.trim()) return null;
   const seconds = Number(value.trim());
-  if (Number.isFinite(seconds) && seconds >= 0) {
-    return boundedDelay(seconds * 1000);
-  }
+  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
   const timestamp = Date.parse(value);
   if (!Number.isFinite(timestamp)) return null;
-  return boundedDelay(Math.max(0, timestamp - now));
+  return Math.max(0, timestamp - now);
+}
+
+export function retryAfterDelayMs(value, now = Date.now()) {
+  const raw = parseRetryAfterMs(value, now);
+  return raw === null ? null : boundedDelay(raw);
+}
+
+export function retryAfterCooldownMs(value, now = Date.now()) {
+  const raw = parseRetryAfterMs(value, now);
+  return raw === null ? null : boundedCooldown(raw);
 }
 
 export function rateLimitDelayMs(response, retryIndex, now = Date.now()) {
@@ -26,6 +43,18 @@ export function rateLimitDelayMs(response, retryIndex, now = Date.now()) {
     now,
   );
   return directed ?? RATE_LIMIT_FALLBACK_MS[retryIndex] ?? RATE_LIMIT_MAX_MS;
+}
+
+// The cooldown lifetime honors the directed value up to the cooldown ceiling.
+export function rateLimitCooldownMs(response, retryIndex, now = Date.now()) {
+  const directed = retryAfterCooldownMs(
+    response?.headers?.get?.('Retry-After'),
+    now,
+  );
+  return (
+    directed ??
+    boundedCooldown(RATE_LIMIT_FALLBACK_MS[retryIndex] ?? RATE_LIMIT_MAX_MS)
+  );
 }
 
 export class ApiRateLimitCoordinator {
