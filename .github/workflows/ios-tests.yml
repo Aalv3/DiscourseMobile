@@ -51,8 +51,12 @@ jobs:
             -quiet \
             build
 
+      # --retries matches the iPad job. It covers macOS runner flake - cold
+      # simulator boots have repeatedly exceeded the launch budget - not
+      # product assertions. A test that fails every attempt still fails the
+      # job; retries never convert a real regression into a pass.
       - name: Detox iPhone tests
-        run: yarn detox test --configuration ios.sim.release --cleanup --record-logs all
+        run: yarn detox test --configuration ios.sim.release --cleanup --record-logs all --retries 2
 
       - name: Upload artifacts
         if: failure()
