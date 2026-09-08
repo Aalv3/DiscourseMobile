@@ -102,3 +102,25 @@ Preserved throughout: private member-photo credential boundary (only
 `/user_avatar/` unauthenticated, canonical-origin guard, secure-media origin
 guard, identity refresh, logout and account-switch cleanup. No server settings,
 runtime, or binary change. The 100/min server setting is not to be reopened.
+
+## Avatar-resolution diagnostic (superseded, not merged)
+
+Branch `diag/native-avatar-resolution-20260908`, draft PR #12, final SHA
+`a4b82b6ddf34183c00b57cbf62ba2417c2735f94`. Never merged and never promoted to
+production; retained on the branch for reuse.
+
+It instrumented the shared `Avatar` with a monotonic per-instance id, a UTC
+timestamp with milliseconds, mount/unmount, the React key, source-object
+recreation, the navigator kind, the resolved path, the authority key and
+presence, the `memberImageSource` classification, whether `failedUri` matched
+the resolved URI, the fallback branch taken, and the image lifecycle with the
+exact `nativeEvent.error`. Instance ids mattered because `no-store` plus stack
+remounting means several Image instances share one URI and their events
+interleave.
+
+It was never run: the fixture iPhone was on the production channel and could not
+consume a staging OTA, and no second device was available. The root cause was
+instead proven from source plus the server lane's 429 evidence, so the design is
+recorded here rather than carried in trunk. The two ideas worth keeping are the
+per-instance id for correlating interleaved events, and a UTC wall clock with
+milliseconds for aligning a specific client instance against an edge log.
