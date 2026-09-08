@@ -13,6 +13,7 @@ const ALLOWED_EVENTS = new Set([
   'cache_hit',
   'cooldown_begin',
   'cooldown_wait',
+  'cooldown_reject',
 ]);
 let write = Promise.resolve();
 

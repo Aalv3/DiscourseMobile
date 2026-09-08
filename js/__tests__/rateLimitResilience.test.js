@@ -104,22 +104,21 @@ describe('P1: Retry-After is honored by the shared cooldown', () => {
   });
 });
 
-describe('P1: new requests are gated on the IP bucket as well', () => {
+describe('P1: new requests are gated on the shared user-api cooldown', () => {
   const fs = require('fs');
   const path = require('path');
   const source = fs.readFileSync(path.join(__dirname, '..', 'site.js'), 'utf8');
 
-  test('site.jsonApi waits on user-api, ip and endpoint buckets', () => {
+  test('site.jsonApi waits on the user-api and endpoint buckets only', () => {
     expect(source).toContain(
       'await requestOrchestrator.waitForBucket(globalUserBucket)',
     );
     expect(source).toContain(
-      'await requestOrchestrator.waitForBucket(ipBucket)',
-    );
-    expect(source).toContain(
       'await requestOrchestrator.waitForBucket(fallbackBucket)',
     );
-    expect(source).toContain("errorCode: 'ip_60_secs_limit'");
+    // The IP-bucket pre-request wait was reverted: scope stays minimal to the
+    // proven User API limiter defect.
+    expect(source).not.toContain('ipBucket');
   });
 });
 
