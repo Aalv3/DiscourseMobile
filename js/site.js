@@ -143,12 +143,21 @@ class Site {
   jsonApi(path, method, data) {
     const normalizedMethod = method || 'GET';
     const key = this.apiRequestKey(path, normalizedMethod);
-    const ttlMs =
-      normalizedMethod === 'GET' && path.startsWith('/native/v1/') ? 30000 : 0;
+    // Member profile reads are refetched on every navigation because stack
+    // screens remount, and each one consumes User API budget. A short TTL
+    // coalesces those repeats without changing what a screen displays.
+    // Chat message loads are deliberately excluded: they are real-time and
+    // caching them would show stale conversation.
+    const isNativeRead =
+      normalizedMethod === 'GET' && path.startsWith('/native/v1/');
+    const isMemberRead =
+      normalizedMethod === 'GET' && /^\/u\/[^/]+\.json/.test(path);
+    const ttlMs = isNativeRead ? 30000 : isMemberRead ? 15000 : 0;
     return requestOrchestrator.request({
       key,
       ttlMs,
-      allowStale: normalizedMethod === 'GET' && path.startsWith('/native/v1/'),
+      // Member reads never serve stale; they only deduplicate inside the TTL.
+      allowStale: isNativeRead,
       priority: normalizedMethod === 'GET' ? 'visible' : 'bootstrap',
       task: () => this._jsonApi(path, normalizedMethod, data),
     });
@@ -191,7 +200,17 @@ class Site {
         path,
         errorCode: 'user_api_key_limiter_60_secs',
       });
+      // The IP buckets gate new requests too. Without this, an IP-scoped 429
+      // set a cooldown that only retries consulted, so fresh requests kept
+      // amplifying inside an active limiter window.
+      const ipBucket = limiterBucket({
+        origin: this.url,
+        clientId: this.clientId,
+        path,
+        errorCode: 'ip_60_secs_limit',
+      });
       await requestOrchestrator.waitForBucket(globalUserBucket);
+      await requestOrchestrator.waitForBucket(ipBucket);
       await requestOrchestrator.waitForBucket(fallbackBucket);
       let req = new Request(this.url + path, {
         headers: headers,

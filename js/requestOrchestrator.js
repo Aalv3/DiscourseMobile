@@ -1,7 +1,7 @@
 /* @flow */
 'use strict';
 
-import { retryAfterDelayMs } from './apiRateLimit';
+import { rateLimitDelayMs } from './apiRateLimit';
 import { recordRequestLedger } from './requestLedgerDiagnostics';
 
 const MAX_CONCURRENCY = 3;
@@ -93,7 +93,13 @@ export class RequestOrchestrator {
   }
 
   beginCooldown(bucket, response, retryIndex) {
-    const delay = retryAfterDelayMs(response, retryIndex);
+    // retryAfterDelayMs takes the Retry-After header value; passing the whole
+    // response made it return null, so every cooldown was set to now() and
+    // expired instantly. That is why the client kept issuing requests inside
+    // an active limiter window, and why every recorded cooldown_begin carried
+    // durationClass "short". rateLimitDelayMs reads the header off the
+    // response and falls back to a bounded backoff when it is absent.
+    const delay = rateLimitDelayMs(response, retryIndex, this.now());
     this.cooldowns.set(
       bucket,
       Math.max(this.cooldowns.get(bucket) || 0, this.now() + delay),
