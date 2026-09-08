@@ -53,6 +53,7 @@ import AttachmentComposer, { useAttachmentQueue } from './AttachmentComposer';
 import { reconcileAskSubmission, submitAskQuestion } from './AskSubmission';
 import NotificationEducation from './NotificationEducation';
 import { memberDisplayName } from './floorPresentation';
+import { AVATAR_SCREENS } from './avatarDiagnostics';
 import {
   captureAvatarAuthorityVersion,
   reconcileAvatarAuthority,
@@ -1990,6 +1991,7 @@ export function ProfileScreen({ navigation, screenProps }) {
         <View style={styles.identityTop}>
           <Avatar
             avatarTemplate={avatarTemplate}
+            diagnosticContext={AVATAR_SCREENS.you}
             label={username}
             site={site}
             size={68}

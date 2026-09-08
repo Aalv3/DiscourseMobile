@@ -44,6 +44,7 @@ import {
   updateCachedMemberProfileAvatar,
 } from './memberProfileData';
 import { useAvatarAuthority } from './avatarAuthority';
+import { AVATAR_SCREENS } from './avatarDiagnostics';
 import {
   canStartProfileSave,
   normalizeProfilePhotoPickerAsset,
@@ -930,6 +931,7 @@ export default function NativeProfileScreen({
           >
             <MemberAvatar
               avatarTemplate={user?.avatar_template}
+              diagnosticContext={AVATAR_SCREENS.memberProfile}
               label={card?.values.name || username}
               site={site}
               size={72}
@@ -1119,6 +1121,7 @@ export default function NativeProfileScreen({
                   ) : (
                     <MemberAvatar
                       avatarTemplate={card.avatarTemplate}
+                      diagnosticContext={AVATAR_SCREENS.editProfile}
                       label={card?.values.name || username}
                       site={site}
                       size={72}

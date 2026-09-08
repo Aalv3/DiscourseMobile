@@ -19,6 +19,33 @@ const ALLOWED_KEYS = new Set([
   'branch',
   'source',
   'dependency',
+  // Avatar-resolution diagnostic fields. Paths, templates and classifications
+  // only. Credentials, headers and cookies are never passed to this recorder,
+  // and the allowlist makes it impossible to add them by accident.
+  'screen',
+  'siteUsername',
+  'requestedUsername',
+  'authorityKey',
+  'authorityPresent',
+  'inputTemplate',
+  'authorityTemplate',
+  'resolvedPath',
+  'size',
+  'authClass',
+  'failedUriMatch',
+  'fallback',
+  'imageEvent',
+  'errorClass',
+]);
+
+// Templates and paths need more room than the default bound, but are still
+// truncated so a diagnostic can never become an unbounded data sink.
+const LONG_KEYS = new Set([
+  'inputTemplate',
+  'authorityTemplate',
+  'resolvedPath',
+  'authorityKey',
+  'errorClass',
 ]);
 let write = Promise.resolve();
 let mountCounter = 0;
@@ -57,8 +84,12 @@ export function recordProfileDiagnostic(input) {
     if (!ALLOWED_KEYS.has(key) || value === undefined) return;
     if (['sequence', 'currentSequence'].includes(key)) {
       entry[key] = Number.isFinite(Number(value)) ? Number(value) : -1;
-    } else if (['loading'].includes(key)) {
+    } else if (
+      ['loading', 'authorityPresent', 'failedUriMatch'].includes(key)
+    ) {
       entry[key] = value === true;
+    } else if (LONG_KEYS.has(key)) {
+      entry[key] = String(value ?? 'none').slice(0, 160);
     } else {
       entry[key] = bounded(value);
     }

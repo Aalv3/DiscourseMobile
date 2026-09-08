@@ -15,6 +15,10 @@ import { ThemeContext } from '../ThemeContext';
 import { productTheme, radius, spacing, type } from './DesignSystem';
 import { useAvatarAuthorityRecord } from './avatarAuthority';
 import { memberImageSource } from './memberImageSource';
+import {
+  recordAvatarImageEvent,
+  recordAvatarResolution,
+} from './avatarDiagnostics';
 
 export const useProductTheme = () =>
   productTheme(useContext(ThemeContext).name);
@@ -388,6 +392,9 @@ export const Avatar = ({
   uri,
   username,
   size = 40,
+  // Temporary: names the surface so the three profile screens can be compared
+  // in device diagnostics. Rendering is identical whether or not it is passed.
+  diagnosticContext = null,
 }) => {
   const colors = useProductTheme();
   const authority = useAvatarAuthorityRecord(site, username);
@@ -400,12 +407,60 @@ export const Avatar = ({
     { width: size, height: size, borderRadius: size / 2 },
     suppliedStyle,
   ];
-  if (resolvedUri && failedUri !== resolvedUri) {
+  const showsImage = !!resolvedUri && failedUri !== resolvedUri;
+  useEffect(() => {
+    recordAvatarResolution({
+      screen: diagnosticContext,
+      site,
+      username,
+      inputTemplate: avatarTemplate,
+      authority,
+      resolvedUri,
+      size,
+      failedUri,
+      fallback: showsImage
+        ? 'image'
+        : resolvedUri
+        ? 'letter_after_error'
+        : 'letter_no_uri',
+    });
+  }, [diagnosticContext, resolvedUri, showsImage, failedUri]);
+
+  if (showsImage) {
     return (
       <Image
         key={resolvedUri}
         accessibilityLabel={`${label} profile photo`}
-        onError={() => setFailedUri(resolvedUri)}
+        onLoadStart={() =>
+          recordAvatarImageEvent({
+            screen: diagnosticContext,
+            imageEvent: 'load_start',
+            resolvedUri,
+          })
+        }
+        onLoad={() =>
+          recordAvatarImageEvent({
+            screen: diagnosticContext,
+            imageEvent: 'load',
+            resolvedUri,
+          })
+        }
+        onLoadEnd={() =>
+          recordAvatarImageEvent({
+            screen: diagnosticContext,
+            imageEvent: 'load_end',
+            resolvedUri,
+          })
+        }
+        onError={error => {
+          recordAvatarImageEvent({
+            screen: diagnosticContext,
+            imageEvent: 'error',
+            resolvedUri,
+            error,
+          });
+          setFailedUri(resolvedUri);
+        }}
         source={memberImageSource(site, resolvedUri)}
         style={style}
       />
