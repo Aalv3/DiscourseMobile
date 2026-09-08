@@ -143,3 +143,29 @@ Confirm which before changing the mapping.
 
 Marking-as-read succeeding while navigation silently does nothing is the part
 that matters: either open a destination or leave the notification unread.
+
+## 10. CI hygiene — iPhone Detox job has no retries
+
+`.github/workflows/ios-tests.yml` runs the iPhone Detox job without `--retries`,
+while the iPad job already uses `--retries 2`:
+
+```
+iPhone: yarn detox test --configuration ios.sim.release --cleanup --record-logs all
+iPad:   ... -n 'iPad (10th generation)' --retries 2
+```
+
+Add `--retries 2` to the iPhone job so the two match.
+
+`logged-out-welcome-scroll` times out intermittently waiting for the logged-out
+welcome screen. It has now failed on multiple branches and commits, including
+the trunk before any of the recent avatar or rate-limit work (run 33755564569,
+2026-09-03) and on the iPad job itself in August (run 33440677219). The retry
+asymmetry is the only reason it blocks iPhone and not iPad.
+
+Each occurrence burns a full ~55 minute CI cycle and forces a manual re-run, and
+it has repeatedly cost time deciding whether a red check was a real regression.
+`e2e/loggedOutLaunch.js` already has one internal relaunch retry, which is not
+enough on a slow runner.
+
+Separate follow-up change; deliberately not folded into the certification docs
+PR. Workflow files are CI configuration, so this needs its own review.
