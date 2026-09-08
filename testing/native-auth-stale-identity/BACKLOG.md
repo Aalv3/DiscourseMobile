@@ -123,3 +123,23 @@ server/privacy certification lane.
    contract rather than diverging.
 4. **Re-verify on device after activation** — the capability gate means this
    cannot be certified while the flag is false.
+
+## 9. P2 — granted_badge notification tap has no destination
+
+A `granted_badge` notification (observed with Autobiographer) marks itself read
+when tapped but produces no navigation: the member is left where they were with
+no destination opened.
+
+Filed during the 2026-09-08 production certification of
+`dad0af191716aca8d33c6afe58900e70d2be29e4`. **Not a regression from that
+change** — it is a pre-existing native UX defect in notification routing and was
+explicitly excluded from that certification.
+
+`js/DiscourseUtils.js:38-40` does map notification type 12 to
+`/badges/{badge_id}/basic?username={username}`, so an endpoint is produced. The
+defect is therefore downstream of that mapping: either `data.badge_id` is absent
+on the payload, or the resulting web route does not open a native destination.
+Confirm which before changing the mapping.
+
+Marking-as-read succeeding while navigation silently does nothing is the part
+that matters: either open a destination or leave the notification unread.
