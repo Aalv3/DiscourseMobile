@@ -979,9 +979,23 @@ class Discourse extends React.Component {
       }
       return;
     }
+    // A valid first-party member destination with no native screen opens in the
+    // authenticated Discourse WebView. Without this branch such destinations
+    // fell through and the tap did nothing at all: notification read-marking
+    // had already succeeded, so a granted_badge notification went read with no
+    // visible result. Every disposition is now handled explicitly.
+    if (route.disposition === 'first_party_web') {
+      this._siteManager.setActiveSite(site);
+      this._navigation.navigate('WebView', { url: route.url });
+      return;
+    }
     if (route.disposition === 'privileged_external') {
       Linking.openURL(route.url).catch(() => {});
+      return;
     }
+    // 'rejected' is a deliberate denial: off-origin, unauthenticated, a
+    // non-staff admin path, or an unrecognised destination. Nothing opens.
+    securityEvent('navigation.rejected');
   }
 
   // A member must never be trapped behind an identity they did not choose in
