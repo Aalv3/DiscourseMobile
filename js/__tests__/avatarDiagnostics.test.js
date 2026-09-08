@@ -11,8 +11,12 @@ import {
   AVATAR_SCREENS,
   avatarAuthorityKey,
   classifyAvatarSource,
+  nextAvatarInstanceId,
   recordAvatarImageEvent,
+  recordAvatarLifecycle,
   recordAvatarResolution,
+  resetAvatarInstanceCounter,
+  utcNow,
 } from '../product/avatarDiagnostics';
 
 const CANONICAL = 'https://adjusternetwork.org';
@@ -202,7 +206,13 @@ describe('the diagnostic does not change rendering behavior', () => {
       'const showsImage = !!resolvedUri && failedUri !== resolvedUri;',
     );
     expect(source).toContain('setFailedUri(resolvedUri);');
-    expect(source).toContain('source={memberImageSource(site, resolvedUri)}');
+    // The source is still exactly memberImageSource(site, resolvedUri); it is
+    // hoisted to a const only so its identity can be compared across renders.
+    expect(source).toContain(
+      'const source = memberImageSource(site, resolvedUri);',
+    );
+    expect(source).toContain('source={source}');
+    expect(source).not.toContain('source={{ uri: resolvedUri }}');
   });
 
   test('all three surfaces are tagged', () => {
@@ -219,5 +229,125 @@ describe('the diagnostic does not change rendering behavior', () => {
       'diagnosticContext={AVATAR_SCREENS.memberProfile}',
     );
     expect(profile).toContain('diagnosticContext={AVATAR_SCREENS.editProfile}');
+  });
+});
+
+describe('instance-level correlation', () => {
+  beforeEach(() => resetAvatarInstanceCounter());
+
+  test('instance ids are monotonic so interleaved events can be separated', () => {
+    const ids = [
+      nextAvatarInstanceId(),
+      nextAvatarInstanceId(),
+      nextAvatarInstanceId(),
+    ];
+    expect(ids).toEqual(['avatar-1', 'avatar-2', 'avatar-3']);
+    expect(new Set(ids).size).toBe(3);
+  });
+
+  test('UTC wall clock carries milliseconds for edge-log alignment', () => {
+    const stamp = utcNow(Date.UTC(2026, 8, 8, 13, 45, 12, 345));
+    expect(stamp).toBe('2026-09-08T13:45:12.345Z');
+    expect(stamp).toMatch(/\.\d{3}Z$/);
+  });
+
+  test('every event type carries instance id and UTC', () => {
+    recordAvatarResolution({
+      screen: AVATAR_SCREENS.memberProfile,
+      instanceId: 'avatar-7',
+      navigator: 'stack',
+      site,
+      username: 'tomrodriguez',
+      resolvedUri: PHOTO,
+      reactKey: PHOTO,
+      sourceRecreated: true,
+      size: 72,
+    });
+    recordAvatarLifecycle({
+      screen: AVATAR_SCREENS.memberProfile,
+      instanceId: 'avatar-7',
+      phase: 'mount',
+      resolvedUri: PHOTO,
+    });
+    recordAvatarImageEvent({
+      screen: AVATAR_SCREENS.memberProfile,
+      instanceId: 'avatar-7',
+      imageEvent: 'error',
+      resolvedUri: PHOTO,
+      error: { nativeEvent: { error: 'HTTP 429' } },
+    });
+
+    const entries = recordProfileDiagnostic.mock.calls.map(c => c[0]);
+    expect(entries).toHaveLength(3);
+    for (const e of entries) {
+      expect(e.instanceId).toBe('avatar-7');
+      expect(e.utc).toMatch(/^\d{4}-\d{2}-\d{2}T.*\.\d{3}Z$/);
+    }
+    expect(entries[0]).toMatchObject({
+      navigator: 'stack',
+      sourceRecreated: true,
+      size: '72',
+    });
+    expect(entries[1]).toMatchObject({
+      event: 'avatar_lifecycle',
+      phase: 'mount',
+    });
+    // The exact native error is preserved for correlation against the 429.
+    expect(entries[2]).toMatchObject({
+      event: 'avatar_image',
+      errorClass: 'HTTP 429',
+    });
+  });
+
+  test('mount and unmount are both recorded', () => {
+    recordAvatarLifecycle({
+      screen: AVATAR_SCREENS.editProfile,
+      instanceId: 'avatar-2',
+      phase: 'mount',
+      resolvedUri: PHOTO,
+    });
+    recordAvatarLifecycle({
+      screen: AVATAR_SCREENS.editProfile,
+      instanceId: 'avatar-2',
+      phase: 'unmount',
+      resolvedUri: PHOTO,
+    });
+    const phases = recordProfileDiagnostic.mock.calls.map(c => c[0].phase);
+    expect(phases).toEqual(['mount', 'unmount']);
+  });
+
+  test('lifecycle emits nothing off staging or without context', () => {
+    stagingDiagnosticsEnabled.mockReturnValue(false);
+    expect(
+      recordAvatarLifecycle({
+        screen: AVATAR_SCREENS.you,
+        instanceId: 'a',
+        phase: 'mount',
+      }),
+    ).toBeNull();
+    stagingDiagnosticsEnabled.mockReturnValue(true);
+    expect(
+      recordAvatarLifecycle({ instanceId: 'a', phase: 'mount' }),
+    ).toBeNull();
+  });
+});
+
+describe('navigator placement differs between the surfaces', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const root = fs.readFileSync(
+    path.join(__dirname, '..', 'Discourse.js'),
+    'utf8',
+  );
+
+  test('You is a retained tab screen while profile screens are stack screens', () => {
+    // The You surface is a Tab.Screen, which React Navigation retains once
+    // visited. The member profile surfaces are Stack.Screens, which mount and
+    // unmount on every push and pop - a material difference for avatar state.
+    const tabProfile =
+      /<Tab\.Screen\s+name="Profile"[\s\S]*?<ProfileScreen[\s\S]*?<\/Tab\.Screen>/;
+    expect(tabProfile.test(root)).toBe(true);
+    expect(root).toContain('<Tab.Navigator');
+    expect(root).toContain('<Stack.Screen');
   });
 });

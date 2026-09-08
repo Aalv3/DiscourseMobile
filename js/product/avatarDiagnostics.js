@@ -20,6 +20,23 @@ export const AVATAR_SCREENS = Object.freeze({
   editProfile: 'EDIT_PROFILE',
 });
 
+// Monotonic across the app session so interleaved events from several Image
+// instances sharing one URI can be separated during correlation.
+let instanceCounter = 0;
+export function nextAvatarInstanceId() {
+  instanceCounter += 1;
+  return `avatar-${instanceCounter}`;
+}
+
+export function resetAvatarInstanceCounter() {
+  instanceCounter = 0;
+}
+
+// UTC wall clock with milliseconds, for alignment against the edge log.
+export function utcNow(now = Date.now()) {
+  return new Date(now).toISOString();
+}
+
 export function avatarDiagnosticsEnabled() {
   return stagingDiagnosticsEnabled();
 }
@@ -49,11 +66,15 @@ const pathOf = uri => {
 
 export function recordAvatarResolution({
   screen,
+  instanceId,
+  navigator,
   site,
   username,
   inputTemplate,
   authority,
   resolvedUri,
+  reactKey,
+  sourceRecreated,
   size,
   failedUri,
   fallback,
@@ -61,6 +82,11 @@ export function recordAvatarResolution({
   if (!screen || !avatarDiagnosticsEnabled()) return null;
   return recordProfileDiagnostic({
     event: 'avatar_resolve',
+    utc: utcNow(),
+    instanceId,
+    navigator,
+    reactKey,
+    sourceRecreated,
     screen,
     siteUsername: site?.username || 'none',
     requestedUsername: username || 'none',
@@ -76,8 +102,26 @@ export function recordAvatarResolution({
   });
 }
 
+export function recordAvatarLifecycle({
+  screen,
+  instanceId,
+  phase,
+  resolvedUri,
+}) {
+  if (!screen || !avatarDiagnosticsEnabled()) return null;
+  return recordProfileDiagnostic({
+    event: 'avatar_lifecycle',
+    utc: utcNow(),
+    instanceId,
+    screen,
+    phase,
+    resolvedPath: resolvedUri ? pathOf(resolvedUri) : 'none',
+  });
+}
+
 export function recordAvatarImageEvent({
   screen,
+  instanceId,
   imageEvent,
   resolvedUri,
   error,
@@ -92,6 +136,8 @@ export function recordAvatarImageEvent({
     : undefined;
   return recordProfileDiagnostic({
     event: 'avatar_image',
+    utc: utcNow(),
+    instanceId,
     screen,
     imageEvent,
     resolvedPath: resolvedUri ? pathOf(resolvedUri) : 'none',

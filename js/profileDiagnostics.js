@@ -36,6 +36,16 @@ const ALLOWED_KEYS = new Set([
   'fallback',
   'imageEvent',
   'errorClass',
+  // Instance-level correlation fields. Frequent remounting means events from
+  // several Image instances share a URI and interleave, so every event carries
+  // a monotonic instance id and a UTC wall clock with milliseconds that the
+  // server lane can align against edge logs.
+  'instanceId',
+  'utc',
+  'reactKey',
+  'sourceRecreated',
+  'phase',
+  'navigator',
 ]);
 
 // Templates and paths need more room than the default bound, but are still
@@ -46,6 +56,8 @@ const LONG_KEYS = new Set([
   'resolvedPath',
   'authorityKey',
   'errorClass',
+  'reactKey',
+  'utc',
 ]);
 let write = Promise.resolve();
 let mountCounter = 0;

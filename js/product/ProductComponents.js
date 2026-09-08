@@ -1,7 +1,7 @@
 /* @flow */
 'use strict';
 
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -16,7 +16,9 @@ import { productTheme, radius, spacing, type } from './DesignSystem';
 import { useAvatarAuthorityRecord } from './avatarAuthority';
 import { memberImageSource } from './memberImageSource';
 import {
+  nextAvatarInstanceId,
   recordAvatarImageEvent,
+  recordAvatarLifecycle,
   recordAvatarResolution,
 } from './avatarDiagnostics';
 
@@ -407,10 +409,43 @@ export const Avatar = ({
     { width: size, height: size, borderRadius: size / 2 },
     suppliedStyle,
   ];
+  // One id per mounted Avatar. Stack screens remount on every navigation, so
+  // several instances can share a URI and interleave their events.
+  const instanceRef = useRef(null);
+  if (instanceRef.current === null)
+    instanceRef.current = nextAvatarInstanceId();
+  const instanceId = instanceRef.current;
+
+  const source = memberImageSource(site, resolvedUri);
+  const previousSourceRef = useRef(null);
+  const sourceRecreated =
+    previousSourceRef.current !== null && previousSourceRef.current !== source;
+  previousSourceRef.current = source;
+
+  useEffect(() => {
+    recordAvatarLifecycle({
+      screen: diagnosticContext,
+      instanceId,
+      phase: 'mount',
+      resolvedUri,
+    });
+    return () =>
+      recordAvatarLifecycle({
+        screen: diagnosticContext,
+        instanceId,
+        phase: 'unmount',
+        resolvedUri,
+      });
+  }, [diagnosticContext, instanceId]);
+
   const showsImage = !!resolvedUri && failedUri !== resolvedUri;
   useEffect(() => {
     recordAvatarResolution({
       screen: diagnosticContext,
+      instanceId,
+      navigator: diagnosticContext === 'YOU' ? 'tab' : 'stack',
+      reactKey: resolvedUri || 'none',
+      sourceRecreated,
       site,
       username,
       inputTemplate: avatarTemplate,
@@ -434,6 +469,7 @@ export const Avatar = ({
         onLoadStart={() =>
           recordAvatarImageEvent({
             screen: diagnosticContext,
+            instanceId,
             imageEvent: 'load_start',
             resolvedUri,
           })
@@ -441,6 +477,7 @@ export const Avatar = ({
         onLoad={() =>
           recordAvatarImageEvent({
             screen: diagnosticContext,
+            instanceId,
             imageEvent: 'load',
             resolvedUri,
           })
@@ -448,6 +485,7 @@ export const Avatar = ({
         onLoadEnd={() =>
           recordAvatarImageEvent({
             screen: diagnosticContext,
+            instanceId,
             imageEvent: 'load_end',
             resolvedUri,
           })
@@ -455,13 +493,14 @@ export const Avatar = ({
         onError={error => {
           recordAvatarImageEvent({
             screen: diagnosticContext,
+            instanceId,
             imageEvent: 'error',
             resolvedUri,
             error,
           });
           setFailedUri(resolvedUri);
         }}
-        source={memberImageSource(site, resolvedUri)}
+        source={source}
         style={style}
       />
     );
