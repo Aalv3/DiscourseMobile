@@ -20,7 +20,14 @@ describe('App Store P1 source gates', () => {
     const project = read('ios/Discourse.xcodeproj/project.pbxproj');
     const info = read('ios/Discourse/Info.plist');
     expect(project).not.toContain('TARGETED_DEVICE_FAMILY = "1,2"');
-    expect(project.match(/TARGETED_DEVICE_FAMILY = 1;/g)).toHaveLength(4);
+    // Every configuration must be iPhone-only. Asserting the property of all
+    // of them rather than a fixed count, so adding a build configuration
+    // cannot silently pass by keeping the number the same.
+    const families = project.match(/TARGETED_DEVICE_FAMILY = [^;]+;/g) || [];
+    expect(families.length).toBeGreaterThanOrEqual(4);
+    expect(
+      families.every(value => value === 'TARGETED_DEVICE_FAMILY = 1;'),
+    ).toBe(true);
     expect(info).not.toContain('NSMicrophoneUsageDescription');
   });
 

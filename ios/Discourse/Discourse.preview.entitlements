@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Founder-only Preview build. V1 deliberately carries neither
+	     aps-environment nor associated-domains: push to Preview is blocked by
+	     the server's pinned APNs topic, and the server AASA lists only the
+	     production app ID. Declaring either here would add Apple capability
+	     requirements for behaviour that cannot work yet. -->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.org.adjusternetwork.preview</string>
+	</array>
+</dict>
+</plist>

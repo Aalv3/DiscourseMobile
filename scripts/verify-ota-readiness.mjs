@@ -66,6 +66,24 @@ const checks = [
       iosProject.includes('Set :EXUpdatesHasEmbeddedUpdate $embedded'),
   ],
   [
+    'iOS preview channel compiles with recovery bundle',
+    iosProject.includes('preview) embedded=true'),
+  ],
+  [
+    // The allowlist is what makes channel isolation structural. An unknown
+    // channel must still fail the build rather than produce a binary that
+    // asks for an unintended channel.
+    'iOS unknown channel still fails closed',
+    iosProject.includes('invalid Adjuster Network OTA channel') &&
+      iosProject.includes('exit 1'),
+  ],
+  [
+    'iOS Preview identity is separate from Production',
+    iosProject.includes('PRODUCT_BUNDLE_IDENTIFIER = org.adjusternetwork.app.preview;') &&
+      iosProject.includes('AN_URL_SCHEME = anpreview;') &&
+      iosProject.includes('AN_OTA_CHANNEL = preview;'),
+  ],
+  [
     'iOS Debug defaults to staging',
     iosProject.includes('AN_OTA_CHANNEL = staging;'),
   ],
@@ -86,6 +104,12 @@ const checks = [
   [
     'Android anti-bricking enabled',
     android.includes('DISABLE_ANTI_BRICKING_MEASURES" android:value="false"'),
+  ],
+  [
+    'preview channel configured',
+    readFileSync(resolve(root, 'eas.json'), 'utf8').includes(
+      '"channel": "preview"',
+    ),
   ],
   [
     'staging channel configured',

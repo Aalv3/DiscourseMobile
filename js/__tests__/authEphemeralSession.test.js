@@ -300,7 +300,8 @@ describe('environment resolution is unchanged and fail-closed', () => {
     expect(canonicalOriginForChannel('staging')).toBe(
       'https://staging.adjusternetwork.org',
     );
-    for (const untrusted of [null, undefined, '', 'preview', 'PRODUCTION']) {
+    // 'preview' is now governed; these remain genuinely unknown.
+    for (const untrusted of [null, undefined, '', 'qa', 'PRODUCTION']) {
       expect(trustedUpdateChannel(untrusted)).toBeNull();
       expect(canonicalOriginForChannel(untrusted)).toBeNull();
     }

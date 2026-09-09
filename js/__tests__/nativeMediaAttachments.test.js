@@ -463,8 +463,20 @@ describe('native Discourse media attachments', () => {
         url: 'https://staging.adjusternetwork.org',
       }),
     ).toBe(false);
+    // Preview points at the production origin on purpose, so media is
+    // enabled there - it must behave exactly like production.
     expect(
       mediaUploadsEnabledForChannelSite('preview', {
+        url: 'https://adjusternetwork.org',
+      }),
+    ).toBe(true);
+    expect(
+      mediaUploadsEnabledForChannelSite('preview', {
+        url: 'https://staging.adjusternetwork.org',
+      }),
+    ).toBe(false);
+    expect(
+      mediaUploadsEnabledForChannelSite('qa', {
         url: 'https://adjusternetwork.org',
       }),
     ).toBe(false);

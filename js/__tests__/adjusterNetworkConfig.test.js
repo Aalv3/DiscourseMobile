@@ -18,7 +18,12 @@ describe('Adjuster Network product boundary', () => {
     expect(canonicalOriginForChannel('unknown')).toBeNull();
     expect(trustedUpdateChannel('staging')).toBe('staging');
     expect(trustedUpdateChannel('production')).toBe('production');
-    expect(trustedUpdateChannel('preview')).toBeNull();
+    // preview is now a governed founder-only channel pointing at production.
+    expect(trustedUpdateChannel('preview')).toBe('preview');
+    expect(canonicalOriginForChannel('preview')).toBe(
+      'https://adjusternetwork.org',
+    );
+    expect(trustedUpdateChannel('qa')).toBeNull();
   });
 
   test('exposes only routes backed by the current application', () => {
@@ -89,7 +94,16 @@ describe('push backend channel routing', () => {
   });
 
   test('fails closed for an unknown update channel', () => {
-    expect(backendOriginForUpdatesChannel('preview')).toBeNull();
+    expect(backendOriginForUpdatesChannel('qa')).toBeNull();
+    expect(backendOriginForUpdatesChannel('PRODUCTION')).toBeNull();
     expect(backendOriginForUpdatesChannel(undefined)).toBeNull();
+  });
+
+  test('preview does not register a push device, so it routes nowhere', () => {
+    // Push to Preview is blocked by the server's pinned APNs topic; Preview
+    // registers no device rather than creating undeliverable registrations.
+    expect(adjusterNetwork.features.pushDelivery).toBe(
+      adjusterNetwork.channel !== 'preview',
+    );
   });
 });

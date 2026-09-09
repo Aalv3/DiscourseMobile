@@ -16,6 +16,19 @@
         "AN_OTA_CHANNEL_OVERRIDE": "staging"
       }
     },
+    "preview": {
+      "channel": "preview",
+      "distribution": "internal",
+      "ios": {
+        "image": "macos-sequoia-15.6-xcode-16.4",
+        "cocoapods": "1.17.0",
+        "buildConfiguration": "Preview"
+      },
+      "env": {
+        "AN_OTA_CHANNEL": "preview",
+        "AN_OTA_CHANNEL_OVERRIDE": "preview"
+      }
+    },
     "production": {
       "channel": "production",
       "env": {

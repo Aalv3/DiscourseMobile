@@ -102,6 +102,7 @@ import NativeTopicScreen from './product/NativeTopicScreen';
 import NativeCollectionScreen from './product/NativeCollectionScreen';
 import NativeProfileScreen from './product/NativeProfileScreen';
 import BadgeEarnedScreen from './product/BadgeEarnedScreen';
+import PreviewBanner from './product/PreviewBanner';
 import { classifyFirstPartyMemberRoute } from './nativeMemberRouting';
 import { notificationIntent } from './notificationIntent';
 import {
@@ -1153,6 +1154,15 @@ class Discourse extends React.Component {
   }
 
   render() {
+    return (
+      <React.Fragment>
+        {this._renderApp()}
+        <PreviewBanner />
+      </React.Fragment>
+    );
+  }
+
+  _renderApp() {
     // TODO: pass only relevant props to each screen component
     const screenProps = {
       openUrl: this.openUrl.bind(this),

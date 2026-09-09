@@ -54,7 +54,7 @@ class SiteManager {
   _subscribers = [];
   sites = [];
   activeSite = null;
-  customScheme = 'adjusternetwork';
+  customScheme = adjusterNetwork.authScheme;
   urlScheme = AUTH_REDIRECT;
   deviceName = 'Adjuster Network - Unknown Mobile Device';
   hotTopicsHidden = false;

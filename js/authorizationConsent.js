@@ -1,8 +1,17 @@
 /* @flow */
 'use strict';
 
-export const AUTH_REDIRECT =
-  'adjusternetwork://adjusternetwork.org/auth_redirect';
+import * as Updates from 'expo-updates';
+import {
+  authRedirectForChannel,
+  trustedUpdateChannel,
+} from './channelIdentity';
+
+// Derived from the compiled-in channel so a Preview build never claims
+// Production's callback. Scopes, groups and consent copy are unchanged.
+export const AUTH_REDIRECT = authRedirectForChannel(
+  trustedUpdateChannel(Updates.channel),
+);
 
 export const REQUESTED_USER_API_KEY_SCOPES = Object.freeze([
   'read',

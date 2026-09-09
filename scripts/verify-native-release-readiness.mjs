@@ -75,8 +75,15 @@ check(
 );
 check(
   'iOS callback scheme',
-  iosInfo.includes('<string>adjusternetwork</string>') ? 'PASS' : 'FAIL',
-  'Owner-approved callback scheme must be configured',
+  // The scheme is per-configuration now that AN Preview exists, so verify the
+  // resolved values rather than one literal: shipping builds must still use
+  // the owner-approved scheme, and Preview must not be able to claim it.
+  iosInfo.includes('<string>$(AN_URL_SCHEME)</string>') &&
+    iosProject.includes('AN_URL_SCHEME = adjusternetwork;') &&
+    iosProject.includes('AN_URL_SCHEME = anpreview;')
+    ? 'PASS'
+    : 'FAIL',
+  'Owner-approved callback scheme must be configured, and Preview must use its own',
 );
 check(
   'iOS associated domains',
@@ -91,12 +98,12 @@ check(
   !packageManifest.includes('@react-native-firebase') &&
     !androidGradle.includes('google-services') &&
     productConfig.includes('push: false') &&
-    productConfig.includes('pushDelivery: true') &&
+    productConfig.includes('pushDelivery: !isPreviewChannel(updateChannel)') &&
     iosEntitlements.includes('aps-environment') &&
     !iosInfo.includes('<string>remote-notification</string>')
     ? 'PASS'
     : 'FAIL',
-  'Direct APNs registration must remain separate from the disabled legacy relay, Firebase and analytics',
+  'Direct APNs registration must remain separate from the disabled legacy relay, Firebase and analytics, and off for Preview',
 );
 check(
   'iOS APNs build-channel separation',
