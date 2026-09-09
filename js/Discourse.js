@@ -107,6 +107,7 @@ import {
   destinationPresentation,
 } from './notificationDestination';
 import { resolveWebSessionEntry } from './webViewSession';
+import { recordProfileDiagnostic } from './profileDiagnostics';
 import { consumePendingShareIntent } from './shareIntentCoordinator';
 import {
   loadOnboardingState,
@@ -1020,7 +1021,16 @@ class Discourse extends React.Component {
         url: entry.url,
         destination: entry.destination,
       });
-    } catch {
+    } catch (error) {
+      // Coarse stage and status class only, so a production bootstrap failure
+      // is diagnosable from the device without recording bodies, keys, tokens
+      // or OTP values.
+      recordProfileDiagnostic({
+        event: 'web_session',
+        stage: error?.stage || 'webview_bootstrap',
+        outcome: 'failure',
+        category: error?.category || 'network_or_unknown',
+      });
       securityEvent('navigation.web_session_unavailable');
       Alert.alert(
         WEB_SESSION_UNAVAILABLE.title,

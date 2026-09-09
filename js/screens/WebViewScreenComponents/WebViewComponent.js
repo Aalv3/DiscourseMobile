@@ -26,6 +26,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from '@react-native-community/blur';
 import { classifyNavigation } from '../../adjusterNetworkSecurity';
 import { isOtpBootstrapUrl } from '../../webViewSession';
+import { recordProfileDiagnostic } from '../../profileDiagnostics';
 import { NestedHeader } from '../../product/ProductComponents';
 import { classifyFirstPartyMemberRoute } from '../../nativeMemberRouting';
 
@@ -494,6 +495,11 @@ class WebViewComponent extends React.Component {
     const destination = this.state.pendingDestination;
     if (!destination || navState.loading) return;
     if (isOtpBootstrapUrl(navState.url)) return;
+    recordProfileDiagnostic({
+      event: 'web_session',
+      stage: 'destination_resume',
+      outcome: 'succeeded',
+    });
     this.setState({ pendingDestination: null, webviewUrl: destination });
   }
 
