@@ -6,9 +6,50 @@ on:
       - main
       - "reconcile/**"
   pull_request:
+  # Full regression on demand, for a release candidate or a suspicious change.
+  workflow_dispatch:
+  # Nightly, so the suite still runs against trunk every day even when no PR
+  # touched a surface it covers.
+  schedule:
+    - cron: "0 8 * * *"
+
+# A superseded run is wasted runner time; only the newest commit needs testing.
+concurrency:
+  group: ios-tests-${{ github.head_ref || github.run_number }}
+  cancel-in-progress: true
 
 jobs:
+  # Decides whether this change can affect anything the Detox suite asserts on.
+  # The suite is three logged-out specs; every assertion resolves to
+  # js/product/ProductScreens.js or
+  # js/screens/HomeScreenComponents/NavigationBar.js, plus the authentication
+  # start they trigger. Nothing behind sign-in is reachable from it.
+  surface:
+    runs-on: ubuntu-latest
+    outputs:
+      full: ${{ steps.decide.outputs.full }}
+      reason: ${{ steps.decide.outputs.reason }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: ./scripts/ci-detox-surface.sh >> "$GITHUB_OUTPUT"
+
+      - name: Report decision
+        run: |
+          echo "full detox: ${{ steps.decide.outputs.full }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "reason: ${{ steps.decide.outputs.reason }}" >> "$GITHUB_STEP_SUMMARY"
+
   ios-iphone-tests:
+    needs: surface
+    if: needs.surface.outputs.full == 'true'
     runs-on: macos-15
     steps:
       - name: Checkout repository
@@ -66,6 +107,8 @@ jobs:
           path: artifacts
 
   ios-ipad-tests:
+    needs: surface
+    if: needs.surface.outputs.full == 'true'
     runs-on: macos-15
     steps:
       - name: Checkout repository
