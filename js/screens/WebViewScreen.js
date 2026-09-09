@@ -14,7 +14,6 @@ class WebViewScreen extends React.Component {
       <Components.WebViewComponent
         {...this.props}
         url={this.props.route.params.url}
-        destination={this.props.route.params.destination}
       />
     );
   }

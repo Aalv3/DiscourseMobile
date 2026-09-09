@@ -101,12 +101,13 @@ import {
 import NativeTopicScreen from './product/NativeTopicScreen';
 import NativeCollectionScreen from './product/NativeCollectionScreen';
 import NativeProfileScreen from './product/NativeProfileScreen';
+import BadgeEarnedScreen from './product/BadgeEarnedScreen';
 import { classifyFirstPartyMemberRoute } from './nativeMemberRouting';
+import { notificationIntent } from './notificationIntent';
 import {
-  WEB_SESSION_UNAVAILABLE,
+  NOTIFICATION_UNAVAILABLE,
   destinationPresentation,
 } from './notificationDestination';
-import { resolveWebSessionEntry } from './webViewSession';
 import { consumePendingShareIntent } from './shareIntentCoordinator';
 import {
   loadOnboardingState,
@@ -396,6 +397,7 @@ class Discourse extends React.Component {
       authenticated: Boolean(site?.authToken),
       navigationReady,
       openUrl: this.openUrl.bind(this),
+      openNotification: this.openNotification.bind(this),
     });
     if (!routed && this._pushRoute.path) {
       securityEvent('push.route.deferred');
@@ -563,6 +565,7 @@ class Discourse extends React.Component {
       navigationReady: this._navigationReady,
       nativeModule: DiscourseKeyboardShortcuts,
       openUrl: this.openUrl.bind(this),
+      openNotification: this.openNotification.bind(this),
     }).finally(() => {
       this._shareIntentConsumption = null;
     });
@@ -978,15 +981,7 @@ class Discourse extends React.Component {
     const presentation = destinationPresentation(route);
     if (presentation.kind === 'native') {
       this._siteManager.setActiveSite(site);
-      if (presentation.screen === 'Ask') {
-        this._navigation.navigate('HomeWrapper', { screen: 'Ask' });
-      } else {
-        this._navigation.navigate(presentation.screen, presentation.params);
-      }
-      return;
-    }
-    if (presentation.kind === 'web') {
-      this._openFirstPartyWeb(site, presentation.url);
+      this._navigateNative(presentation.screen, presentation.params);
       return;
     }
     if (presentation.kind === 'external') {
@@ -998,35 +993,44 @@ class Discourse extends React.Component {
     securityEvent('navigation.rejected');
   }
 
-  // A first-party member page needs a Discourse session cookie, which the
-  // WebView does not get from the User API key. Bootstrap one through the
-  // supported OTP contract when it is missing, then land on the destination.
-  // Any failure or cancellation ends in a bounded, explicit state rather than
-  // a blank WebView.
-  async _openFirstPartyWeb(site, destination) {
-    try {
-      this._siteManager.setActiveSite(site);
-      const entry = await resolveWebSessionEntry(
-        site,
-        this._siteManager,
-        destination,
-      );
-      securityEvent(
-        entry.destination
-          ? 'navigation.web_session_bootstrap'
-          : 'navigation.web_session_reused',
-      );
-      this._navigation.navigate('WebView', {
-        url: entry.url,
-        destination: entry.destination,
-      });
-    } catch {
-      securityEvent('navigation.web_session_unavailable');
-      Alert.alert(
-        WEB_SESSION_UNAVAILABLE.title,
-        WEB_SESSION_UNAVAILABLE.message,
-        [{ text: WEB_SESSION_UNAVAILABLE.close, style: 'cancel' }],
-      );
+  _navigateNative(screen, params) {
+    if (screen === 'Ask') {
+      this._navigation.navigate('HomeWrapper', { screen: 'Ask' });
+      return;
+    }
+    this._navigation.navigate(screen, params);
+  }
+
+  // Notification taps resolve from the payload rather than from a URL, so a
+  // granted_badge keeps its badge_name and can open a native screen. Anything
+  // without a native destination ends in one explicit bounded state: no
+  // WebView, no second login, no external browser, and never a silent no-op.
+  openNotification(site, notification) {
+    const intent = notificationIntent(site, notification, {
+      authenticated: Boolean(site?.authToken),
+      isStaff: Boolean(site?.isStaff),
+    });
+    switch (intent.kind) {
+      case 'native':
+        this._siteManager.setActiveSite(site);
+        this._navigateNative(intent.screen, intent.params);
+        return;
+      case 'badge':
+        this._siteManager.setActiveSite(site);
+        this._navigation.navigate('BadgeEarned', { name: intent.badge.name });
+        return;
+      case 'staff_external':
+        // Staff-only admin handoff. notificationIntent returns this kind only
+        // for a staff member on a canonical /admin path.
+        Linking.openURL(intent.url).catch(() => {});
+        return;
+      default:
+        securityEvent('notification.unavailable');
+        Alert.alert(
+          NOTIFICATION_UNAVAILABLE.title,
+          NOTIFICATION_UNAVAILABLE.message,
+          [{ text: NOTIFICATION_UNAVAILABLE.close, style: 'cancel' }],
+        );
     }
   }
 
@@ -1152,6 +1156,7 @@ class Discourse extends React.Component {
     // TODO: pass only relevant props to each screen component
     const screenProps = {
       openUrl: this.openUrl.bind(this),
+      openNotification: this.openNotification.bind(this),
       _handleOpenUrl: this._handleOpenUrl,
       seenNotificationMap: this._seenNotificationMap,
       setSeenNotificationMap: map => {
@@ -1613,6 +1618,14 @@ class Discourse extends React.Component {
               <Stack.Screen name="MemberProfile">
                 {props => (
                   <NativeProfileScreen
+                    {...props}
+                    screenProps={{ ...screenProps }}
+                  />
+                )}
+              </Stack.Screen>
+              <Stack.Screen name="BadgeEarned">
+                {props => (
+                  <BadgeEarnedScreen
                     {...props}
                     screenProps={{ ...screenProps }}
                   />

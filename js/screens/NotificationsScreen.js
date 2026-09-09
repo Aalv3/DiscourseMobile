@@ -14,7 +14,6 @@ import { ImmutableVirtualizedList } from 'react-native-immutable-list-view';
 import FontAwesome5 from '@react-native-vector-icons/fontawesome5';
 import Components from './NotificationsScreenComponents';
 import Common from './CommonComponents';
-import DiscourseUtils from '../DiscourseUtils';
 import { ThemeContext } from '../ThemeContext';
 import i18n from 'i18n-js';
 import { BottomTabBarHeightContext } from '@react-navigation/bottom-tabs';
@@ -246,9 +245,10 @@ class NotificationsScreen extends React.Component {
   _openNotificationForSite(notification, site) {
     this._siteManager.markNotificationRead(site, notification).catch(() => {});
 
-    let url = DiscourseUtils.endpointForSiteNotification(site, notification);
+    // The whole notification is handed on, not a URL built from it: intent
+    // resolution needs payload fields that endpointForSiteNotification drops.
     this._siteManager.setActiveSite(site);
-    this.props.screenProps.openUrl(url);
+    this.props.screenProps.openNotification(site, notification);
   }
 
   _listIndex(row) {
