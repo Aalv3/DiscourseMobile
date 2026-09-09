@@ -1,0 +1,51 @@
+name: Native Gates
+
+on:
+  push:
+    branches:
+      - main
+      - "reconcile/**"
+  pull_request:
+
+concurrency:
+  group: native-gates-${{ format('{0}-{1}', github.head_ref || github.run_number, github.job) }}
+  cancel-in-progress: true
+
+jobs:
+  static-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 24
+          cache: yarn
+
+      - name: Yarn install
+        run: yarn
+
+      # These gates guard the OTA channel wiring, the runtime version, the iOS
+      # auth presentation contract and release readiness. They ran only on a
+      # developer's machine until now, which meant the cheapest and most
+      # safety-relevant checks were the ones CI did not enforce.
+      - name: OTA readiness
+        if: ${{ !cancelled() }}
+        run: yarn verify:ota
+
+      - name: iOS auth presentation
+        if: ${{ !cancelled() }}
+        run: yarn verify:ios-auth
+
+      - name: Release readiness
+        if: ${{ !cancelled() }}
+        run: yarn verify:release-readiness
+
+      - name: Backend contract
+        if: ${{ !cancelled() }}
+        run: yarn verify:backend
+
+      - name: OTA lane validation
+        if: ${{ !cancelled() }}
+        run: yarn validate:ota
