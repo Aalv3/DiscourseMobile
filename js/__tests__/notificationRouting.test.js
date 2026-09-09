@@ -242,26 +242,28 @@ describe('the tap handler marks read before navigating and has no silent path', 
     expect(handler).toContain('openUrl(url)');
   });
 
-  test('openUrl handles every disposition explicitly', () => {
+  test('openUrl handles every presentation explicitly', () => {
     const source = fs.readFileSync(
       path.join(__dirname, '..', 'Discourse.js'),
       'utf8',
     );
     const openUrl = source.slice(
       source.indexOf('  openUrl(url) {'),
-      source.indexOf('  _toggleTheme('),
+      source.indexOf('  async _openFirstPartyWeb('),
     );
-    for (const disposition of [
-      'native',
-      'first_party_web',
-      'privileged_external',
-    ]) {
-      expect(openUrl).toContain(`route.disposition === '${disposition}'`);
+    // Dispositions are mapped by the pure destinationPresentation module and
+    // openUrl branches on the resulting kind. Every kind is handled.
+    expect(openUrl).toContain('destinationPresentation(route)');
+    for (const kind of ['native', 'web', 'external']) {
+      expect(openUrl).toContain(`presentation.kind === '${kind}'`);
     }
-    // The rejected path is explicit, not an implicit fallthrough.
+    // The denied path is explicit, not an implicit fallthrough.
     expect(openUrl).toContain("securityEvent('navigation.rejected')");
+    // A first-party web destination is never loaded without first resolving
+    // an authenticated Discourse session.
+    expect(openUrl).not.toContain("navigate('WebView'");
     expect(openUrl).toContain(
-      "this._navigation.navigate('WebView', { url: route.url })",
+      'this._openFirstPartyWeb(site, presentation.url)',
     );
   });
 });
