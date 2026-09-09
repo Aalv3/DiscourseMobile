@@ -44,6 +44,14 @@ network request**, so it cannot stall or fail.
 title - not descriptive text, and is never rendered. The payload carries no
 badge description; showing one would require a fetch, which V1 does not do.
 
+## Certification
+
+Certified in production on 2026-09-09: SHA `ab581ac0`, group
+`87d6b1d1-a918-478c-afc9-0cbb27ce6292`, tag `ota-87d6b1d1-ab581ac0`, runtime
+`an-ios-android-1.0.0-native-2`. Autobiographer and Basic both passed physical
+device validation. Topic/Reply/Mention was not physically exercised - no
+fixture existed - and is covered by automated regression.
+
 ## What was removed, and why
 
 A first-party WebView fallback and then an OTP-based authenticated WebView

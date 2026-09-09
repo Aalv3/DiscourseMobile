@@ -124,7 +124,7 @@ server/privacy certification lane.
 4. **Re-verify on device after activation** — the capability gate means this
    cannot be certified while the flag is false.
 
-## 9. RESOLVED (implementation pending OTA) — granted_badge notification tap had no destination
+## 9. CLOSED — granted_badge notification tap had no destination
 
 A `granted_badge` notification (observed with Autobiographer) marks itself read
 when tapped but produces no navigation: the member is left where they were with
@@ -190,3 +190,40 @@ remain immutable; this record supplies the outcome.
 
 Production was rolled back to the certified `dad0af191716` (republished as
 group `9098ec70-a3dd-47dd-b623-c51fba68b181`).
+
+
+### 2026-09-09 — item 9 CLOSED: production OTA certified
+
+Physical-device certification passed on iPhone against the exact shipped OTA.
+
+| Field | Value |
+| --- | --- |
+| Certified SHA | `ab581ac0d0ce89222d075fed5ce5342c94c0fbb0` |
+| Production group | `87d6b1d1-a918-478c-afc9-0cbb27ce6292` |
+| iOS update ID | `01a086ce-600f-710f-8172-3d30f1f28b23` |
+| Android update ID | `01a086ce-600f-7a98-967c-b79785a7eb50` |
+| Runtime | `an-ios-android-1.0.0-native-2` |
+| Provenance tag | `ota-87d6b1d1-ab581ac0` |
+| Rollback pointer | `9098ec70-a3dd-47dd-b623-c51fba68b181` / `dad0af191716` (certified) |
+| Trunk merge | `cf588cde` (squashed; `ab581ac0` is reachable only via its tag) |
+
+**Autobiographer — PASS.** Native Badge Earned screen, correct badge name, no
+WebView, no OTP or login, no loading or hung state, no external browser,
+close/back works.
+
+**Basic — PASS.** Same native screen and behaviour, correct badge name.
+
+**Topic / Reply / Mention — NOT EXERCISED.** No notification fixture existed and
+none was manufactured. Automated regression coverage is accepted for that path:
+`notificationIntent.test.js` pins all 25 topic types to the Topic screen and
+type 800 to MemberProfile, and the full suite passed at 781/781.
+
+Activation was verified before testing rather than inferred from delivery: the
+device reported update `01a086ce600f710f81723d30f1f28b23` with
+`failedLaunches: 0` across two launches after activation, and the group's EAS
+record was cross-checked to `ab581ac0` on both platforms with
+`isGitWorkingTreeDirty: false`.
+
+Item 9 is closed. The history of the abandoned `first_party_web` and OTP
+attempts is retained in the preceding section and in
+`docs/NATIVE-NOTIFICATION-INTENTS.md`; do not re-attempt them.
