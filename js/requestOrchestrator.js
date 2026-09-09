@@ -1,7 +1,7 @@
 /* @flow */
 'use strict';
 
-import { retryAfterDelayMs } from './apiRateLimit';
+import { RATE_LIMIT_MAX_MS, rateLimitCooldownMs } from './apiRateLimit';
 import { recordRequestLedger } from './requestLedgerDiagnostics';
 
 const MAX_CONCURRENCY = 3;
@@ -80,6 +80,23 @@ export class RequestOrchestrator {
   async waitForBucket(bucket) {
     const until = this.cooldowns.get(bucket) || 0;
     const remaining = until - this.now();
+    // No single request may block longer than the per-request ceiling. When the
+    // shared cooldown still has more than that left, fail fast with the same
+    // bounded rate-limit error instead of sending a request into an active
+    // window. The cooldown itself is untouched, so later requests keep waiting
+    // on it until it genuinely expires.
+    if (remaining > RATE_LIMIT_MAX_MS) {
+      this.record({
+        event: 'cooldown_reject',
+        bucket,
+        status: 429,
+        durationClass: 'long',
+      });
+      const error = new Error('api_rate_limited');
+      error.status = 429;
+      error.retryAfterMs = remaining;
+      throw error;
+    }
     if (remaining > 0) {
       this.record({
         event: 'cooldown_wait',
@@ -93,7 +110,15 @@ export class RequestOrchestrator {
   }
 
   beginCooldown(bucket, response, retryIndex) {
-    const delay = retryAfterDelayMs(response, retryIndex);
+    // retryAfterDelayMs takes the Retry-After header value; passing the whole
+    // response made it return null, so every cooldown was set to now() and
+    // expired instantly. That is why the client kept issuing requests inside
+    // an active limiter window, and why every recorded cooldown_begin carried
+    // durationClass "short". rateLimitCooldownMs reads the header off the
+    // response and falls back to a bounded backoff when it is absent, honoring
+    // the directed value up to the cooldown ceiling rather than the
+    // per-request ceiling.
+    const delay = rateLimitCooldownMs(response, retryIndex, this.now());
     this.cooldowns.set(
       bucket,
       Math.max(this.cooldowns.get(bucket) || 0, this.now() + delay),

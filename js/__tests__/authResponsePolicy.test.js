@@ -1,8 +1,17 @@
-import { classifyAuthResponse } from '../authResponsePolicy';
+import {
+  classifyAuthResponse,
+  INVALID_USER_API_CREDENTIAL,
+} from '../authResponsePolicy';
 
 describe('auth response policy', () => {
   test('revokes a session only when authentication is invalid', () => {
-    expect(classifyAuthResponse(401)).toBe('revoked');
+    expect(
+      classifyAuthResponse(401, {
+        error_type: INVALID_USER_API_CREDENTIAL.errorType,
+        reason: INVALID_USER_API_CREDENTIAL.reason,
+      }),
+    ).toBe('revoked');
+    expect(classifyAuthResponse(401, null)).toBe('other');
   });
 
   test('preserves narrowly scoped sessions when an endpoint is forbidden', () => {

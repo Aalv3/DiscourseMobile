@@ -1,7 +1,7 @@
 /* @flow */
 'use strict';
 
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -14,6 +14,8 @@ import FontAwesome5 from '@react-native-vector-icons/fontawesome5';
 import { ThemeContext } from '../ThemeContext';
 import { productTheme, radius, spacing, type } from './DesignSystem';
 import { useAvatarAuthorityRecord } from './avatarAuthority';
+import { memberImageSource } from './memberImageSource';
+import { avatarRecoveryDelayMs } from './avatarRecovery';
 
 export const useProductTheme = () =>
   productTheme(useContext(ThemeContext).name);
@@ -394,18 +396,48 @@ export const Avatar = ({
     uri ||
     avatarUri(site, authority ? authority.template : avatarTemplate, size);
   const [failedUri, setFailedUri] = useState(null);
-  useEffect(() => setFailedUri(null), [resolvedUri]);
+  // Bounded recovery from a transient image failure. Counted per URI so a
+  // changed photo always starts fresh, and capped so a genuinely broken image
+  // settles on the initial instead of retrying forever.
+  const [recoveryAttempt, setRecoveryAttempt] = useState(0);
+  const recoveryTimer = useRef(null);
+  useEffect(() => {
+    setFailedUri(null);
+    setRecoveryAttempt(0);
+  }, [resolvedUri]);
+  useEffect(
+    () => () => {
+      if (recoveryTimer.current) clearTimeout(recoveryTimer.current);
+    },
+    [],
+  );
   const style = [
     { width: size, height: size, borderRadius: size / 2 },
     suppliedStyle,
   ];
+  const scheduleRecovery = () => {
+    const delay = avatarRecoveryDelayMs(recoveryAttempt);
+    if (delay === null) return;
+    if (recoveryTimer.current) clearTimeout(recoveryTimer.current);
+    recoveryTimer.current = setTimeout(() => {
+      recoveryTimer.current = null;
+      // Clearing failedUri re-mounts the same URI for one more attempt. The
+      // attempt counter is what terminates this, not the URI changing.
+      setFailedUri(null);
+      setRecoveryAttempt(current => current + 1);
+    }, delay);
+  };
+
   if (resolvedUri && failedUri !== resolvedUri) {
     return (
       <Image
-        key={resolvedUri}
+        key={`${resolvedUri}#${recoveryAttempt}`}
         accessibilityLabel={`${label} profile photo`}
-        onError={() => setFailedUri(resolvedUri)}
-        source={{ uri: resolvedUri }}
+        onError={() => {
+          setFailedUri(resolvedUri);
+          scheduleRecovery();
+        }}
+        source={memberImageSource(site, resolvedUri)}
         style={style}
       />
     );

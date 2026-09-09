@@ -16,6 +16,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome5 from '@react-native-vector-icons/fontawesome5';
 import { useAssets } from 'expo-asset';
+import { Alert } from 'react-native';
+import {
+  browserSessionProbeUrl,
+  collectStagingDiagnostics,
+  stagingDiagnosticsEnabled,
+} from '../stagingDiagnostics';
+import { requestIOSAuth } from '../iosAuthSession';
 import {
   Action,
   Avatar,
@@ -34,6 +41,7 @@ import {
   loadCommunity,
   topicPath,
 } from './ProductData';
+import { floorAttentionState } from './floorAttention';
 import { elevation, floorV2, radius, spacing, type } from './DesignSystem';
 import { adjusterNetwork } from '../adjusterNetworkConfig';
 export { default as LoungeScreen } from './NativeLoungeScreen';
@@ -44,6 +52,7 @@ import { optionLabel, stateLabel } from './adjusterCardPresentation';
 import AttachmentComposer, { useAttachmentQueue } from './AttachmentComposer';
 import { reconcileAskSubmission, submitAskQuestion } from './AskSubmission';
 import NotificationEducation from './NotificationEducation';
+import { memberDisplayName } from './floorPresentation';
 import {
   captureAvatarAuthorityVersion,
   reconcileAvatarAuthority,
@@ -117,12 +126,43 @@ const FloorHeader = ({ navigation, screenProps }) => {
   );
 };
 
-export function WelcomeScreen({ onConnect, busy }) {
+export function WelcomeScreen({ onConnect, onUseDifferentAccount, busy }) {
   const colors = useProductTheme();
   const { width, fontScale } = useWindowDimensions();
   const [brandAssets] = useAssets([
     require('../../img/adjuster-network-logo.png'),
   ]);
+  const diagnosticsVisible = stagingDiagnosticsEnabled();
+  const [diagnostics, setDiagnostics] = useState(null);
+  useEffect(() => {
+    if (!diagnosticsVisible) return;
+    let active = true;
+    collectStagingDiagnostics()
+      .then(result => {
+        if (active) setDiagnostics(result);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [diagnosticsVisible]);
+  const probeBrowserSession = useCallback(async () => {
+    const url = browserSessionProbeUrl();
+    if (!url) return;
+    try {
+      // The probe never completes an authorization: it opens the canonical
+      // origin in the same browser-auth context the sign-in flow uses so the
+      // rendered session JSON can be read, then it is dismissed by hand.
+      await requestIOSAuth(url, 'adjusternetwork');
+    } catch (error) {
+      if (error?.code !== 'auth_user_cancelled') {
+        Alert.alert(
+          'Browser session probe',
+          'The probe sheet closed. Read the rendered JSON before dismissing it.',
+        );
+      }
+    }
+  }, []);
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.canvas }]}>
       <KeyboardAvoidingView
@@ -211,6 +251,59 @@ export function WelcomeScreen({ onConnect, busy }) {
             Membership is currently available by invitation. Existing members
             can sign in above.
           </Text>
+          {onUseDifferentAccount ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Use a different account"
+              disabled={busy}
+              onPress={onUseDifferentAccount}
+              style={[styles.welcomeSecondary, { borderColor: colors.hero }]}
+            >
+              <Text
+                style={[styles.welcomeSecondaryText, { color: colors.hero }]}
+              >
+                Use a different account
+              </Text>
+            </Pressable>
+          ) : null}
+          {diagnosticsVisible && (
+            <View
+              style={[styles.valueCard, { backgroundColor: colors.surfaceAlt }]}
+            >
+              <Text style={[styles.finePrint, { color: colors.text }]}>
+                Staging certification diagnostics
+              </Text>
+              <Text
+                testID="staging-ota-diagnostics"
+                selectable
+                style={[styles.finePrint, { color: colors.muted }]}
+              >
+                {diagnostics
+                  ? [
+                      `gitSha: ${diagnostics.gitSha || 'unset'}`,
+                      `updateId: ${diagnostics.updateId || 'none'}`,
+                      `channel: ${diagnostics.channel || 'none'}`,
+                      `source: ${diagnostics.source}`,
+                      `runtime: ${diagnostics.runtimeVersion || 'none'}`,
+                      `retainedCredential: ${diagnostics.retainedCredential}`,
+                    ].join('\n')
+                  : 'Reading…'}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Probe browser session"
+                onPress={probeBrowserSession}
+                style={[
+                  styles.welcomePrimary,
+                  { backgroundColor: colors.hero },
+                ]}
+              >
+                <Text style={styles.welcomePrimaryText}>
+                  Probe browser session
+                </Text>
+              </Pressable>
+            </View>
+          )}
           <View style={styles.welcomePrivacy}>
             <FontAwesome5
               name="shield-alt"
@@ -279,17 +372,6 @@ function useCommunity(siteManager, contentVersion) {
   }, [refresh]);
   return { ...state, refresh };
 }
-
-const memberDisplayName = username =>
-  String(username || 'member')
-    .split(/[_-]+/)
-    .filter(Boolean)
-    .map(part =>
-      part.length <= 2
-        ? part.toUpperCase()
-        : `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`,
-    )
-    .join(' ');
 
 const topicActivityDate = topic =>
   topic.last_posted_at
@@ -375,6 +457,7 @@ const FloorActivityRow = ({ topic, site, navigation, openUrl, category }) => {
 const FloorAttentionCard = ({ topic, site, category, openUrl, cardWidth }) => {
   const colors = useProductTheme();
   const replies = Math.max(0, (topic.posts_count || 1) - 1);
+  const attentionState = floorAttentionState(topic);
   const username = topic.last_poster_username || 'Network member';
   const categoryColor = /^#?[0-9a-f]{6}$/i.test(category?.color || '')
     ? `#${String(category.color).replace('#', '')}`
@@ -383,7 +466,7 @@ const FloorAttentionCard = ({ topic, site, category, openUrl, cardWidth }) => {
     <Pressable
       accessibilityRole="link"
       accessibilityLabel={`${topic.title}. ${category?.name || 'Discussion'}. ${
-        replies === 0 ? 'Needs a reply' : `${replies} replies`
+        attentionState.needsReply ? 'Needs a reply' : attentionState.label
       }.`}
       onPress={() => openUrl(`${site.url}${topicPath(topic)}`)}
       style={({ pressed }) => [
@@ -414,24 +497,31 @@ const FloorAttentionCard = ({ topic, site, category, openUrl, cardWidth }) => {
           style={[
             styles.floorAttentionState,
             {
-              backgroundColor:
-                replies === 0 ? colors.brandAccentSoft : colors.accentSoft,
+              backgroundColor: attentionState.needsReply
+                ? colors.brandAccentSoft
+                : colors.accentSoft,
             },
           ]}
         >
           <FontAwesome5
-            name={replies === 0 ? 'question' : 'comments'}
+            name={attentionState.icon}
             size={9}
-            color={replies === 0 ? colors.brandAccent : colors.accent}
+            color={
+              attentionState.needsReply ? colors.brandAccent : colors.accent
+            }
             iconStyle="solid"
           />
           <Text
             style={[
               styles.floorAttentionStateText,
-              { color: replies === 0 ? colors.brandAccent : colors.accent },
+              {
+                color: attentionState.needsReply
+                  ? colors.brandAccent
+                  : colors.accent,
+              },
             ]}
           >
-            {replies === 0 ? 'NEEDS A REPLY' : 'ACTIVE'}
+            {attentionState.label}
           </Text>
         </View>
       </View>
@@ -487,12 +577,12 @@ export function FloorScreen({ navigation, screenProps }) {
     screenProps.memberContentVersion,
   );
   const rateLimited = classifyCommunityLoadError(data.error) === 'rate_limited';
-  const memberName = memberDisplayName(site?.username);
+  const memberName = memberDisplayName(site?.name, site?.username);
   const greeting = new Date().getHours() < 12 ? 'Good morning' : 'Welcome back';
   const attentionTopics = data.topics.slice(0, 5);
   const attentionCardWidth = Math.min(Math.max(width - 64, 280), 340);
-  const unanswered = data.topics.filter(
-    topic => (topic.posts_count || 1) <= 1,
+  const activeConversations = data.topics.filter(
+    topic => (topic.posts_count || 1) > 1,
   ).length;
   const unavailableWithoutSnapshot =
     Boolean(data.error) &&
@@ -506,7 +596,7 @@ export function FloorScreen({ navigation, screenProps }) {
           maxFontSizeMultiplier={1.5}
           style={[styles.floorGreetingTitle, { color: colors.text }]}
         >
-          {greeting}, {memberName}
+          {memberName ? `${greeting}, ${memberName}` : greeting}
         </Text>
         <Text
           maxFontSizeMultiplier={1.6}
@@ -612,10 +702,10 @@ export function FloorScreen({ navigation, screenProps }) {
         />
         <FloorStat
           colors={colors}
-          icon="question"
-          label="Unanswered"
-          detail="Need a reply"
-          value={unavailableWithoutSnapshot ? '—' : unanswered}
+          icon="reply"
+          label="Conversations"
+          detail="With replies"
+          value={unavailableWithoutSnapshot ? '—' : activeConversations}
           onPress={() => navigation.navigate('Discussions')}
           tone="red"
           accessibleLayout={fontScale >= 1.6}

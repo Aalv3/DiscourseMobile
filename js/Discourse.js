@@ -101,7 +101,13 @@ import {
 import NativeTopicScreen from './product/NativeTopicScreen';
 import NativeCollectionScreen from './product/NativeCollectionScreen';
 import NativeProfileScreen from './product/NativeProfileScreen';
+import BadgeEarnedScreen from './product/BadgeEarnedScreen';
 import { classifyFirstPartyMemberRoute } from './nativeMemberRouting';
+import { notificationIntent } from './notificationIntent';
+import {
+  NOTIFICATION_UNAVAILABLE,
+  destinationPresentation,
+} from './notificationDestination';
 import { consumePendingShareIntent } from './shareIntentCoordinator';
 import {
   loadOnboardingState,
@@ -391,6 +397,7 @@ class Discourse extends React.Component {
       authenticated: Boolean(site?.authToken),
       navigationReady,
       openUrl: this.openUrl.bind(this),
+      openNotification: this.openNotification.bind(this),
     });
     if (!routed && this._pushRoute.path) {
       securityEvent('push.route.deferred');
@@ -558,6 +565,7 @@ class Discourse extends React.Component {
       navigationReady: this._navigationReady,
       nativeModule: DiscourseKeyboardShortcuts,
       openUrl: this.openUrl.bind(this),
+      openNotification: this.openNotification.bind(this),
     }).finally(() => {
       this._shareIntentConsumption = null;
     });
@@ -876,6 +884,10 @@ class Discourse extends React.Component {
     if (now - this._lastForegroundRefreshAt < 30000) return false;
     this._lastForegroundRefreshAt = now;
     const generation = ++this._foregroundRefreshGeneration;
+    // A server-side rename must reach the app without a logout or reinstall.
+    // This refreshes the active site only and reuses the guard above, so it
+    // cannot reintroduce the retired multi-site refresh loop.
+    await this._siteManager.refreshActiveIdentity().catch(() => false);
     await this._siteManager.refreshNotificationState(reason).catch(() => []);
     if (generation !== this._foregroundRefreshGeneration) return false;
     this.setState(current => ({
@@ -966,18 +978,91 @@ class Discourse extends React.Component {
       authenticated: Boolean(site),
       isStaff: Boolean(site?.isStaff),
     });
-    if (route.disposition === 'native') {
+    const presentation = destinationPresentation(route);
+    if (presentation.kind === 'native') {
       this._siteManager.setActiveSite(site);
-      if (route.screen === 'Ask') {
-        this._navigation.navigate('HomeWrapper', { screen: 'Ask' });
-      } else {
-        this._navigation.navigate(route.screen, route.params);
-      }
+      this._navigateNative(presentation.screen, presentation.params);
       return;
     }
-    if (route.disposition === 'privileged_external') {
-      Linking.openURL(route.url).catch(() => {});
+    if (presentation.kind === 'external') {
+      Linking.openURL(presentation.url).catch(() => {});
+      return;
     }
+    // Denied: off-origin, unauthenticated, a non-staff admin path, or an
+    // unrecognised destination. Nothing opens and nothing loads.
+    securityEvent('navigation.rejected');
+  }
+
+  _navigateNative(screen, params) {
+    if (screen === 'Ask') {
+      this._navigation.navigate('HomeWrapper', { screen: 'Ask' });
+      return;
+    }
+    this._navigation.navigate(screen, params);
+  }
+
+  // Notification taps resolve from the payload rather than from a URL, so a
+  // granted_badge keeps its badge_name and can open a native screen. Anything
+  // without a native destination ends in one explicit bounded state: no
+  // WebView, no second login, no external browser, and never a silent no-op.
+  openNotification(site, notification) {
+    const intent = notificationIntent(site, notification, {
+      authenticated: Boolean(site?.authToken),
+      isStaff: Boolean(site?.isStaff),
+    });
+    switch (intent.kind) {
+      case 'native':
+        this._siteManager.setActiveSite(site);
+        this._navigateNative(intent.screen, intent.params);
+        return;
+      case 'badge':
+        this._siteManager.setActiveSite(site);
+        this._navigation.navigate('BadgeEarned', { name: intent.badge.name });
+        return;
+      case 'staff_external':
+        // Staff-only admin handoff. notificationIntent returns this kind only
+        // for a staff member on a canonical /admin path.
+        Linking.openURL(intent.url).catch(() => {});
+        return;
+      default:
+        securityEvent('notification.unavailable');
+        Alert.alert(
+          NOTIFICATION_UNAVAILABLE.title,
+          NOTIFICATION_UNAVAILABLE.message,
+          [{ text: NOTIFICATION_UNAVAILABLE.close, style: 'cancel' }],
+        );
+    }
+  }
+
+  // A member must never be trapped behind an identity they did not choose in
+  // this attempt. Retire every client-side identity carrier, then start a
+  // normal authorization. This does not depend on the browser honouring an
+  // ephemeral session, and it never revokes the server-side credential of an
+  // account the member may still want.
+  async useDifferentAccount() {
+    if (this.state.connecting) return;
+    Alert.alert(
+      'Use a different account?',
+      'Adjuster Network will forget the saved sign-in on this device and ask for credentials again. Your account is not deleted.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Continue',
+          onPress: async () => {
+            this.setState({ connecting: true });
+            try {
+              await this._siteManager.resetAuthorizationIdentity();
+              securityEvent('auth.identity.reset');
+            } catch {
+              securityEvent('auth.identity.reset_failed');
+            } finally {
+              this.setState({ connecting: false });
+            }
+            await this.connectCanonical();
+          },
+        },
+      ],
+    );
   }
 
   async connectCanonical() {
@@ -1071,6 +1156,7 @@ class Discourse extends React.Component {
     // TODO: pass only relevant props to each screen component
     const screenProps = {
       openUrl: this.openUrl.bind(this),
+      openNotification: this.openNotification.bind(this),
       _handleOpenUrl: this._handleOpenUrl,
       seenNotificationMap: this._seenNotificationMap,
       setSeenNotificationMap: map => {
@@ -1160,6 +1246,7 @@ class Discourse extends React.Component {
             <WelcomeScreen
               busy={this.state.connecting}
               onConnect={() => this.connectCanonical()}
+              onUseDifferentAccount={() => this.useDifferentAccount()}
             />
             {this.state.privacyShield && this._blurView(theme.name)}
           </ThemeContext.Provider>
@@ -1531,6 +1618,14 @@ class Discourse extends React.Component {
               <Stack.Screen name="MemberProfile">
                 {props => (
                   <NativeProfileScreen
+                    {...props}
+                    screenProps={{ ...screenProps }}
+                  />
+                )}
+              </Stack.Screen>
+              <Stack.Screen name="BadgeEarned">
+                {props => (
+                  <BadgeEarnedScreen
                     {...props}
                     screenProps={{ ...screenProps }}
                   />

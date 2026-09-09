@@ -16,6 +16,7 @@ import { decode } from 'html-entities';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { radius, spacing, type } from './DesignSystem';
+import { authenticatedOriginHeaders } from './memberImageSource';
 import { useProductTheme } from './ProductComponents';
 
 const SIGNED_ACCESS_REFRESH_MS = 240000;
@@ -153,12 +154,12 @@ function SecureMediaImage({
     refreshing: false,
     error: null,
   });
-  const headers = site?.authToken
-    ? {
-        'User-Api-Key': site.authToken,
-        'User-Api-Client-Id': site.clientId || '',
-      }
-    : undefined;
+  // Media URLs come from post cooked HTML, which passes absolute external
+  // URLs through unchanged. The credential must therefore be bound to the
+  // trusted HTTPS origin, exactly as member photos are. Canonical-origin
+  // secure uploads are unaffected; a pre-signed off-origin object never
+  // needed the header.
+  const headers = authenticatedOriginHeaders(site, state.url);
 
   useEffect(() => {
     resolvedAt.current = Date.now();
@@ -263,12 +264,12 @@ function SecureMediaFile({ item, site, resourceKey, refreshMedia }) {
     error: null,
     authorizedUrl: null,
   });
-  const headers = site?.authToken
-    ? {
-        'User-Api-Key': site.authToken,
-        'User-Api-Client-Id': site.clientId || '',
-      }
-    : undefined;
+  // Media URLs come from post cooked HTML, which passes absolute external
+  // URLs through unchanged. The credential must therefore be bound to the
+  // trusted HTTPS origin, exactly as member photos are. Canonical-origin
+  // secure uploads are unaffected; a pre-signed off-origin object never
+  // needed the header.
+  const headers = authenticatedOriginHeaders(site, state.authorizedUrl);
   const open = useCallback(async () => {
     if (state.opening) return;
     setState(current => ({ ...current, opening: true, error: null }));

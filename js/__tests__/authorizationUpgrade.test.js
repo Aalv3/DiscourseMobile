@@ -59,6 +59,7 @@ test('attests exact scopes before replacing the stored credential', async () => 
       required_scopes: [...REQUIRED_AUTHORIZATION_SCOPES],
     }),
     refresh: jest.fn().mockResolvedValue(),
+    refreshIdentity: jest.fn().mockResolvedValue(false),
   };
   const manager = managerWith(site);
   await expect(manager.handleAuthPayload('encrypted')).resolves.toBe(true);

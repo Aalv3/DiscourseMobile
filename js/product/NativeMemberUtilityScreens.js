@@ -32,6 +32,7 @@ import {
 } from '../notificationStatus';
 import {
   bookmarkDeletePath,
+  discussionSearchEligible,
   memberSearchResults,
   searchResults,
   supportedNotificationPreferences,
@@ -597,7 +598,9 @@ export function NativeSearchScreen({ navigation, screenProps }) {
       memberError: null,
     });
     const [contentResponse, memberResponse] = await Promise.allSettled([
-      site.jsonApi(`/search.json?q=${encodeURIComponent(term)}`),
+      discussionSearchEligible(term)
+        ? site.jsonApi(`/search.json?q=${encodeURIComponent(term)}`)
+        : Promise.resolve({ topics: [], posts: [], users: [] }),
       site.jsonApi(
         `/native/v1/member-search?q=${encodeURIComponent(term)}&limit=10`,
       ),

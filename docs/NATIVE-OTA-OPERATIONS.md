@@ -61,6 +61,34 @@ channel, signer key ID, rollout percentage, and the verification result.
 The update must contain no credentials or private member payloads. Never print
 the private key, auth tokens, or notification payloads in release evidence.
 
+## OTA provenance tags (required)
+
+Every OTA artifact published or promoted to production must receive an
+immutable annotated git tag **at promotion time**, before any merge can rewrite
+or drop the shipped commit. Squash and rebase merges both rewrite commits, so a
+shipped SHA recorded in EAS routinely becomes unreachable from the trunk
+minutes after it ships. Four production artifacts were lost this way before the
+requirement existed.
+
+Naming: `ota-<group-short>-<sha-short>` — the first 8 characters of the update
+group UUID and of the full commit SHA.
+
+The tag message must record:
+
+- OTA group ID
+- iOS and Android update IDs
+- runtime version
+- full git SHA
+- rollback pointer (the group being superseded)
+
+Tag before merging the pull request. A tag created afterwards can only be
+justified by authoritative EAS records; never create one from recollection or
+from inferred content equivalence, because a rewritten commit with identical
+content is a different artifact for audit purposes.
+
+Verify with `git ls-remote --tags origin | grep ota-`, and cross-check a group's
+shipped SHA with `eas update:view <group> --json`.
+
 ## Recovery and kill switch
 
 - Pause a rollout or revert it to the control update for an immediate rollout

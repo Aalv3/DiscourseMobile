@@ -80,11 +80,9 @@ describe('site privacy serialization', () => {
       authToken: 'synthetic-key',
     });
     const pending = site.jsonApi('/latest.json');
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
+    await jest.advanceTimersByTimeAsync(0);
     expect(fetch).toHaveBeenCalledTimes(1);
-    await jest.runOnlyPendingTimersAsync();
+    await jest.advanceTimersByTimeAsync(20000);
     await expect(pending).resolves.toEqual({ ok: true });
     expect(fetch).toHaveBeenCalledTimes(2);
     jest.useRealTimers();
@@ -113,10 +111,9 @@ describe('site privacy serialization', () => {
     });
     const floor = site.jsonApi('/latest.json');
     const notifications = site.jsonApi('/notifications.json');
-    await Promise.resolve();
-    await Promise.resolve();
+    await jest.advanceTimersByTimeAsync(0);
     expect(fetch).toHaveBeenCalledTimes(2);
-    await jest.runOnlyPendingTimersAsync();
+    await jest.advanceTimersByTimeAsync(20000);
     await expect(Promise.all([floor, notifications])).resolves.toEqual([
       { topics: true },
       { notifications: true },
@@ -140,9 +137,8 @@ describe('site privacy serialization', () => {
       message: 'api_rate_limited',
       status: 429,
     });
-    await Promise.resolve();
-    await jest.advanceTimersByTimeAsync(2000);
-    await jest.advanceTimersByTimeAsync(5000);
+    await jest.advanceTimersByTimeAsync(0);
+    await jest.advanceTimersByTimeAsync(20000);
     await rejection;
     expect(fetch).toHaveBeenCalledTimes(3);
     apiRateLimitCoordinator.reset();
