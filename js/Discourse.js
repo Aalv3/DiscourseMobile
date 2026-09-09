@@ -102,6 +102,11 @@ import NativeTopicScreen from './product/NativeTopicScreen';
 import NativeCollectionScreen from './product/NativeCollectionScreen';
 import NativeProfileScreen from './product/NativeProfileScreen';
 import { classifyFirstPartyMemberRoute } from './nativeMemberRouting';
+import {
+  WEB_SESSION_UNAVAILABLE,
+  destinationPresentation,
+} from './notificationDestination';
+import { resolveWebSessionEntry } from './webViewSession';
 import { consumePendingShareIntent } from './shareIntentCoordinator';
 import {
   loadOnboardingState,
@@ -970,32 +975,59 @@ class Discourse extends React.Component {
       authenticated: Boolean(site),
       isStaff: Boolean(site?.isStaff),
     });
-    if (route.disposition === 'native') {
+    const presentation = destinationPresentation(route);
+    if (presentation.kind === 'native') {
       this._siteManager.setActiveSite(site);
-      if (route.screen === 'Ask') {
+      if (presentation.screen === 'Ask') {
         this._navigation.navigate('HomeWrapper', { screen: 'Ask' });
       } else {
-        this._navigation.navigate(route.screen, route.params);
+        this._navigation.navigate(presentation.screen, presentation.params);
       }
       return;
     }
-    // A valid first-party member destination with no native screen opens in the
-    // authenticated Discourse WebView. Without this branch such destinations
-    // fell through and the tap did nothing at all: notification read-marking
-    // had already succeeded, so a granted_badge notification went read with no
-    // visible result. Every disposition is now handled explicitly.
-    if (route.disposition === 'first_party_web') {
-      this._siteManager.setActiveSite(site);
-      this._navigation.navigate('WebView', { url: route.url });
+    if (presentation.kind === 'web') {
+      this._openFirstPartyWeb(site, presentation.url);
       return;
     }
-    if (route.disposition === 'privileged_external') {
-      Linking.openURL(route.url).catch(() => {});
+    if (presentation.kind === 'external') {
+      Linking.openURL(presentation.url).catch(() => {});
       return;
     }
-    // 'rejected' is a deliberate denial: off-origin, unauthenticated, a
-    // non-staff admin path, or an unrecognised destination. Nothing opens.
+    // Denied: off-origin, unauthenticated, a non-staff admin path, or an
+    // unrecognised destination. Nothing opens and nothing loads.
     securityEvent('navigation.rejected');
+  }
+
+  // A first-party member page needs a Discourse session cookie, which the
+  // WebView does not get from the User API key. Bootstrap one through the
+  // supported OTP contract when it is missing, then land on the destination.
+  // Any failure or cancellation ends in a bounded, explicit state rather than
+  // a blank WebView.
+  async _openFirstPartyWeb(site, destination) {
+    try {
+      this._siteManager.setActiveSite(site);
+      const entry = await resolveWebSessionEntry(
+        site,
+        this._siteManager,
+        destination,
+      );
+      securityEvent(
+        entry.destination
+          ? 'navigation.web_session_bootstrap'
+          : 'navigation.web_session_reused',
+      );
+      this._navigation.navigate('WebView', {
+        url: entry.url,
+        destination: entry.destination,
+      });
+    } catch {
+      securityEvent('navigation.web_session_unavailable');
+      Alert.alert(
+        WEB_SESSION_UNAVAILABLE.title,
+        WEB_SESSION_UNAVAILABLE.message,
+        [{ text: WEB_SESSION_UNAVAILABLE.close, style: 'cancel' }],
+      );
+    }
   }
 
   // A member must never be trapped behind an identity they did not choose in
