@@ -102,6 +102,7 @@ import NativeTopicScreen from './product/NativeTopicScreen';
 import NativeCollectionScreen from './product/NativeCollectionScreen';
 import NativeProfileScreen from './product/NativeProfileScreen';
 import { classifyFirstPartyMemberRoute } from './nativeMemberRouting';
+import { destinationPresentation } from './notificationDestination';
 import { consumePendingShareIntent } from './shareIntentCoordinator';
 import {
   loadOnboardingState,
@@ -970,31 +971,35 @@ class Discourse extends React.Component {
       authenticated: Boolean(site),
       isStaff: Boolean(site?.isStaff),
     });
-    if (route.disposition === 'native') {
+    const presentation = destinationPresentation(route);
+    if (presentation.kind === 'native') {
       this._siteManager.setActiveSite(site);
-      if (route.screen === 'Ask') {
+      if (presentation.screen === 'Ask') {
         this._navigation.navigate('HomeWrapper', { screen: 'Ask' });
       } else {
-        this._navigation.navigate(route.screen, route.params);
+        this._navigation.navigate(presentation.screen, presentation.params);
       }
       return;
     }
-    // A valid first-party member destination with no native screen opens in the
-    // authenticated Discourse WebView. Without this branch such destinations
-    // fell through and the tap did nothing at all: notification read-marking
-    // had already succeeded, so a granted_badge notification went read with no
-    // visible result. Every disposition is now handled explicitly.
-    if (route.disposition === 'first_party_web') {
-      this._siteManager.setActiveSite(site);
-      this._navigation.navigate('WebView', { url: route.url });
+    // A recognised first-party destination with no native screen cannot be
+    // opened safely: the WebView has no authenticated Discourse session, and
+    // navigating there produced a blank screen stuck on "Still loading..."
+    // because WebViewComponent's own policy blocks those loads. Say so plainly
+    // instead of opening a dead end or an unauthenticated login wall. The
+    // notification has already been marked read by the caller.
+    if (presentation.kind === 'unavailable') {
+      securityEvent('navigation.first_party_web_unavailable');
+      Alert.alert(presentation.copy.title, presentation.copy.message, [
+        { text: presentation.copy.close, style: 'cancel' },
+      ]);
       return;
     }
-    if (route.disposition === 'privileged_external') {
-      Linking.openURL(route.url).catch(() => {});
+    if (presentation.kind === 'external') {
+      Linking.openURL(presentation.url).catch(() => {});
       return;
     }
-    // 'rejected' is a deliberate denial: off-origin, unauthenticated, a
-    // non-staff admin path, or an unrecognised destination. Nothing opens.
+    // Denied: off-origin, unauthenticated, a non-staff admin path, or an
+    // unrecognised destination. Nothing opens and nothing loads.
     securityEvent('navigation.rejected');
   }
 
