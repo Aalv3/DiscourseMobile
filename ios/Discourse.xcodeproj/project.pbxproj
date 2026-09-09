@@ -68,6 +68,7 @@
 		B52583FD1E5551D7001E9B7C /* nav-icon-gray@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "nav-icon-gray@3x.png"; path = "../img/nav-icon-gray@3x.png"; sourceTree = "<group>"; };
 		B587A4F11E5549B8003AAE26 /* Discourse.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; name = Discourse.entitlements; path = Discourse/Discourse.entitlements; sourceTree = "<group>"; };
 		B587A4F11E5549B8003AAE27 /* Discourse.development.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; name = Discourse.development.entitlements; path = Discourse/Discourse.development.entitlements; sourceTree = "<group>"; };
+		B828FC8BD24E02EC2879E1DF /* Pods-Discourse.preview.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Discourse.preview.xcconfig"; path = "Target Support Files/Pods-Discourse/Pods-Discourse.preview.xcconfig"; sourceTree = "<group>"; };
 		BD34D9672ADEF17500AC757D /* ShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ShareExtension.entitlements; sourceTree = "<group>"; };
 		BD4A208027B54F6500574A58 /* DiscourseKeyboardShortcuts.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DiscourseKeyboardShortcuts.h; sourceTree = "<group>"; };
 		BD4A208127B54FA300574A58 /* DiscourseKeyboardShortcuts.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = DiscourseKeyboardShortcuts.m; sourceTree = "<group>"; };
@@ -139,6 +140,7 @@
 			children = (
 				94936B1821688FB21A88C81D /* Pods-Discourse.debug.xcconfig */,
 				2482A32288AB770A5EC3D04B /* Pods-Discourse.release.xcconfig */,
+				B828FC8BD24E02EC2879E1DF /* Pods-Discourse.preview.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -383,7 +385,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -eu\nchannel=\"${AN_OTA_CHANNEL_OVERRIDE:-$AN_OTA_CHANNEL}\"\ncase \"$channel\" in\n  staging) embedded=false ;;\n  production) embedded=true ;;\n  *) echo \"error: invalid Adjuster Network OTA channel\" >&2; exit 1 ;;\nesac\nplist=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Expo.plist\"\n/usr/libexec/PlistBuddy -c \"Set :EXUpdatesRequestHeaders:expo-channel-name $channel\" \"$plist\"\n/usr/libexec/PlistBuddy -c \"Set :EXUpdatesHasEmbeddedUpdate $embedded\" \"$plist\"\nprintf 'channel=%s\\nembedded=%s\\n' \"$channel\" \"$embedded\" > \"$SCRIPT_OUTPUT_FILE_0\"\n";
+			shellScript = "set -eu\nchannel=\"${AN_OTA_CHANNEL_OVERRIDE:-$AN_OTA_CHANNEL}\"\ncase \"$channel\" in\n  staging) embedded=false ;;\n  preview) embedded=true ;;\n  production) embedded=true ;;\n  *) echo \"error: invalid Adjuster Network OTA channel\" >&2; exit 1 ;;\nesac\nplist=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Expo.plist\"\n/usr/libexec/PlistBuddy -c \"Set :EXUpdatesRequestHeaders:expo-channel-name $channel\" \"$plist\"\n/usr/libexec/PlistBuddy -c \"Set :EXUpdatesHasEmbeddedUpdate $embedded\" \"$plist\"\nprintf 'channel=%s\\nembedded=%s\\n' \"$channel\" \"$embedded\" > \"$SCRIPT_OUTPUT_FILE_0\"\n";
 		};
 		A30A0A122E4B000100000001 /* Generate Hermes dSYM */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -503,7 +505,6 @@
 			inputPaths = (
 				"$(SRCROOT)/.xcode.env",
 				"$(SRCROOT)/.xcode.env.local",
-				"$(SRCROOT)/Discourse/Discourse.entitlements",
 				"$(SRCROOT)/Discourse/Discourse.development.entitlements",
 				"$(SRCROOT)/Pods/Target Support Files/Pods-Discourse/expo-configure-project.sh",
 			);
@@ -574,8 +575,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 94936B1821688FB21A88C81D /* Pods-Discourse.debug.xcconfig */;
 			buildSettings = {
+				AN_DISPLAY_NAME = "Adjuster Network";
 				AN_OTA_CHANNEL = staging;
 				AN_PUSH_ENVIRONMENT = staging;
+				AN_URL_SCHEME = adjusternetwork;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Discourse/Discourse.development.entitlements;
@@ -622,8 +625,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 2482A32288AB770A5EC3D04B /* Pods-Discourse.release.xcconfig */;
 			buildSettings = {
+				AN_DISPLAY_NAME = "Adjuster Network";
 				AN_OTA_CHANNEL = production;
 				AN_PUSH_ENVIRONMENT = production;
+				AN_URL_SCHEME = adjusternetwork;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Discourse/Discourse.entitlements;
@@ -865,6 +870,152 @@
 			};
 			name = Release;
 		};
+		DDDDDDDD0000000000000001 /* Preview */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				COPY_PHASE_STRIP = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = i386;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION,
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift$(inherited)";
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
+				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 5.0;
+				USE_HERMES = true;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Preview;
+		};
+		DDDDDDDD0000000000000002 /* Preview */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = B828FC8BD24E02EC2879E1DF /* Pods-Discourse.preview.xcconfig */;
+			buildSettings = {
+				AN_DISPLAY_NAME = "AN Preview";
+				AN_OTA_CHANNEL = preview;
+				AN_PUSH_ENVIRONMENT = none;
+				AN_URL_SCHEME = anpreview;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Discourse/Discourse.preview.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 8;
+				DEVELOPMENT_TEAM = 2GB8G74L4H;
+				ENABLE_BITCODE = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)",
+				);
+				HEADER_SEARCH_PATHS = "$(inherited)";
+				INFOPLIST_FILE = Discourse/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(SDKROOT)/usr/lib/swift",
+					"$(inherited)",
+					"\"$(SRCROOT)/Discourse\"/**",
+				);
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+					"-lc++",
+				);
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
+				PRODUCT_BUNDLE_IDENTIFIER = org.adjusternetwork.app.preview;
+				PRODUCT_MODULE_NAME = Discourse;
+				PRODUCT_NAME = AdjusterNetwork;
+				SWIFT_OBJC_BRIDGING_HEADER = "Discourse-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Preview;
+		};
+		DDDDDDDD0000000000000003 /* Preview */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.preview.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = YES;
+				CURRENT_PROJECT_VERSION = 8;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 2GB8G74L4H;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				INFOPLIST_FILE = ShareExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				MTL_FAST_MATH = YES;
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
+				PRODUCT_BUNDLE_IDENTIFIER = org.adjusternetwork.app.preview.ShareExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Preview;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -873,6 +1024,7 @@
 			buildConfigurations = (
 				13B07F941A680F5B00A75B9A /* Debug */,
 				13B07F951A680F5B00A75B9A /* Release */,
+				DDDDDDDD0000000000000002 /* Preview */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -882,6 +1034,7 @@
 			buildConfigurations = (
 				83CBBA201A601CBA00E9B192 /* Debug */,
 				83CBBA211A601CBA00E9B192 /* Release */,
+				DDDDDDDD0000000000000001 /* Preview */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -891,6 +1044,7 @@
 			buildConfigurations = (
 				BD9F666923F5B02C001001B3 /* Debug */,
 				BD9F666A23F5B02C001001B3 /* Release */,
+				DDDDDDDD0000000000000003 /* Preview */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

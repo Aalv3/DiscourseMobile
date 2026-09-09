@@ -4,6 +4,22 @@
 import { NativeModules, Platform } from 'react-native';
 import * as Updates from 'expo-updates';
 import { nativeContracts } from './adjusterNetworkContracts';
+import {
+  authRedirectForChannel,
+  authSchemeForChannel,
+  canonicalOriginForChannel,
+  isPreviewChannel,
+  trustedUpdateChannel,
+} from './channelIdentity';
+
+// Re-exported so existing import sites keep working unchanged.
+export {
+  authRedirectForChannel,
+  authSchemeForChannel,
+  canonicalOriginForChannel,
+  isPreviewChannel,
+  trustedUpdateChannel,
+};
 
 export function trustedPushEnvironment(platform, configured) {
   if (platform !== 'ios') return null;
@@ -17,16 +33,6 @@ const pushEnvironment = trustedPushEnvironment(
   NativeModules.DiscourseKeyboardShortcuts?.pushEnvironment,
 );
 
-export const trustedUpdateChannel = channel =>
-  channel === 'staging' || channel === 'production' ? channel : null;
-
-export const canonicalOriginForChannel = channel =>
-  channel === 'staging'
-    ? 'https://staging.adjusternetwork.org'
-    : channel === 'production'
-    ? 'https://adjusternetwork.org'
-    : null;
-
 const updateChannel = trustedUpdateChannel(Updates.channel);
 
 // Keep Adjuster Network product choices in one reversible boundary. Native
@@ -34,6 +40,13 @@ const updateChannel = trustedUpdateChannel(Updates.channel);
 // untouched until their separate release gates are satisfied.
 export const adjusterNetwork = Object.freeze({
   name: 'Adjuster Network',
+  channel: updateChannel,
+  // Founder-only validation build. Drives the persistent PREVIEW marker, and
+  // nothing else: Preview must behave exactly like Production so that what is
+  // validated is what ships.
+  preview: isPreviewChannel(updateChannel),
+  authScheme: authSchemeForChannel(updateChannel),
+  authRedirect: authRedirectForChannel(updateChannel),
   canonicalOrigin: canonicalOriginForChannel(updateChannel),
   features: Object.freeze({
     analytics: false,
@@ -42,7 +55,10 @@ export const adjusterNetwork = Object.freeze({
     pushEducation: true,
     // Enables device registration with the A3-owned dark backend. Server-side
     // delivery switches remain authoritative and OFF during certification.
-    pushDelivery: true,
+    // Preview cannot receive push in V1 - the server pins the APNs topic to
+    // the production bundle id - so it does not register a device at all
+    // rather than creating registrations that can never be delivered to.
+    pushDelivery: !isPreviewChannel(updateChannel),
     // Media V1 is available only when the signed app supplies one of the two
     // approved OTA channels. The site must still match that channel's exact
     // canonical origin, and the Discourse upload allowlist remains the final

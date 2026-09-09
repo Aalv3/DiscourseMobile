@@ -23,7 +23,10 @@ describe('P1: Retry-After is honored by the shared cooldown', () => {
     // returned null, and now() + null === now(), so the cooldown expired
     // immediately and every request sailed through an active limiter window.
     expect(retryAfterDelayMs(responseWith('30'))).toBeNull();
-    expect(Date.now() + null).toBe(Date.now() + 0);
+    // One clock read: two Date.now() calls can straddle a millisecond, and the
+    // claim here is about null, not about the clock.
+    const now = Date.now();
+    expect(now + null).toBe(now + 0);
   });
 
   test('rateLimitDelayMs reads Retry-After off the response', () => {
