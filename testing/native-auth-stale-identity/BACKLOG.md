@@ -143,3 +143,45 @@ Confirm which before changing the mapping.
 
 Marking-as-read succeeding while navigation silently does nothing is the part
 that matters: either open a destination or leave the notification unread.
+
+### 2026-09-09 — OTP request contract corrected (PR #20)
+
+PR #19 shipped the authenticated WebView path and failed device validation at
+step A. The device request ledger showed, twice:
+
+```
+settled  PUT:/notifications/read        success
+started  POST:/user-api-key/otp
+settled  POST:/user-api-key/otp         failure  4xx   (~140ms)
+```
+
+Proven from `app/controllers/user_api_keys_controller.rb`:
+
+```ruby
+def require_params_otp
+  %i[public_key auth_redirect application_name].each { |p| params.require(p) }
+end
+```
+
+`application_name` is required and was omitted — `ParameterMissing`, 400, before
+any OTP was minted. A second contract issue in the same read: `create_otp` uses
+`respond_to` with both an html and a json branch, and `site.jsonApi` sends no
+`Accept` header, so without an explicit `.json` the server takes `format.html`
+and answers 302 to the custom scheme, which `fetch` cannot follow.
+
+Ruled out, so they need not be re-investigated: the redirect allowlist (it
+contains both `adjusternetwork://auth_redirect` and
+`adjusternetwork://adjusternetwork.org/auth_redirect`), the `one_time_password`
+scope (present), `meets_tl?` (groups `1|2|10`), and credential retirement (which
+requires a 401 with the exact `invalid_user_api_credential` /
+`invalid_or_revoked_or_expired` tuple).
+
+The dialog was working as designed but was the only observable, so a 400 and a
+decrypt failure were indistinguishable on device. Bootstrap failures now record
+a coarse stage — `otp_request`, `otp_response_parse`, `otp_callback_parse`,
+`otp_decrypt`, `otp_validation`, `webview_bootstrap`, `destination_resume` — and
+a status class through the existing `profileDiagnostics` allowlist. Read them
+with `yarn device:harness profile-diagnostics`. No bodies, keys, tokens, OTP
+values or URLs are recorded.
+
+Item 9 stays open until device validation passes on the corrected contract.
