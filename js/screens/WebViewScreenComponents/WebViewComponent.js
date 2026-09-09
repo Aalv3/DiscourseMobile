@@ -25,7 +25,6 @@ import { ThemeContext } from '../../ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from '@react-native-community/blur';
 import { classifyNavigation } from '../../adjusterNetworkSecurity';
-import { isOtpBootstrapUrl } from '../../webViewSession';
 import { NestedHeader } from '../../product/ProductComponents';
 import { classifyFirstPartyMemberRoute } from '../../nativeMemberRouting';
 
@@ -83,9 +82,6 @@ class WebViewComponent extends React.Component {
       webviewUrl: this.props.url,
       authProcessActive: false,
       scrollOverflow: 0,
-      // Set only when the app itself initiated an OTP session bootstrap and
-      // still owes the member the page they actually asked for.
-      pendingDestination: this.props.destination || null,
     };
   }
 
@@ -294,14 +290,6 @@ class WebViewComponent extends React.Component {
                   this.props.screenProps.openUrl(request.url);
                   return false;
                 }
-                // A session bootstrap the app itself started is allowed to
-                // run: the OTP confirmation page, the redirect it performs,
-                // and finally the destination that was requested. The window
-                // is closed as soon as the destination loads, so this is not a
-                // standing "any internal page opens" relaxation.
-                if (this._isAuthorizedSessionNavigation(request.url)) {
-                  return true;
-                }
                 // Canonical pages without an explicit native route must not
                 // fall through to an unauthenticated Discourse/PWA session.
                 return false;
@@ -331,7 +319,6 @@ class WebViewComponent extends React.Component {
             }}
             onNavigationStateChange={navState => {
               this._storeLastPath(navState);
-              this._advanceSessionBootstrap(navState);
             }}
             decelerationRate={'normal'}
             onLoadProgress={({ nativeEvent }) => {
@@ -476,25 +463,6 @@ class WebViewComponent extends React.Component {
       // via componentDidUpdate
       this.props.navigation.navigate('WebView', { url: authURL });
     }
-  }
-
-  // Authorized only while an app-initiated bootstrap is outstanding.
-  _isAuthorizedSessionNavigation(url) {
-    if (!this.state.pendingDestination) {
-      return isOtpBootstrapUrl(url) && Boolean(this.props.destination);
-    }
-    return true;
-  }
-
-  // The confirmation form posts back to /session/otp/<token> and then Discourse
-  // redirects. When navigation has left the bootstrap path the session cookie
-  // exists, so the originally requested page is loaded exactly once and the
-  // authorization window closes.
-  _advanceSessionBootstrap(navState) {
-    const destination = this.state.pendingDestination;
-    if (!destination || navState.loading) return;
-    if (isOtpBootstrapUrl(navState.url)) return;
-    this.setState({ pendingDestination: null, webviewUrl: destination });
   }
 
   _onMessage(event) {

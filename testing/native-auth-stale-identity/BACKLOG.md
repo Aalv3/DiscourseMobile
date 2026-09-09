@@ -124,7 +124,7 @@ server/privacy certification lane.
 4. **Re-verify on device after activation** — the capability gate means this
    cannot be certified while the flag is false.
 
-## 9. P2 — granted_badge notification tap has no destination
+## 9. RESOLVED (implementation pending OTA) — granted_badge notification tap had no destination
 
 A `granted_badge` notification (observed with Autobiographer) marks itself read
 when tapped but produces no navigation: the member is left where they were with
@@ -143,3 +143,50 @@ Confirm which before changing the mapping.
 
 Marking-as-read succeeding while navigation silently does nothing is the part
 that matters: either open a destination or leave the notification unread.
+
+
+### 2026-09-09 — item 9 resolved by native notification intents
+
+Full history of this item, so none of it is attempted again.
+
+1. **Original defect.** A `granted_badge` tap marked itself read and then did
+   nothing. `DiscourseUtils` did produce `/badges/:id/basic`, so the endpoint
+   existed; the destination was being discarded downstream.
+2. **first_party_web (PR #16).** Added a canonical-origin allowlist so valid
+   member pages opened in the in-app WebView. Device result: the WebView
+   rendered blank, because `WebViewComponent`'s navigation policy deliberately
+   blocks internal pages with no native route, to prevent an unauthenticated
+   Discourse session appearing behind a member's back.
+3. **OTP session bootstrap (PR #19, #20).** Minted a one-time password through
+   the supported `/user-api-key/otp` contract to establish a WebView session.
+   The first attempt failed with a 400: `require_params_otp` demands
+   `application_name`, which was omitted. PR #20 corrected the contract -
+   `/user-api-key/otp.json` plus `application_name` - and the request then
+   succeeded and the confirmation form rendered. **Finish Login failed with
+   "Missing, invalid or expired token."** Not debugged further; see 5.
+4. **Instrumentation false positive.** The staged diagnostics recorded
+   `destination_resume: succeeded` for that failed flow. The stage observed
+   navigation leaving the bootstrap URL, not whether a session had been
+   established, so it reported success for a failure. Any future success signal
+   must observe the thing it claims to prove.
+5. **Architectural decision (founder).** Abandon the approach. A member already
+   authenticated in the native app must never perform a second web
+   authentication merely to open a notification. Notification taps resolve to
+   native intents; anything without a native destination gets one explicit
+   bounded state.
+
+The experiment surface was removed and the strict WebView guard restored. See
+`docs/NATIVE-NOTIFICATION-INTENTS.md` for the resulting model and type matrix.
+
+**Abandoned, uncertified OTA candidates.** These shipped to the production
+channel during the experiment and were never certified. Their provenance tags
+remain immutable; this record supplies the outcome.
+
+| SHA | Group | Outcome |
+| --- | --- | --- |
+| `487f03c3` | `09d99bc9` | first_party_web; device FAIL, blank WebView |
+| `65f9d58a` | `08d07007` | OTP bootstrap; device FAIL, 400 on the OTP request |
+| `43af7b78` | `eb509d26` | corrected OTP contract; device FAIL at Finish Login |
+
+Production was rolled back to the certified `dad0af191716` (republished as
+group `9098ec70-a3dd-47dd-b623-c51fba68b181`).

@@ -65,27 +65,6 @@ export function nativeCollectionRoute(value, authenticated) {
   }
 }
 
-// Canonical-origin member destinations that are valid and intended, but have no
-// native screen. They open in the already-registered authenticated Discourse
-// WebView rather than being discarded. This is an explicit allowlist, not a
-// blanket "anything internal opens" fallback: an unlisted path stays rejected.
-const FIRST_PARTY_WEB_PATHS = Object.freeze([
-  // granted_badge - /badges/:id/:filter
-  /^\/badges\/[0-9]+(?:\/[^/]*)?\/?$/i,
-  // group_message_summary - /u/:username/messages/group/:group
-  /^\/u\/[a-z0-9_.-]+\/messages(?:\/[^/]+)*\/?$/i,
-  // liked_consolidated - /u/:username/notifications/likes-received
-  /^\/u\/[a-z0-9_.-]+\/notifications(?:\/[^/]+)*\/?$/i,
-  // membership_request_accepted - /g/:group
-  /^\/g\/[a-z0-9_.-]+\/?$/i,
-  // chat mention and message - /chat/channel/:id/:slug
-  /^\/chat\/channel\/[0-9]+(?:\/[^/]*)?\/?$/i,
-]);
-
-export function isFirstPartyWebPath(pathname) {
-  return FIRST_PARTY_WEB_PATHS.some(pattern => pattern.test(String(pathname)));
-}
-
 export function classifyFirstPartyMemberRoute(
   value,
   { authenticated = false, isStaff = false } = {},
@@ -140,11 +119,6 @@ export function classifyFirstPartyMemberRoute(
       return isStaff
         ? { disposition: 'privileged_external', url: url.toString() }
         : { disposition: 'rejected' };
-    }
-    // Checked after every native pattern and after the /admin boundary, so it
-    // can never widen an already-denied destination.
-    if (isFirstPartyWebPath(url.pathname)) {
-      return { disposition: 'first_party_web', url: url.toString() };
     }
     return { disposition: 'rejected' };
   } catch {
